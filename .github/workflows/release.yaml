@@ -1,0 +1,65 @@
+
+
+name: Install Wizard Release
+
+on:
+  workflow_dispatch:
+    inputs:
+      tags:
+        description: 'Release Tags'
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: 'Checkout source code'
+        uses: actions/checkout@v3
+        with:
+          ref: ${{ github.event.inputs.tags }}
+
+      - name: Package installer
+        run: |
+          bash scripts/package.sh
+
+      - name: Update version
+        uses: eball/write-tag-to-version-file@latest
+        with:
+          filename: 'build/installer/wizard/config/settings/templates/terminus_cr.yaml'
+          placeholder: '#__VERSION__'
+          tag: ${{ github.event.inputs.tags }}
+      
+      - name: Update env
+        working-directory: ./build/installer
+        run: |
+          echo 'DEBUG_VERSION="false"' > .env
+
+      - name: Update latest installer
+        uses: eball/write-tag-to-version-file@latest
+        with:
+          filename: 'build/installer/publicInstaller.latest'
+          placeholder: '#{{LATEST_VERSION}}'
+          tag: ${{ github.event.inputs.tags }}
+
+      - name: 'Archives'
+        working-directory: ./build/installer
+        run: |
+          mkdir -p /tmp/build
+          tar --exclude=wizard/tools --exclude=.git -zcvf /tmp/build/install-wizard-v${{ github.event.inputs.tags }}.tar.gz .
+
+      - name: Release public files
+        uses: softprops/action-gh-release@v1
+        with:
+          name: v${{ github.event.inputs.tags }} Release
+          tag_name: ${{ github.event.inputs.tags }}
+          files: |
+            /tmp/build/install-wizard-v${{ github.event.inputs.tags }}.tar.gz
+            build/installer/publicInstaller.sh
+            build/installer/publicInstaller.latest
+            build/installer/uninstall_cmd.sh
+            build/installer/publicAddnode.sh
+            build/installer/version.hint
+            build/installer/publicRestoreInstaller.sh
+          # prerelease: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

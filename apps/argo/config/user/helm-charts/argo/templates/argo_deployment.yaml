@@ -1,0 +1,200 @@
+{{- $namespace := printf "%s%s" "user-system-" .Values.bfl.username -}}
+{{- $rss_secret := (lookup "v1" "Secret" $namespace "rss-secrets") -}}
+{{- $password := "" -}}
+{{ if $rss_secret -}}
+{{ $password = (index $rss_secret "data" "pg_password") }}
+{{ else -}}
+{{ $password = randAlphaNum 16 | b64enc }}
+{{- end -}}
+
+{{- $redis_password := "" -}}
+{{ if $rss_secret -}}
+{{ $redis_password = (index $rss_secret "data" "redis_password") }}
+{{ else -}}
+{{ $redis_password = randAlphaNum 16 | b64enc }}
+{{- end -}}
+
+
+{{- $redis_password_data := "" -}}
+{{ $redis_password_data = $redis_password | b64dec }}
+
+{{- $pg_password_data := "" -}}
+{{ $pg_password_data = $password | b64dec }}
+
+{{- $mongo_secret := (lookup "v1" "Secret" .Release.Namespace "knowledge-mongodb") -}}
+{{- $mongo_password := randAlphaNum 16 | b64enc -}}
+
+{{- $mongo_password_data := "" -}}
+{{ if $mongo_secret -}}
+  {{ $mongo_password_data = (index $mongo_secret "data" "mongodb-passwords" ) | b64dec }}
+{{ else -}}
+  {{ $mongo_password_data = $mongo_password | b64dec }}
+{{- end -}}
+
+{{- $pg_user :=  printf "%s%s" "rss_" .Values.bfl.username -}}
+{{- $pg_user = $pg_user | b64enc -}}
+
+
+---
+
+apiVersion: v1
+kind: Secret
+metadata:
+  name: rss-secrets
+  namespace: user-system-{{ .Values.bfl.username }}
+type: Opaque
+data:
+  pg_password: {{ $password }}
+  redis_password: {{ $redis_password }}
+
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: rss-secrets
+  namespace: {{ .Release.Namespace }}
+type: Opaque
+data:
+  pg_user: {{ $pg_user }}
+  pg_password: {{ $password }}
+  redis_password: {{ $redis_password }}
+
+
+---
+
+apiVersion: v1
+kind: Secret
+metadata:
+  name: knowledge-mongodb
+  namespace: {{ .Release.Namespace }}
+type: Opaque
+
+{{ if $mongo_secret -}}
+data:
+  mongodb-passwords: {{ index $mongo_secret "data" "mongodb-passwords" }}
+{{ else -}}
+data:
+  mongodb-passwords: {{ $mongo_password }}
+{{ end }}
+
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: knowledge-mongodb
+  namespace: user-system-{{ .Values.bfl.username }}
+type: Opaque
+
+{{ if $mongo_secret -}}
+data:
+  mongodb-passwords: {{ index $mongo_secret "data" "mongodb-passwords" }}
+{{ else -}}
+data:
+  mongodb-passwords: {{ $mongo_password }}
+{{ end }}
+
+---
+
+
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: rss-secrets-auth
+  namespace: {{ .Release.Namespace }}
+data:
+  redis_password: "{{ $redis_password_data }}"
+  redis_addr: redis-cluster-proxy.user-system-{{ .Values.bfl.username }}:6379
+  redis_host: redis-cluster-proxy.user-system-{{ .Values.bfl.username }}
+  redis_port: '6379'
+  pg_url: postgres://rss_{{ .Values.bfl.username }}:{{ $pg_password_data }}@citus-master-svc.user-system-{{ .Values.bfl.username }}/user_space_{{ .Values.bfl.username }}_rss_v1?sslmode=disable
+  mongo_url: mongodb://knowledge-{{ .Values.bfl.username }}:{{ $mongo_password_data }}@mongo-cluster-mongos.user-system-{{ .Values.bfl.username }}:27017/{{ .Release.Namespace }}_knowledge
+  mongo_db: {{ .Release.Namespace }}_knowledge
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: rss-userspace-data
+  namespace: {{ .Release.Namespace }}
+data:
+  appData: "{{ .Values.userspace.appData }}"
+  appCache: "{{ .Values.userspace.appCache }}"
+  username: "{{ .Values.bfl.username }}"
+
+
+
+---
+apiVersion: apr.bytetrade.io/v1alpha1
+kind: MiddlewareRequest
+metadata:
+  name: rss-pg
+  namespace: user-system-{{ .Values.bfl.username }}
+spec:
+  app: rss
+  appNamespace: {{ .Release.Namespace }}
+  middleware: postgres
+  postgreSQL:
+    user: rss_{{ .Values.bfl.username }}
+    password: 
+      valueFrom:
+        secretKeyRef:
+          key: pg_password
+          name: rss-secrets
+    databases:
+    - name: rss
+    - name: rss_v1
+    - name: argo
+
+---
+apiVersion: apr.bytetrade.io/v1alpha1
+kind: MiddlewareRequest
+metadata:
+  name: knowledge-redis
+  namespace: user-system-{{ .Values.bfl.username }}
+spec:
+  app: rss
+  appNamespace: {{ .Release.Namespace }}
+  middleware: redis
+  redis:
+    password:
+      valueFrom:
+        secretKeyRef:
+          key: redis_password
+          name: rss-secrets
+    namespace: knowledge
+
+---
+apiVersion: apr.bytetrade.io/v1alpha1
+kind: MiddlewareRequest
+metadata:
+  name: knowledge-mongo
+  namespace: user-system-{{ .Values.bfl.username }}
+spec:
+  app: rss
+  appNamespace: {{ .Release.Namespace }}
+  middleware: mongodb
+  mongodb:
+    user: knowledge-{{ .Values.bfl.username }}
+    password: 
+      valueFrom:
+        secretKeyRef:
+          key: mongodb-passwords
+          name: knowledge-mongodb
+    databases:
+    - knowledge
+
+---
+    
+apiVersion: v1
+kind: Service
+metadata:
+  name: workflow-archivelog-s3
+  namespace: user-system-{{ .Values.bfl.username }}
+spec:
+  type: ClusterIP
+  selector:
+    app: systemserver
+  ports:
+    - protocol: TCP
+      name: fakes3
+      port: 4568
+      targetPort: 4568

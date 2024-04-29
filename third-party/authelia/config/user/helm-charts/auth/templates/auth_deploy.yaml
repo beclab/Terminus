@@ -1,0 +1,80 @@
+
+
+
+
+
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: authelia-deployment
+  namespace: user-space-{{ .Values.bfl.username }}
+  labels:
+    app: authelia
+    applications.app.bytetrade.io/author: bytetrade.io
+  annotations:
+    applications.app.bytetrade.io/version: '0.0.1'
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: authelia
+  template:
+    metadata:
+      labels:
+        app: authelia
+    spec:
+      containers:
+      - name: auth-front
+        image: beclab/login:v0.1.21
+        imagePullPolicy: IfNotPresent
+        ports:
+        - containerPort: 80
+        
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: authelia-svc
+  namespace: user-space-{{ .Values.bfl.username }}
+spec:
+  selector:
+    app: authelia
+  type: ClusterIP
+  ports:
+    - protocol: TCP
+      name: authelia
+      port: 80
+      targetPort: 80
+    
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: authelia-backend-svc
+  namespace: user-space-{{ .Values.bfl.username }}
+spec:
+  type: ExternalName
+  externalName: authelia-backend.os-system.svc.cluster.local
+  ports:
+    - protocol: TCP
+      name: authelia-bakcend
+      port: 9091
+      targetPort: 9091
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: authelia-backend
+  namespace: user-system-{{ .Values.bfl.username }}
+spec:
+  type: ClusterIP
+  selector:
+    app: systemserver
+  ports:
+    - protocol: TCP
+      name: authelia-bakcend
+      port: 9091
+      targetPort: 9091      

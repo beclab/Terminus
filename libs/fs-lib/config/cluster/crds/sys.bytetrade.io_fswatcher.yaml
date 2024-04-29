@@ -1,0 +1,95 @@
+
+
+
+
+---
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata:
+  creationTimestamp: null
+  name: fswatchers.sys.bytetrade.io
+spec:
+  group: sys.bytetrade.io
+  names:
+    categories:
+    - all
+    kind: FSWatcher
+    listKind: FSWatcherList
+    plural: fswatchers
+    shortNames:
+    - fsw
+    singular: fswatcher
+  scope: Namespaced
+  versions:
+  - additionalPrinterColumns:
+    - jsonPath: .spec.pod
+      name: the content request pod
+      type: string
+    - jsonPath: .spec.container
+      name: the content request container
+      type: string
+    - jsonPath: .status.state
+      name: state
+      type: string
+    - jsonPath: .metadata.creationTimestamp
+      name: age
+      type: date
+    name: v1alpha1
+    schema:
+      openAPIV3Schema:
+        description: FSWatcher is the Schema for the Juice FS notification watcher
+        properties:
+          apiVersion:
+            description: 'APIVersion defines the versioned schema of this representation
+              of an object. Servers should convert recognized schemas to the latest
+              internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources'
+            type: string
+          kind:
+            description: 'Kind is a string value representing the REST resource this
+              object represents. Servers may infer this from the endpoint the client
+              submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds'
+            type: string
+          metadata:
+            type: object
+          spec:
+            description: FSWatcherSpec defines the desired state of FSWatcher
+            properties:
+              description:
+                description: description from FSWatcher's description or frontend
+                type: string
+              pod:
+                description: the pod name of watcher
+                type: string
+              container:
+                description: the container name of watcher
+                type: string
+              paths:
+                description: the watch paths of pod
+                type: array
+                items:
+                  type: string
+            required:
+            - pod
+            - paths
+            type: object
+          status:
+            description: FSWatcherStatus defines the observed state of FSWatcher
+            properties:
+              state:
+                description: 'the state of the FSWatcher: draft, submitted, passed,
+                  rejected, suspended, active'
+                default: active
+                type: string
+              statusTime:
+                format: date-time
+                type: string
+              updateTime:
+                format: date-time
+                type: string
+            required:
+            - state
+            type: object
+        type: object
+    served: true
+    storage: true
+    subresources: {}

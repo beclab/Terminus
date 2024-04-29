@@ -1,0 +1,36 @@
+# chart-testing: ignore-file
+
+{{ $cluster_id := randAlphaNum 16 }}
+{{ if .Values.cluster_id }}
+{{ $cluster_id = .Values.cluster_id }}
+{{ end }}
+{{ $cr := (lookup "sys.bytetrade.io/v1alpha1" "terminus.sys.bytetrade.io" "" "terminus") }}
+{{ if $cr }}
+{{ $cluster_id = (index $cr "metadata" "labels" "bytetrade.io/cluster-id") }}
+{{ end }}
+
+---
+apiVersion: sys.bytetrade.io/v1alpha1
+kind: Terminus
+metadata:
+  name: terminus
+  labels: 
+    bytetrade.io/cluster-id: {{ $cluster_id }}
+  annotations:
+    bytetrade.io/s3-sts: '{{ .Values.s3_sts }}'
+    bytetrade.io/s3-ak: '{{ .Values.s3_ak }}'
+    bytetrade.io/s3-sk: '{{ .Values.s3_sk }}'
+spec:
+  name: terminus-1
+  version: #__VERSION__
+  display: Terminus One
+  releaseServer:
+    serverType: github
+    github:
+      owner: beclab
+      repo: terminus
+  settings: 
+    domainName: "#__DOMAIN_NAME__"
+    selfhosted: "#__SELFHOSTED__"
+status:
+  state: active

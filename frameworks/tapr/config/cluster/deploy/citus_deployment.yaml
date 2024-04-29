@@ -1,0 +1,48 @@
+
+
+{{ $citus_rootpath := "/terminus/userdata/dbdata" }}
+{{ $citus_backuppath := "/terminus/rootfs/middleware-backup" }}
+
+---
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: citus-data-pv
+spec:
+  accessModes:
+  - ReadWriteOnce
+  capacity:
+    storage: '50Gi'
+  hostPath:
+    path: {{ $citus_rootpath }}/pg_data
+    type: DirectoryOrCreate
+  persistentVolumeReclaimPolicy: Delete
+  volumeMode: Filesystem
+  storageClassName: citus-data-sc
+
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: citus-data-pvc
+  namespace: {{ .Release.Namespace }}
+spec:
+  accessModes:
+  - ReadWriteOnce
+  resources:
+    requests:
+      storage: '50Gi'
+  volumeMode: Filesystem
+  volumeName: citus-data-pv
+  storageClassName: citus-data-sc
+
+---
+apiVersion: apr.bytetrade.io/v1alpha1
+kind: PGCluster
+metadata:
+  name: citus
+  namespace: {{ .Release.Namespace }}
+spec:
+  replicas: 1
+  owner: system
+  backupStorage: {{ $citus_backuppath }}/pg_backup

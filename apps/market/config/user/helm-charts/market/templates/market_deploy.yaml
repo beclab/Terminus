@@ -1,0 +1,286 @@
+
+{{- $mongo_secret := (lookup "v1" "Secret" .Release.Namespace "market-mongodb") -}}
+{{- $mongo_password := randAlphaNum 16 | b64enc -}}
+
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: market-mongodb
+  namespace: {{ .Release.Namespace }}
+type: Opaque
+
+{{ if $mongo_secret -}}
+data:
+  mongodb-passwords: {{ index $mongo_secret "data" "mongodb-passwords" }}
+{{ else -}}
+data:
+  mongodb-passwords: {{ $mongo_password }}
+{{ end }}
+
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: market-mongodb
+  namespace: user-system-{{ .Values.bfl.username }}
+type: Opaque
+
+{{ if $mongo_secret -}}
+data:
+  mongodb-passwords: {{ index $mongo_secret "data" "mongodb-passwords" }}
+{{ else -}}
+data:
+  mongodb-passwords: {{ $mongo_password }}
+{{ end }}
+
+---
+apiVersion: apr.bytetrade.io/v1alpha1
+kind: MiddlewareRequest
+metadata:
+  name: appstore-mongo
+  namespace: user-system-{{ .Values.bfl.username }}
+spec:
+  app: appstore
+  appNamespace: {{ .Release.Namespace }}
+  middleware: mongodb
+  mongodb:
+    user: appstore-{{ .Values.bfl.username }}
+    password:
+      valueFrom:
+        secretKeyRef:
+          key: mongodb-passwords
+          name: market-mongodb
+    databases:
+      - AppStore
+
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: market-deployment
+  namespace: {{ .Release.Namespace }}
+  labels:
+    app: appstore
+    applications.app.bytetrade.io/name: market
+    applications.app.bytetrade.io/owner: {{ .Values.bfl.username }}
+    applications.app.bytetrade.io/author: bytetrade.io
+  annotations:
+    applications.app.bytetrade.io/icon: https://file.bttcdn.com/appstore/appstore/icon.png
+    applications.app.bytetrade.io/title: Market
+    applications.app.bytetrade.io/version: '0.0.1'
+    applications.app.bytetrade.io/entrances: '[{"name":"appstore-service", "host":"appstore-service", "port":80,"title":"Market"}]'
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: appstore
+  template:
+    metadata:
+      labels:
+        app: appstore
+    spec:
+      initContainers:
+        - name: terminus-sidecar-init
+          image: openservicemesh/init:v1.2.3
+          imagePullPolicy: IfNotPresent
+          securityContext:
+            privileged: true
+            capabilities: 
+              add:
+              - NET_ADMIN
+            runAsNonRoot: false
+            runAsUser: 0
+          command:
+          - /bin/sh
+          - -c
+          - |
+            iptables-restore --noflush <<EOF
+            # sidecar interception rules
+            *nat
+            :PROXY_IN_REDIRECT - [0:0]
+            :PROXY_INBOUND - [0:0]
+            -A PROXY_IN_REDIRECT -p tcp -j REDIRECT --to-port 15003
+            -A PROXY_INBOUND -p tcp --dport 15000 -j RETURN
+            -A PROXY_INBOUND -p tcp -j PROXY_IN_REDIRECT
+            -A PREROUTING -p tcp -j PROXY_INBOUND
+            COMMIT
+            EOF
+          
+          env:
+          - name: POD_IP
+            valueFrom:
+              fieldRef:
+                apiVersion: v1
+                fieldPath: status.podIP
+      containers:
+      - name: appstore
+        image: beclab/market-frontend:v0.2.1
+        imagePullPolicy: IfNotPresent
+        ports:
+        - containerPort: 80
+      - name: appstore-backend
+        image: beclab/market-backend:v0.2.1
+        imagePullPolicy: IfNotPresent
+        ports:
+          - containerPort: 81
+        env:
+          - name: OS_SYSTEM_SERVER
+            value: system-server.user-system-{{ .Values.bfl.username }}
+          - name: OS_APP_SECRET
+            value: '{{ .Values.os.appstore.appSecret }}'
+          - name: OS_APP_KEY
+            value: {{ .Values.os.appstore.appKey }}
+          - name: APP_SOTRE_SERVICE_SERVICE_HOST
+            value: appstore-server-prod.bttcdn.com
+          - name: APP_SOTRE_SERVICE_SERVICE_PORT
+            value: '443'
+          - name: APP_SERVICE_SERVICE_HOST
+            value: app-service.os-system
+          - name: APP_SERVICE_SERVICE_PORT
+            value: '6755'
+          - name: REPO_URL_PORT
+            value: "82"
+          - name: REPO_URL_HOST
+            valueFrom:
+              fieldRef:
+                fieldPath: status.podIP
+          - name: MONGODB_PASSWORD
+            valueFrom:
+              secretKeyRef:
+                name: market-mongodb
+                key: mongodb-passwords
+          - name: MONGO_DB
+            value: {{ .Release.Namespace }}_AppStore
+          - name: MONGO_URL
+            value: "mongodb://appstore-{{ .Values.bfl.username }}:$(MONGODB_PASSWORD)@mongo-cluster-mongos.user-system-{{ .Values.bfl.username }}:27017/{{ .Release.Namespace }}_AppStore"
+
+        volumeMounts:
+          - name: opt-data
+            mountPath: /opt/app/data
+      - name: terminus-envoy-sidecar
+        image: envoyproxy/envoy-distroless:v1.25.2
+        imagePullPolicy: IfNotPresent
+        securityContext:
+          allowPrivilegeEscalation: false
+          runAsUser: 1000
+        ports:
+        - name: proxy-admin
+          containerPort: 15000
+        - name: proxy-inbound
+          containerPort: 15003
+        volumeMounts:
+        - name: terminus-sidecar-config
+          readOnly: true
+          mountPath: /etc/envoy/envoy.yaml
+          subPath: envoy.yaml
+        command:
+        - /usr/local/bin/envoy
+        - --log-level
+        - debug
+        - -c
+        - /etc/envoy/envoy.yaml
+        env:
+        - name: POD_UID
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.uid
+        - name: POD_NAME
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.name
+        - name: POD_NAMESPACE
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.namespace
+        - name: POD_IP
+          valueFrom:
+            fieldRef:
+              fieldPath: status.podIP
+      - name: terminus-ws-sidecar
+        image: 'beclab/ws-gateway:v1.0.3'
+        command:
+          - /ws-gateway
+        env:
+          - name: WS_PORT
+            value: '81'
+          - name: WS_URL
+            value: /app-store/v1/websocket/message
+        resources: { }
+        terminationMessagePath: /dev/termination-log
+        terminationMessagePolicy: File
+        imagePullPolicy: IfNotPresent
+      volumes:
+      - name: terminus-sidecar-config
+        configMap:
+          name: sidecar-ws-configs
+          items:
+          - key: envoy.yaml
+            path: envoy.yaml
+      - name: opt-data
+        hostPath:
+          path: {{ .Values.userspace.appData}}/appstore/data
+          type: DirectoryOrCreate
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: appstore-service
+  namespace: {{ .Release.Namespace }}
+spec:
+  selector:
+    app: appstore
+  type: ClusterIP
+  ports:
+    - protocol: TCP
+      name: appstore
+      port: 80
+      targetPort: 80
+    - protocol: TCP
+      name: appstore-backend
+      port: 81
+      targetPort: 81
+
+---
+apiVersion: sys.bytetrade.io/v1alpha1
+kind: ApplicationPermission
+metadata:
+  name: appstore
+  namespace: user-system-{{ .Values.bfl.username }}
+spec:
+  app: appstore
+  appid: appstore
+  key: {{ .Values.os.appstore.appKey }}
+  secret: {{ .Values.os.appstore.appSecret }}
+  permissions:
+  - dataType: event
+    group: message-disptahcer.system-server
+    ops:
+      - Create
+    version: v1
+status:
+  state: active
+
+---
+apiVersion: sys.bytetrade.io/v1alpha1
+kind: ProviderRegistry
+metadata:
+  name: appstore-backend-provider
+  namespace: user-system-{{ .Values.bfl.username }}
+spec:
+  dataType: app
+  deployment: market-deployment
+  description: app store provider
+  endpoint: appstore-service.{{ .Release.Namespace }}
+  group: service.appstore
+  kind: provider
+  namespace: {{ .Release.Namespace }}
+  opApis:
+    - name: InstallDevApp
+      uri: /app-store/v1/applications/provider/installdev
+    - name: UninstallDevApp
+      uri: /app-store/v1/applications/provider/uninstalldev
+  version: v1
+status:
+  state: active

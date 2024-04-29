@@ -1,0 +1,486 @@
+
+
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  namespace: user-space-{{ .Values.bfl.username }} 
+  name: tailscale
+
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: user-space-{{ .Values.bfl.username }}:admin
+subjects:
+  - kind: ServiceAccount
+    namespace: user-space-{{ .Values.bfl.username }} 
+    name: tailscale
+roleRef:
+  kind: Role
+  name: admin
+  apiGroup: rbac.authorization.k8s.io
+
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: headscale
+  namespace: user-space-{{ .Values.bfl.username }}
+  labels:
+    app: headscale
+    applications.app.bytetrade.io/author: bytetrade.io
+    applications.app.bytetrade.io/name: headscale
+    applications.app.bytetrade.io/owner: {{ .Values.bfl.username }}
+  annotations:
+    applications.app.bytetrade.io/icon: https://file.bttcdn.com/appstore/headscale/icon.png
+    applications.app.bytetrade.io/policies: '{"policies":[]}'
+    applications.app.bytetrade.io/title: Headscale
+    applications.app.bytetrade.io/version: '0.0.1'
+    applications.app.bytetrade.io/entrances: '[{"name":"headscale", "host":"headscale-svc", "port":80,"title":"Headscale","invisible": true}]'
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: headscale
+  strategy:
+    type: Recreate
+  template:
+    metadata:
+      labels:
+        app: headscale
+    spec:
+      initContainers:
+      - name: terminus-sidecar-init
+        image: openservicemesh/init:v1.2.3
+        imagePullPolicy: IfNotPresent
+        securityContext:
+          privileged: true
+          capabilities: 
+            add:
+            - NET_ADMIN
+          runAsNonRoot: false
+          runAsUser: 0
+        command:
+        - /bin/sh
+        - -c
+        - |
+          iptables-restore --noflush <<EOF
+          # sidecar interception rules
+          *nat
+          :PROXY_IN_REDIRECT - [0:0]
+          :PROXY_INBOUND - [0:0]
+          -A PROXY_IN_REDIRECT -p tcp -j REDIRECT --to-port 15003
+          -A PROXY_INBOUND -p tcp --dport 15000 -j RETURN
+          -A PROXY_INBOUND -p tcp -j PROXY_IN_REDIRECT
+          -A PREROUTING -p tcp -j PROXY_INBOUND
+          COMMIT
+          EOF
+        
+        env:
+        - name: POD_IP
+          valueFrom:
+            fieldRef:
+              apiVersion: v1
+              fieldPath: status.podIP
+      containers:
+      - name: terminus-envoy-sidecar
+        image: envoyproxy/envoy-distroless:v1.25.2
+        imagePullPolicy: IfNotPresent
+        securityContext:
+          allowPrivilegeEscalation: false
+          runAsUser: 1000
+        ports:
+        - name: proxy-admin
+          containerPort: 15000
+        - name: proxy-inbound
+          containerPort: 15003
+        - name: tapr
+          containerPort: 15080
+        volumeMounts:
+        - name: terminus-sidecar-config
+          readOnly: true
+          mountPath: /etc/envoy/envoy.yaml
+          subPath: envoy.yaml
+        command:
+        - /usr/local/bin/envoy
+        - --log-level
+        - debug
+        - -c
+        - /etc/envoy/envoy.yaml
+        env:
+        - name: POD_UID
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.uid
+        - name: POD_NAME
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.name
+        - name: POD_NAMESPACE
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.namespace
+        - name: POD_IP
+          valueFrom:
+            fieldRef:
+              fieldPath: status.podIP 
+      - name: frontend
+        image: nginx:stable-alpine3.17-slim
+        imagePullPolicy: IfNotPresent
+        volumeMounts:
+        - name: nginx-config
+          mountPath: /etc/nginx/nginx.conf
+          subPath: nginx.conf
+        ports:
+        - containerPort: 80
+      volumes:
+      - name: terminus-sidecar-config
+        configMap:
+          name: sidecar-configs
+          items:
+          - key: envoy.yaml
+            path: envoy.yaml
+      - name: nginx-config
+        configMap:
+          name: headscale-nginx-configs
+          items:
+          - key: nginx.conf
+            path: nginx.conf
+
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: headscale-server
+  namespace: user-space-{{ .Values.bfl.username }}
+  labels:
+    app: headscale-server
+    applications.app.bytetrade.io/author: bytetrade.io
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: headscale-server
+  strategy:
+    type: Recreate
+  template:
+    metadata:
+      labels:
+        app: headscale-server
+    spec:
+      serviceAccountName: tailscale
+      initContainers:
+      - name: init
+        image: beclab/headscale-init:v0.1.4
+        imagePullPolicy: IfNotPresent
+        securityContext:
+          privileged: true
+        env:
+        - name: NAMESPACE
+          value: bfl.user-space-{{ .Values.bfl.username }}
+        volumeMounts:
+        - name: config
+          mountPath: /etc/headscale
+      containers:
+      - name: headscale
+        image: beclab/headscale:0.22.3
+        imagePullPolicy: IfNotPresent
+        command:
+        - headscale
+        - serve
+        lifecycle:
+          postStart:
+            exec:
+              command:
+                - "sh"
+                - "-xc"
+                - "(date; for i in `seq 1 600`; do if ! test -S /var/run/headscale.sock; then echo wait-headscale.sock-1s; sleep 1; else break; fi; done; headscale apikeys create -e 3650d > /etc/headscale/apikey; headscale users create default; headscale preauthkeys create -e 3650d -u default > /etc/headscale/preauthkey; if ! test -s /etc/headscale/apikey; then echo apikey-empty; exit 1; fi; if ! test -s /etc/headscale/preauthkey; then echo preauthkey-empty; exit 1; fi) >> /tmp/headscale.log 2>&1"
+        volumeMounts:
+        - name: config
+          mountPath: /etc/headscale
+        - name: headscale-data
+          mountPath: /var/lib/headscale
+        ports:
+        - containerPort: 8080
+      - args:
+        - APIKEY=$(cat /etc/headscale/apikey) exec /headscale-api-wrapper
+        command:
+        - /bin/sh
+        - -c
+        image: beclab/headscale-api-wrapper:v0.1.5
+        imagePullPolicy: IfNotPresent
+        name: headscale-api-wrapper
+        volumeMounts:
+        - mountPath: /etc/headscale
+          name: config
+        ports:
+        - containerPort: 9000
+        - containerPort: 8000
+      volumes:
+      - name: config
+        hostPath:
+          type: DirectoryOrCreate
+          path: {{ .Values.userspace.appCache  }}/headscale/config
+      - name: headscale-data
+        hostPath:
+          type: DirectoryOrCreate
+          path: {{ .Values.userspace.appCache }}/headscale/data
+
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: tailscale
+  namespace: user-space-{{ .Values.bfl.username }}
+  labels:
+    app: tailscale
+    applications.app.bytetrade.io/author: bytetrade.io
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: tailscale
+  strategy:
+    type: Recreate
+  template:
+    metadata:
+      labels:
+        app: tailscale
+    spec:
+      hostNetwork: true
+      dnsPolicy: ClusterFirstWithHostNet
+      containers:
+      - name: tailscale
+        image: beclab/tailscale:v1.48.1
+        imagePullPolicy: IfNotPresent
+        command: ["/bin/sh", "-c"]
+        args:
+          - >-
+            TS_AUTHKEY=$(cat /etc/headscale/preauthkey)
+            exec /usr/local/bin/containerboot
+        securityContext:
+          capabilities:
+            add:
+            - NET_ADMIN
+          privileged: true
+          runAsNonRoot: false
+          runAsUser: 0
+        volumeMounts:
+        - name: config
+          mountPath: /etc/headscale
+        - name: tailscale-data
+          mountPath: /var/lib/tailscale
+        env:
+        - name: TS_DISABLE_TAILDROP
+          value: "true"
+        - name: NODE_IP
+          valueFrom:
+            fieldRef:
+              fieldPath: status.hostIP
+        - name: TS_SOCKET
+          value: "/var/run/tailscale/tailscaled.sock"
+        - name: TS_STATE_DIR
+          value: "/var/lib/tailscale/"
+        - name: TS_TAILSCALED_EXTRA_ARGS
+          value: "--no-logs-no-support --verbose=1"
+        - name: TS_ROUTES
+          value: $(NODE_IP)/32
+        - name: TS_EXTRA_ARGS
+          value: "--login-server http://headscale-server-svc:8080"
+        - name: TS_KUBE_SECRET
+      volumes:
+      - name: config
+        hostPath:
+          type: DirectoryOrCreate
+          path: {{ .Values.userspace.appCache }}/headscale/config
+      - name: tailscale-data
+        hostPath:
+          type: DirectoryOrCreate
+          path: {{ .Values.userspace.appCache }}/tailscale/data
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: headscale-svc
+  namespace: user-space-{{ .Values.bfl.username }}
+spec:
+  selector:
+    app: headscale
+  type: ClusterIP
+  ports:
+    - protocol: TCP
+      name: headscale
+      port: 80
+      targetPort: 80
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: headscale-server-svc
+  namespace: user-space-{{ .Values.bfl.username }}
+spec:
+  selector:
+    app: headscale-server
+  type: ClusterIP
+  ports:
+    - protocol: TCP
+      name: headscale
+      port: 8080
+      targetPort: 8080
+    - protocol: TCP
+      name: api
+      port: 8000
+      targetPort: 8000
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: headscale-authkey-svc
+  namespace: user-space-{{ .Values.bfl.username }}
+spec:
+  selector:
+    app: headscale-server
+  type: ClusterIP
+  ports:
+    - protocol: TCP
+      name: headscale
+      port: 9000
+      targetPort: 9000
+
+---
+
+apiVersion: sys.bytetrade.io/v1alpha1
+kind: ProviderRegistry
+metadata:
+  name: headscale-provider
+  namespace: user-system-{{ .Values.bfl.username }}
+spec:
+  dataType: headscale
+  deployment: headscale
+  description: headscale provider
+  endpoint: headscale-server-svc.{{ .Release.Namespace }}:8000
+  group: service.headscale
+  kind: provider
+  namespace: {{ .Release.Namespace }}
+  opApis:
+  - name: GetMachine
+    uri: /headscale/machine
+  - name: RenameMachine
+    uri: /headscale/machine/rename
+  - name: DeleteMachine
+    uri: /headscale/machine
+  - name: GetRoute
+    uri: /headscale/machine/routes
+  - name: EnableRoute
+    uri: /headscale/routes/enable
+  - name: DisableRoute
+    uri: /headscale/routes/disable
+  - name: SetTags
+    uri: /headscale/machine/tags
+  version: v1
+status:
+  state: active
+
+
+---
+apiVersion: v1
+data:
+  nginx.conf: |
+    # Configuration checksum:
+    pid /var/run/nginx.pid;
+    worker_processes 2;
+    worker_rlimit_nofile 65535;
+    worker_shutdown_timeout 240s ;
+    events {
+      multi_accept        on;
+      worker_connections  16384;
+      use                 epoll;
+    }
+    http {
+      aio                 threads;
+      aio_write           on;
+      tcp_nopush          on;
+      tcp_nodelay         on;
+      log_subrequest      on;
+      reset_timedout_connection on;
+      keepalive_timeout  75s;
+      keepalive_requests 100;
+      client_body_temp_path           /tmp/client-body;
+      fastcgi_temp_path               /tmp/fastcgi-temp;
+      proxy_temp_path                 /tmp/proxy-temp;
+      client_max_body_size            1g;
+      client_header_buffer_size       1k;
+      client_header_timeout           60s;
+      large_client_header_buffers     4 8k;
+      client_body_buffer_size         8k;
+      client_body_timeout             60s;
+      types_hash_max_size             2048;
+      server_names_hash_max_size      4096;
+      server_names_hash_bucket_size   1024;
+      map_hash_bucket_size            64;
+      proxy_headers_hash_max_size     512;
+      proxy_headers_hash_bucket_size  64;
+      variables_hash_bucket_size      256;
+      variables_hash_max_size         2048;
+      underscores_in_headers          off;
+      ignore_invalid_headers          on;
+      include /etc/nginx/mime.types;
+      default_type text/html;
+      gzip on;
+      gzip_comp_level 1;
+      gzip_http_version 1.1;
+      gzip_min_length 256;
+      gzip_types application/atom+xml application/javascript application/x-javascript application/json application/rss+xml application/vnd.ms-fontobject application/x-font-ttf application/x-web-app-manifest+json application/xhtml+xml application/xml font/opentype image/svg+xml image/x-icon text/css text/javascript text/plain text/x-component;
+      gzip_proxied any;
+      gzip_vary on;
+      # Custom headers for response
+      server_tokens off;
+      server_name_in_redirect off;
+      port_in_redirect        off;
+      # global log
+      log_format main $remote_addr - $remote_user [$time_local] "$request" $status $body_bytes_sent "$http_referer" "$http_user_agent" $request_length $request_time "$http_x_forwarded_for";
+      access_log /var/log/nginx/access.log main;
+      error_log /var/log/nginx/error.log error;
+      proxy_ssl_session_reuse on;
+      # Global filters
+      # timeout
+      resolver_timeout        30s;
+      send_timeout            60s;
+      map $http_upgrade $connection_upgrade {
+        default upgrade;
+        ''      close;
+      }
+      server {
+        listen 80 default_server;
+        # Gzip Settings
+        gzip on;
+        gzip_disable "msie6";
+        gzip_min_length 1k;
+        gzip_buffers 16 64k;
+        gzip_http_version 1.1;
+        gzip_comp_level 6;
+        gzip_types *;
+        index index.html;
+        location /ts2021 {
+          proxy_pass http://headscale-server-svc:8080;
+          proxy_method POST;
+          proxy_http_version 1.1;
+          proxy_set_header Upgrade $http_upgrade;
+          proxy_set_header Connection '$connection_upgrade';
+        }
+        location / {
+          proxy_pass http://headscale-server-svc:8080;
+          proxy_http_version 1.1;
+          proxy_set_header Upgrade $http_upgrade;
+          proxy_set_header Connection '$connection_upgrade';
+        }
+      }
+    }
+kind: ConfigMap
+metadata:
+  name: headscale-nginx-configs
+  namespace: {{ .Release.Namespace }}

@@ -1,0 +1,22 @@
+name: Push images to S3
+
+on:
+  workflow_dispatch:
+
+
+jobs:
+  push:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: 'Checkout source code'
+        uses: actions/checkout@v3
+
+      # test
+      - env: 
+          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+        run: |
+          bash scripts/image-manifest.sh && bash scripts/upload-images.sh .manifest/images.mf
+
+        

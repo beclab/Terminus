@@ -1,0 +1,167 @@
+
+
+{{ $backupVersion := "0.3.6" }}
+{{ $backup_server_rootpath := "/terminus/rootfs/backup-server" }}
+
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: backup-server
+  namespace: {{ .Release.Namespace }}
+  labels:
+    component: velero
+    deploy: backup
+    applications.app.bytetrade.io/author: bytetrade.io
+spec:
+  replicas: 1
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      tier: backup-server
+  template:
+    metadata:
+      labels:
+        tier: backup-server
+    spec:
+      hostNetwork: true
+      dnsPolicy: ClusterFirstWithHostNet
+      volumes:
+      - name: dbdata
+        hostPath:
+          type: DirectoryOrCreate
+          path: {{ $backup_server_rootpath }}/data
+      - name: rootfs
+        hostPath:
+          path: /terminus/rootfs
+      serviceAccountName: os-internal
+      containers:
+      - name: api
+        image: beclab/backup-server:v{{ $backupVersion }}
+        imagePullPolicy: IfNotPresent
+        command:
+        - /backup-server
+        - apiserver
+        - --velero-namespace
+        - os-system
+        - --velero-service-account
+        - os-internal
+        {{ if and .Values.backup.bucket .Values.backup.key_prefix }}
+        - --backup-bucket
+        - {{ .Values.backup.bucket }}
+        - --backup-key-prefix
+        - {{ .Values.backup.key_prefix }}
+        {{ end }}
+        resources:
+          requests:
+            cpu: 20m
+            memory: 50Mi
+          limits:
+            cpu: 500m
+            memory: 512Mi
+        env:
+        - name: TERMINUS_IS_CLOUD_VERSION
+          value: {{ default "false" .Values.backup.is_cloud_version | quote }}
+        - name: ENABLE_MIDDLEWARE_BACKUP
+          value: "true"
+        ports:
+        - containerPort: 8082
+          protocol: TCP
+        volumeMounts:
+        - mountPath: /rootfs
+          name: rootfs
+      - name: controller
+        image: beclab/backup-server:v{{ $backupVersion }}
+        imagePullPolicy: IfNotPresent
+        securityContext:
+          runAsUser: 0
+        command:
+        - /backup-server
+        - controller
+        - --velero-namespace
+        - os-system
+        - --velero-service-account
+        - os-internal
+        {{ if and .Values.backup.bucket .Values.backup.key_prefix }}
+        - --backup-bucket
+        - {{ .Values.backup.bucket }}
+        - --backup-key-prefix
+        - {{ .Values.backup.key_prefix }}
+        {{ end }}
+        - --backup-retain-days
+        - "30"
+        resources:
+          requests:
+            cpu: 20m
+            memory: 50Mi
+          limits:
+            cpu: 2
+            memory: 1500Mi
+        env:
+        - name: APP_RANDOM_KEY
+          valueFrom:
+            secretKeyRef:
+              name: app-key
+              key: random-key
+        ports:
+        - containerPort: 8080
+          protocol: TCP
+        - containerPort: 8081
+          protocol: TCP
+        volumeMounts:
+        - mountPath: /rootfs
+          name: rootfs
+      - name: vcontroller
+        image: beclab/backup-server:v{{ $backupVersion }}
+        imagePullPolicy: IfNotPresent
+        securityContext:
+          runAsUser: 0
+        command:
+        - /backup-server
+        - vcontroller
+        - --velero-namespace
+        - os-system
+        - --velero-service-account
+        - os-internal
+        resources:
+          requests:
+            cpu: 20m
+            memory: 50Mi
+          limits:
+            cpu: 2
+            memory: 1500Mi
+        volumeMounts:
+        - mountPath: /rootfs
+          name: rootfs
+      - name: sidecar-backup-sync
+        image: beclab/sidecar-backup-sync:v0.0.11
+        imagePullPolicy: IfNotPresent
+        command:
+        - /backup_sync
+        - --log-level
+        - debug
+        - --sync-interval
+        - "10"
+        volumeMounts:
+        - mountPath: /data
+          name: dbdata
+        env:
+        - name: BACKUP_SERVER
+          value: http://127.0.0.1:8082
+        - name: BACKUP_SECRET
+          value: {{ .Values.backup.sync_secret | quote }}
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: backup-server
+  namespace: {{ .Release.Namespace }}
+spec:
+  ports:
+  - port: 8082
+    targetPort: 8082
+    protocol: TCP
+  selector:
+    tier: backup-server

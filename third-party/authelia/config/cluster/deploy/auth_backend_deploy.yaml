@@ -1,0 +1,295 @@
+
+
+{{ $auth_rootpath := "/terminus/rootfs/auth" }}
+{{- $auth_secret := (lookup "v1" "Secret" .Release.Namespace "authelia-secrets") -}}
+{{- $jwt_secret := "" -}}
+{{- $session_secret := "" -}}
+{{- $encryption_key := "" -}}
+{{- $redis_password := "" -}}
+{{ if $auth_secret -}}
+{{- $jwt_secret = (index $auth_secret "data" "jwt_secret") -}}
+{{- $session_secret = (index $auth_secret "data" "session_secret") -}}
+{{- $encryption_key = (index $auth_secret "data" "encryption_key") -}}
+{{- $redis_password = (index $auth_secret "data" "redis_password") -}}
+{{ else -}}
+{{ $jwt_secret = randAlphaNum 16 | b64enc }}
+{{ $session_secret = randAlphaNum 16 | b64enc }}
+{{ $encryption_key = randAlphaNum 32 | b64enc }}
+{{ $redis_password = randAlphaNum 16 | b64enc }}
+{{- end -}}
+
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: authelia-secrets
+  namespace: {{ .Release.Namespace }}
+type: Opaque
+data:
+  jwt_secret: {{ $jwt_secret }}
+  session_secret: {{ $session_secret }}
+  encryption_key: {{ $encryption_key }}
+  redis_password: {{ $redis_password }}
+
+---
+apiVersion: v1
+data:
+  configuration.yaml: |
+    jwt_secret: {{ $jwt_secret | b64dec }}
+    default_redirection_url: /
+
+    server:
+      host: 0.0.0.0
+      port: 9091
+
+    log:
+      level: debug
+
+    totp:
+      issuer: terminus.os
+
+    # duo_api:
+    #  hostname: api-123456789.example.com
+    #  integration_key: ABCDEF
+    #  # This secret can also be set using the env variables AUTHELIA_DUO_API_SECRET_KEY_FILE
+    #  secret_key: 1234567890abcdefghifjkl
+
+    # authentication_backend:
+    #   file:
+    #     path: /config/users_database.yml
+
+    access_control:
+      config_type: terminus
+      default_policy: deny
+      rules:
+        # Rules applied to everyone
+        - domain: example.myterminus.com
+          policy: one_factor
+          # subject:
+          # - ['group:platform-admin', 'group:workspace-manager']
+        - domain: 'files.example.myterminus.com'
+          policy: two_factor
+          # subject:
+          # - ['group:platform-admin', 'group:workspace-manager']
+
+    session:
+      # This secret can also be set using the env variables AUTHELIA_SESSION_SECRET_FILE
+      secret: {{ $session_secret | b64dec }}
+      name: authelia_session
+      same_site: 'none'
+
+      # expiration: 1209600  # probably nanosecond
+      # inactivity: 1209600  # 5 minutes
+      cookies:
+        - domain: 'example.com'
+          authelia_url: https://authelia-svc.example.com/
+
+      redis:
+        host: authelia-storage-svc
+        port: 6379
+        # This secret can also be set using the env variables AUTHELIA_SESSION_REDIS_PASSWORD_FILE
+        password: {{ $redis_password | b64dec }}
+
+    regulation:
+      max_retries: 3
+      find_time: 120
+      ban_time: 300
+
+    storage:
+      encryption_key: {{ $encryption_key | b64dec }}
+      local:
+        path: /config/db.sqlite3
+
+    notifier:
+      disable_startup_check: false
+      filesystem:
+        filename: /app/notification.txt
+
+  # users_database.yaml: |
+  #   users:
+  #     authelia:
+  #       disabled: false
+  #       displayname: "Authelia User"
+  #       # Password is authelia
+  #       password: "$6$rounds=50000$BpLnfgDsc2WD8F2q$Zis.ixdg9s/UOJYrs56b5QEZFiZECu0qZVNsIYxBaNJ7ucIL.nlxVCT5tqh8KHG8X4tlwCFm5r6NTOZZ5qRFN/"  # yamllint disable-line rule:line-length
+  #       email: authelia@authelia.com
+  #       groups:
+  #         - admins
+  #         - dev
+
+kind: ConfigMap
+metadata:
+  name: authelia-configs
+  namespace: {{ .Release.Namespace }}
+
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: authelia-backend
+  namespace: {{ .Release.Namespace }}
+  labels:
+    app: authelia-backend
+    applications.app.bytetrade.io/author: bytetrade.io
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: authelia-backend
+  template:
+    metadata:
+      labels:
+        app: authelia-backend
+    spec:
+      serviceAccountName: os-internal
+      serviceAccount: os-internal
+      containers:
+      - name: authelia
+        image: beclab/auth:0.1.30
+        imagePullPolicy: IfNotPresent
+        ports:
+        - containerPort: 9091
+        env:
+        - name: TZ
+          value: UTC
+        - name: APP_RANDOM_KEY
+          valueFrom:
+            secretKeyRef:
+              name: app-key
+              key: random-key
+        volumeMounts:
+        - name: config
+          mountPath: /app/configuration.yml
+          subPath: configuration.yaml
+        - name: data
+          mountPath: /config
+
+      volumes:
+      - name: config
+        configMap:
+          name: authelia-configs
+          defaultMode: 438
+          items:
+          - key: configuration.yaml
+            path: configuration.yaml
+      - name: data
+        hostPath:
+          type: DirectoryOrCreate
+          path: {{ $auth_rootpath }}
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: authelia-backend
+  namespace: {{ .Release.Namespace }}
+spec:
+  selector:
+    app: authelia-backend
+  type: ClusterIP
+  ports:
+    - protocol: TCP
+      name: authelia
+      port: 9091
+      targetPort: 9091
+
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: redis-config
+  namespace: {{ .Release.Namespace }}
+  labels:
+    app: redis
+data:
+  redis.conf: |-
+    dir /srv
+    port 6379
+    bind 0.0.0.0
+    appendonly yes
+    daemonize no
+    #protected-mode no
+    requirepass {{ $redis_password | b64dec }}
+    pidfile /srv/redis-6379.pid
+    maxmemory 200000000
+
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: authelia-storage
+  namespace: {{ .Release.Namespace }}
+  labels:
+    app: redis
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: redis
+  template:
+    metadata:
+      labels:
+        app: redis
+    spec:
+      containers:
+      - name: redis
+        image: redis:6.2.13-alpine3.18
+        imagePullPolicy: IfNotPresent
+        command:
+          - "sh"
+          - "-c"
+          - "redis-server /usr/local/redis/redis.conf"
+        ports:
+        - containerPort: 6379
+        resources:
+          requests:
+            cpu: 20m
+            memory: 100Mi
+          limits:
+            cpu: 500m
+            memory: 256Mi
+        livenessProbe:
+          tcpSocket:
+            port: 6379
+          initialDelaySeconds: 300
+          timeoutSeconds: 1
+          periodSeconds: 10
+          successThreshold: 1
+          failureThreshold: 3
+        readinessProbe:
+          tcpSocket:
+            port: 6379
+          initialDelaySeconds: 5
+          timeoutSeconds: 1
+          periodSeconds: 10
+          successThreshold: 1
+          failureThreshold: 3
+        volumeMounts:
+        - name: config
+          mountPath:  /usr/local/redis/redis.conf
+          subPath: redis.conf
+        - name: data
+          mountPath: /srv
+      volumes:
+      - name: config
+        configMap:
+          name: redis-config
+      - name: data
+        hostPath:
+          type: DirectoryOrCreate
+          path: {{ $auth_rootpath }}
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: authelia-storage-svc
+  namespace: {{ .Release.Namespace }}
+spec:
+  ports:
+    - port: 6379
+      protocol: TCP
+      targetPort: 6379
+  selector:
+    app: redis
+  type: ClusterIP

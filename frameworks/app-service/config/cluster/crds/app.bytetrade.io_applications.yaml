@@ -1,0 +1,142 @@
+---
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata:
+  annotations:
+    controller-gen.kubebuilder.io/version: v0.9.2
+  creationTimestamp: null
+  name: applications.app.bytetrade.io
+spec:
+  group: app.bytetrade.io
+  names:
+    categories:
+    - all
+    kind: Application
+    listKind: ApplicationList
+    plural: applications
+    shortNames:
+    - app
+    singular: application
+  scope: Cluster
+  versions:
+  - additionalPrinterColumns:
+    - jsonPath: .spec.name
+      name: application name
+      type: string
+    - jsonPath: .spec.namespace
+      name: namespace
+      type: string
+    - jsonPath: .status.state
+      name: state
+      type: string
+    - jsonPath: .metadata.creationTimestamp
+      name: age
+      type: date
+    name: v1alpha1
+    schema:
+      openAPIV3Schema:
+        description: Application is the Schema for the applications API
+        properties:
+          apiVersion:
+            description: 'APIVersion defines the versioned schema of this representation
+              of an object. Servers should convert recognized schemas to the latest
+              internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources'
+            type: string
+          kind:
+            description: 'Kind is a string value representing the REST resource this
+              object represents. Servers may infer this from the endpoint the client
+              submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds'
+            type: string
+          metadata:
+            type: object
+          spec:
+            description: ApplicationSpec defines the desired state of Application
+            properties:
+              appid:
+                description: the unique id of the application for sys application
+                  appid equal name otherwise appid equal md5(name)[:8]
+                type: string
+              deployment:
+                description: the deployment of the application
+                type: string
+              description:
+                description: description from app's description or frontend
+                type: string
+              entrances:
+                description: Entrances []Entrance `json:"entrances,omitempty"`
+                items:
+                  properties:
+                    authLevel:
+                      type: string
+                    host:
+                      type: string
+                    icon:
+                      type: string
+                    invisible:
+                      type: boolean
+                    name:
+                      type: string
+                    openMethod:
+                      description: openMethod has three choices default, iframe, window
+                      type: string
+                    port:
+                      format: int32
+                      type: integer
+                    title:
+                      type: string
+                  required:
+                  - host
+                  - name
+                  - port
+                  - title
+                  type: object
+                type: array
+              icon:
+                description: The url of the icon
+                type: string
+              index:
+                description: the entrance of the application
+                type: string
+              isSysApp:
+                type: boolean
+              name:
+                description: the name of the application
+                type: string
+              namespace:
+                description: the namespace of the application
+                type: string
+              owner:
+                description: the owner of the application
+                type: string
+              settings:
+                additionalProperties:
+                  type: string
+                description: the extend settings of the application
+                type: object
+            required:
+            - appid
+            - isSysApp
+            - name
+            type: object
+          status:
+            description: ApplicationStatus defines the observed state of Application
+            properties:
+              state:
+                description: 'the state of the application: draft, submitted, passed,
+                  rejected, suspended, active'
+                type: string
+              statusTime:
+                format: date-time
+                type: string
+              updateTime:
+                format: date-time
+                type: string
+            required:
+            - statusTime
+            - updateTime
+            type: object
+        type: object
+    served: true
+    storage: true
+    subresources:
+      status: {}

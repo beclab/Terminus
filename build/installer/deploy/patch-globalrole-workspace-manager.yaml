@@ -1,0 +1,142 @@
+apiVersion: iam.kubesphere.io/v1alpha2
+kind: GlobalRole
+metadata:
+  annotations:
+    iam.kubesphere.io/aggregation-roles: '["role-template-view-workspaces","role-template-manage-workspaces","role-template-view-users"]'
+    kubectl.kubernetes.io/last-applied-configuration: |
+      {"apiVersion":"iam.kubesphere.io/v1alpha2","kind":"GlobalRole","metadata":{"annotations":{"iam.kubesphere.io/aggregation-roles":"[\"role-template-view-workspaces\",\"role-template-manage-workspaces\",\"role-template-view-users\"]","kubesphere.io/creator":"admin"},"name":"workspaces-manager"},"rules":[{"apiGroups":["*"],"resources":["abnormalworkloads","quotas","workloads","volumesnapshots","dashboards","configmaps","endpoints","events","limitranges","namespaces","persistentvolumeclaims","podtemplates","replicationcontrollers","resourcequotas","secrets","serviceaccounts","services","applications","controllerrevisions","deployments","replicasets","statefulsets","daemonsets","meshpolicies","cronjobs","jobs","devopsprojects","devops","pipelines","pipelines/runs","pipelines/pipelineruns","pipelines/branches","pipelines/checkScriptCompile","pipelines/consolelog","pipelines/scan","pipelines/sonarstatus","pipelineruns","pipelineruns/nodedetails","checkCron","credentials","credentials/usage","gitrepositories","s2ibinaries","s2ibinaries/file","s2ibuilders","s2ibuildertemplates","s2iruns","events","ingresses","router","filters","pods","pods/log","pods/exec","pods/containers","namespacenetworkpolicies","workspacenetworkpolicies","networkpolicies","podsecuritypolicies","rolebindings","roles","members","servicepolicies","federatedapplications","federatedconfigmaps","federateddeployments","federatedingresses","federatedjobs","federatedlimitranges","federatednamespaces","federatedpersistentvolumeclaims","federatedreplicasets","federatedsecrets","federatedserviceaccounts","federatedservices","federatedservicestatuses","federatedstatefulsets","federatedworkspaces","workspaces","workspaceroles","workspacemembers","workspacemembers/namespaces","workspacemembers/devops","workspacerolebindings","groups","groupbindings"],"verbs":["*"]},{"apiGroups":["*"],"resources":["users","users/loginrecords"],"verbs":["get","list","watch"]},{"apiGroups":["openpitrix.io"],"resources":["repos","apps","apps/versions","categories","apps/audits","clusters/applications"],"verbs":["*"]},{"apiGroups":["*"],"resources":["clusters","cluster"],"verbs":["list"]},{"apiGroups":["monitoring.kubesphere.io","monitoring.coreos.com","metering.kubesphere.io","servicemesh.kubesphere.io","alerting.kubesphere.io","network.kubesphere.io","resources.kubesphere.io","gitops.kubesphere.io"],"resources":["*"],"verbs":["*"]}]}
+    kubesphere.io/creator: admin
+  name: workspaces-manager
+rules:
+- apiGroups:
+  - '*'
+  resources:
+  - abnormalworkloads
+  - quotas
+  - workloads
+  - volumesnapshots
+  - dashboards
+  - configmaps
+  - endpoints
+  - events
+  - limitranges
+  - namespaces
+  - persistentvolumeclaims
+  - podtemplates
+  - replicationcontrollers
+  - resourcequotas
+  - secrets
+  - serviceaccounts
+  - services
+  - applications
+  - controllerrevisions
+  - deployments
+  - replicasets
+  - statefulsets
+  - daemonsets
+  - meshpolicies
+  - cronjobs
+  - jobs
+  - devopsprojects
+  - devops
+  - pipelines
+  - pipelines/runs
+  - pipelines/pipelineruns
+  - pipelines/branches
+  - pipelines/checkScriptCompile
+  - pipelines/consolelog
+  - pipelines/scan
+  - pipelines/sonarstatus
+  - pipelineruns
+  - pipelineruns/nodedetails
+  - checkCron
+  - credentials
+  - credentials/usage
+  - gitrepositories
+  - s2ibinaries
+  - s2ibinaries/file
+  - s2ibuilders
+  - s2ibuildertemplates
+  - s2iruns
+  - events
+  - ingresses
+  - router
+  - filters
+  - pods
+  - pods/log
+  - pods/exec
+  - pods/containers
+  - namespacenetworkpolicies
+  - workspacenetworkpolicies
+  - networkpolicies
+  - podsecuritypolicies
+  - rolebindings
+  - roles
+  - members
+  - servicepolicies
+  - federatedapplications
+  - federatedconfigmaps
+  - federateddeployments
+  - federatedingresses
+  - federatedjobs
+  - federatedlimitranges
+  - federatednamespaces
+  - federatedpersistentvolumeclaims
+  - federatedreplicasets
+  - federatedsecrets
+  - federatedserviceaccounts
+  - federatedservices
+  - federatedservicestatuses
+  - federatedstatefulsets
+  - federatedworkspaces
+  - workspaces
+  - workspaceroles
+  - workspacemembers
+  - workspacemembers/namespaces
+  - workspacemembers/devops
+  - workspacerolebindings
+  - groups
+  - groupbindings
+  verbs:
+  - '*'
+- apiGroups:
+  - '*'
+  resources:
+  - users
+  - users/loginrecords
+  - globalrolebindings
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
+  - openpitrix.io
+  resources:
+  - repos
+  - apps
+  - apps/versions
+  - categories
+  - apps/audits
+  - clusters/applications
+  verbs:
+  - '*'
+- apiGroups:
+  - '*'
+  resources:
+  - clusters
+  - cluster
+  verbs:
+  - list
+- apiGroups:
+  - monitoring.kubesphere.io
+  - monitoring.coreos.com
+  - metering.kubesphere.io
+  - servicemesh.kubesphere.io
+  - alerting.kubesphere.io
+  - network.kubesphere.io
+  - resources.kubesphere.io
+  - gitops.kubesphere.io
+  resources:
+  - '*'
+  verbs:
+  - '*'

@@ -1,0 +1,312 @@
+
+
+{{ $charts_rootpath := "/terminus/rootfs/charts" }}
+{{ $usertmpl_rootpath := "/terminus/rootfs/usertemplate" }}
+
+# {{ $charts_rand16 := randAlphaNum 16 | lower }}
+{{ $charts_pv := "pv-charts" }}
+{{ $charts_pvc := "pvc-charts" }}
+{{ $charts_sc := "juicefs-localpath-charts" }}
+{{ $charts_storage := "100Mi" }}
+
+# {{ $usertmpl_rand16 := randAlphaNum 16 | lower }}
+{{ $usertmpl_pv := "pv-usertmpl" }}
+{{ $usertmpl_pvc := "pvc-usertmpl" }}
+{{ $usertmpl_sc := "juicefs-localpath-usertmpl" }}
+{{ $usertmpl_storage := "100Mi" }}
+
+---
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: {{ default $charts_pv .Values.charts_pv }}
+spec:
+  accessModes:
+  - ReadWriteOnce
+  capacity:
+    storage: 100Mi
+  hostPath:
+    path: {{ $charts_rootpath }}/{{ default $charts_pvc .Values.charts_pvc }}
+    type: DirectoryOrCreate
+  persistentVolumeReclaimPolicy: Delete
+  volumeMode: Filesystem
+  storageClassName: {{ default $charts_sc .Values.charts_sc }}
+
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: {{ default $charts_pvc .Values.charts_pvc }}
+  namespace: {{ .Release.Namespace }}
+spec:
+  accessModes:
+  - ReadWriteOnce
+  resources:
+    requests:
+      storage: 100Mi
+  volumeMode: Filesystem
+  volumeName: {{ default $charts_pv .Values.charts_pv }}
+  storageClassName: {{ default $charts_sc .Values.charts_sc }}
+
+# usertmpl
+
+---
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: {{ default $usertmpl_pv .Values.usertmpl_pv }}
+spec:
+  accessModes:
+  - ReadWriteOnce
+  capacity:
+    storage: 100Mi
+  hostPath:
+    path: {{ $usertmpl_rootpath }}/{{ default $usertmpl_pvc .Values.usertmpl_pvc }}
+    type: DirectoryOrCreate
+  persistentVolumeReclaimPolicy: Delete
+  volumeMode: Filesystem
+  storageClassName: {{ default $usertmpl_sc .Values.usertmpl_sc }}
+
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: {{ default $usertmpl_pvc .Values.usertmpl_pvc }}
+  namespace: {{ .Release.Namespace }}
+spec:
+  accessModes:
+  - ReadWriteOnce
+  resources:
+    requests:
+      storage: 100Mi
+  volumeMode: Filesystem
+  volumeName: {{ default $usertmpl_pv .Values.usertmpl_pv }}
+  storageClassName: {{ default $usertmpl_sc .Values.usertmpl_sc }}
+
+
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: san-cnf
+data:
+  san.cnf: |
+    [req]
+    distinguished_name = req_distinguished_name
+    req_extensions = v3_req
+    prompt = no
+
+    [req_distinguished_name]
+    countryName = CN
+    stateOrProvinceName = Beijing
+    localityName = Beijing
+    0.organizationName = bytetrade
+    commonName = app-service.os-system.svc
+
+    [v3_req]
+    basicConstraints = CA:FALSE
+    keyUsage = nonRepudiation, digitalSignature, keyEncipherment
+    subjectAltName = @bytetrade
+
+    [bytetrade]
+    DNS.1 = app-service.os-system.svc
+---
+
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: app-service
+  namespace: {{ .Release.Namespace }}
+  labels:
+    tier: app-service
+    applications.app.bytetrade.io/author: bytetrade.io
+  annotations:
+    charts_storage: {{ $charts_storage }}
+    charts_pv: {{ default $charts_pv .Values.charts_pv }}
+    charts_pvc: {{ default $charts_pvc .Values.charts_pvc }}
+    charts_sc: {{ default $charts_sc .Values.charts_sc }}
+    charts_hostpath: {{ $charts_rootpath }}/{{ default $charts_pvc .Values.charts_pvc }}
+
+    usertmpl_storage: {{ $usertmpl_storage }}
+    usertmpl_pv: {{ default $usertmpl_pv .Values.usertmpl_pv }}
+    usertmpl_pvc: {{ default $usertmpl_pvc .Values.usertmpl_pvc }}
+    usertmpl_sc: {{ default $usertmpl_sc .Values.usertmpl_sc }}
+    usertmpl_hostpath: {{ $usertmpl_rootpath }}/{{ default $usertmpl_pvc .Values.usertmpl_pvc }}
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      tier: app-service
+  serviceName: "app-service"
+  template:
+    metadata:
+      labels:
+        tier: app-service
+    spec:
+      serviceAccountName: os-internal
+      serviceAccount: os-internal
+      containers:
+      - name: app-service
+        image: beclab/app-service:0.2.2
+        imagePullPolicy: IfNotPresent
+        securityContext:
+          runAsUser: 0
+        env:
+        - name: KS_APISERVER_SERVICE_HOST
+          value: 'ks-apiserver.kubesphere-system'
+        - name: KS_APISERVER_SERVICE_PORT
+          value: '80'
+        - name: REQUIRE_PERMISSION_APPS
+          value: "vault,desktop,message,wise,search,appstore,notification,dashboard,settings,devbox,profile"
+        - name: SYS_APPS
+          value: "analytics,market,auth,citus,desktop,did,docs,files,fsnotify,headscale,infisical,intentprovider,ksserver,message,mongo,monitoring,notifications,profile,redis,wise,recommend,seafile,search,dify,search-admin,settings,systemserver,tapr,vault,video,zinc,accounts,control-hub,dashboard,devbox,agent"
+        - name: GENERATED_APPS
+          value: "citus,mongo-cluster-cfg,mongo-cluster-mongos,mongo-cluster-rs0,frp-agent,l4-bfl-proxy,drc-redis-cluster,appdata-backend,argoworkflows,argoworkflow-workflow-controller,velero"
+        - name: WS_CONTAINER_IMAGE
+          value: "beclab/ws-gateway:v1.0.3"
+        - name: UPLOAD_CONTAINER_IMAGE
+          value: "beclab/upload:v1.0.1"
+        - name: APP_RANDOM_KEY
+          valueFrom:
+            secretKeyRef:
+              name: app-key
+              key: random-key
+        volumeMounts:
+        - mountPath: /charts
+          name: charts-store
+        - mountPath: /userapps
+          name: user-apps-template
+        - mountPath: /etc/certs
+          name: certs
+      initContainers:
+      - name: generate-certs
+        image: beclab/openssl:v3
+        imagePullPolicy: IfNotPresent
+        command: [ "/bin/sh", "-c" ]
+        args:
+          - |
+            openssl genrsa -out /etc/certs/ca.key 2048
+            openssl req -new -x509 -days 3650 -key /etc/certs/ca.key -out /etc/certs/ca.crt \
+              -subj "/CN=bytetrade CA/O=bytetrade/C=CN"
+            openssl req -new -newkey rsa:2048 -nodes \
+              -keyout /etc/certs/server.key -out /etc/certs/server.csr \
+              -config /etc/san/san.cnf
+            openssl x509 -req -days 3650 -in /etc/certs/server.csr \
+              -CA /etc/certs/ca.crt -CAkey /etc/certs/ca.key \
+              -CAcreateserial -out /etc/certs/server.crt \
+              -extensions v3_req -extfile /etc/san/san.cnf
+        volumeMounts:
+          - name: config-san
+            mountPath: /etc/san
+          - name: certs
+            mountPath: /etc/certs
+      volumes:
+      - name: charts-store
+        persistentVolumeClaim:
+          claimName: {{ default $charts_pvc .Values.charts_pvc }}
+      - name: user-apps-template
+        persistentVolumeClaim:
+          claimName: {{ default $usertmpl_pvc .Values.usertmpl_pvc }}
+      - name: config-san
+        configMap:
+          name: san-cnf
+          items:
+            - key: san.cnf
+              path: san.cnf
+      - name: certs
+        emptyDir: {}
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: app-service
+  namespace: {{ .Release.Namespace }}
+spec:
+  ports:
+  - name: api
+    port: 6755
+    targetPort: 6755
+    protocol: TCP
+  - name: webhook
+    port: 8433
+    protocol: TCP
+    targetPort: 8433
+  selector:
+    tier: app-service
+  type: ClusterIP
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: app-key
+  namespace: {{ .Release.Namespace }}
+type: Opaque
+data:
+  random-key: {{ randAlphaNum 32 | b64enc }}
+
+---
+apiVersion: apr.bytetrade.io/v1alpha1
+kind: SysEventRegistry
+metadata:
+  name: appservice-backup-new-cb
+  namespace: {{ .Release.Namespace }}
+spec:
+  type: subscriber
+  event: backup.new
+  callback: http://app-service.{{ .Release.Namespace }}:6755/app-service/v1/backup/new
+
+---
+apiVersion: apr.bytetrade.io/v1alpha1
+kind: SysEventRegistry
+metadata:
+  name: appservice-backup-finish-cb
+  namespace: {{ .Release.Namespace }}
+spec:
+  type: subscriber
+  event: backup.finish
+  callback: http://app-service.{{ .Release.Namespace }}:6755/app-service/v1/backup/finish
+
+---
+apiVersion: apr.bytetrade.io/v1alpha1
+kind: SysEventRegistry
+metadata:
+  name: cluster-memory-usage-high-cb
+  namespace: {{ .Release.Namespace }}
+spec:
+  type: subscriber
+  event: metrics.memory.high
+  callback: http://app-service.os-system:6755/app-service/v1/metrics/highload
+
+---
+apiVersion: apr.bytetrade.io/v1alpha1
+kind: SysEventRegistry
+metadata:
+  name: cluster-cpu-usage-high-cb
+  namespace: {{ .Release.Namespace }}
+spec:
+  type: subscriber
+  event: metrics.cpu.high
+  callback: http://app-service.os-system:6755/app-service/v1/metrics/highload
+
+---
+apiVersion: apr.bytetrade.io/v1alpha1
+kind: SysEventRegistry
+metadata:
+  name: user-memory-usage-high-cb
+  namespace: {{ .Release.Namespace }}
+spec:
+  type: subscriber
+  event: metrics.user.memory.high
+  callback: http://app-service.os-system:6755/app-service/v1/metrics/user/highload
+
+---
+apiVersion: apr.bytetrade.io/v1alpha1
+kind: SysEventRegistry
+metadata:
+  name: user-cpu-usage-high-cb
+  namespace: {{ .Release.Namespace }}
+spec:
+  type: subscriber
+  event: metrics.user.cpu.high
+  callback: http://app-service.os-system:6755/app-service/v1/metrics/user/highload

@@ -1,0 +1,14 @@
+
+
+Addons:
+  - name: settings
+    sources:
+      chart:
+        name: settings
+        repo: config/settings
+
+  - name: apps
+    sources:
+      chart:
+        name: apps
+        repo: config/apps

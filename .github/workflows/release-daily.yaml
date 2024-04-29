@@ -1,0 +1,64 @@
+
+
+name: Daily Build Release
+
+on:
+  schedule:
+    # This is a UTC time
+    - cron: "30 18 * * *"
+  workflow_dispatch:
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: 'Checkout source code'
+        uses: actions/checkout@v3
+
+      - name: 'Daily tag version'
+        id: vars
+        run: |
+          v=1.3.0-$(date +"%Y%m%d")
+          echo "tag_version=$v" >> $GITHUB_OUTPUT
+      
+      - name: Package installer
+        run: |
+          bash scripts/package.sh
+
+      - name: Update version
+        uses: eball/write-tag-to-version-file@latest
+        with:
+          filename: 'build/installer/wizard/config/settings/templates/terminus_cr.yaml'
+          placeholder: '#__VERSION__'
+          tag: ${{ steps.vars.outputs.tag_version }}
+
+      - name: Update latest installer
+        uses: eball/write-tag-to-version-file@latest
+        with:
+          filename: 'build/installer/publicInstaller.latest'
+          placeholder: '#{{LATEST_VERSION}}'
+          tag: ${{ steps.vars.outputs.tag_version }}
+
+      - name: 'Archives'
+        working-directory: ./build/installer
+        run: |
+          mkdir -p /tmp/build
+          tar --exclude=wizard/tools --exclude=.git -zcvf /tmp/build/install-wizard-v${{ steps.vars.outputs.tag_version }}.tar.gz .
+
+      - name: Release public files
+        uses: softprops/action-gh-release@v1
+        with:
+          name: v${{ steps.vars.outputs.tag_version }} Release
+          tag_name: ${{ steps.vars.outputs.tag_version }}
+          files: |
+            /tmp/build/install-wizard-v${{ steps.vars.outputs.tag_version }}.tar.gz
+            build/installer/publicInstaller.sh
+            build/installer/publicInstaller.latest
+            build/installer/uninstall_cmd.sh
+            build/installer/publicAddnode.sh
+            build/installer/version.hint
+            build/installer/publicRestoreInstaller.sh
+          # prerelease: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

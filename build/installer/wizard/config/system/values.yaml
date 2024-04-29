@@ -1,0 +1,11 @@
+
+
+kubesphere:
+  redis_password: ""
+backup:
+  bucket: "${BACKUP_CLUSTER_BUCKET}"
+  key_prefix: "${BACKUP_KEY_PREFIX}"
+  is_cloud_version: "${TERMINUS_IS_CLOUD_VERSION}"
+  sync_secret: "${BACKUP_SECRET}"
+  server:
+    data: "${backup_server_data}"

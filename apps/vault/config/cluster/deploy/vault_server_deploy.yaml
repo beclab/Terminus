@@ -1,0 +1,169 @@
+
+
+
+{{ $vault_rootpath := "/terminus/rootfs/vault" }}
+{{- $namespace := printf "%s" "os-system" -}}
+{{- $vault_secret := (lookup "v1" "Secret" $namespace "vault-secrets") -}}
+{{- $pg_password := "" -}}
+{{ if $vault_secret -}}
+{{ $pg_password = (index $vault_secret "data" "pg_password") }}
+{{ else -}}
+{{ $pg_password = randAlphaNum 16 | b64enc }}
+{{- end -}}
+
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: vault-secrets
+  namespace: os-system
+type: Opaque
+data:
+  pg_password: {{ $pg_password }}
+
+---
+apiVersion: apr.bytetrade.io/v1alpha1
+kind: MiddlewareRequest
+metadata:
+  name: vault-pg
+  namespace: os-system
+spec:
+  app: vault
+  appNamespace: os-system
+  middleware: postgres
+  postgreSQL:
+    user: vault_os_system
+    password:
+      valueFrom:
+        secretKeyRef:
+          key: pg_password
+          name: vault-secrets
+    databases:
+      - name: vault
+
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: vault-server
+  namespace: {{ .Release.Namespace }}
+  labels:
+    app: vault-server
+    applications.app.bytetrade.io/author: bytetrade.io
+spec:
+  replicas: 1
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app: vault-server
+  template:
+    metadata:
+      labels:
+        app: vault-server
+    spec:
+      initContainers:
+      - name: init-container
+        image: 'postgres:16.0-alpine3.18'
+        command:
+          - sh
+          - '-c'
+          - >-
+            echo -e "Checking for the availability of PostgreSQL Server deployment"; until psql -h $PGHOST -p $PGPORT -U $PGUSER -d $PGDB1 -c "SELECT 1"; do sleep 1; printf "-"; done; sleep 5; echo -e " >> PostgreSQL DB Server has started";
+        env:
+          - name: PGHOST
+            value: citus-0.citus-headless.os-system
+          - name: PGPORT
+            value: "5432"
+          - name: PGUSER
+            value: vault_os_system
+          - name: PGPASSWORD
+            value: {{ $pg_password | b64dec }}
+          - name: PGDB1
+            value: os_system_vault
+      containers:
+      - name: vault-server
+        image: beclab/vault-server:v0.4.51
+        imagePullPolicy: IfNotPresent
+        ports:
+        - containerPort: 3000
+        env:
+        - name: AUTH_URL
+          value: http://authelia-backend:9091
+        - name: PL_DATA_BACKEND
+          value: postgres
+        - name: PL_DATA_POSTGRES_HOST
+          value: citus-0.citus-headless.os-system
+        - name: PL_DATA_POSTGRES_PORT
+          value: "5432"
+        - name: PL_DATA_POSTGRES_DATABASE
+          value: os_system_vault
+        - name: PL_DATA_POSTGRES_USER
+          value: vault_os_system
+        - name: PL_DATA_POSTGRES_PASSWORD
+          value: {{ $pg_password | b64dec }}
+        - name: PL_ATTACHMENTS_FS_DIR
+          value: /padloc/packages/server/attachments
+        volumeMounts:
+        - name: vault-data
+          mountPath: /padloc/packages/server/data
+        - name: vault-attach
+          mountPath: /padloc/packages/server/attachments
+      - name: vault-admin
+        image: beclab/vault-admin:v0.4.51
+        imagePullPolicy: IfNotPresent
+        ports:
+        - containerPort: 3010
+        env:
+        - name: PL_DATA_BACKEND
+          value: postgres
+        - name: PL_DATA_POSTGRES_HOST
+          value: citus-0.citus-headless.os-system
+        - name: PL_DATA_POSTGRES_PORT
+          value: "5432"
+        - name: PL_DATA_POSTGRES_DATABASE
+          value: os_system_vault
+        - name: PL_DATA_POSTGRES_USER
+          value: vault_os_system
+        - name: PL_DATA_POSTGRES_PASSWORD
+          value: {{ $pg_password | b64dec }}
+      volumes:
+      - name: vault-data
+        hostPath:
+          type: DirectoryOrCreate
+          path: {{ $vault_rootpath }}/data
+      - name: vault-attach
+        hostPath:
+          type: DirectoryOrCreate
+          path: {{ $vault_rootpath }}/attachments
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: vault-server
+  namespace: {{ .Release.Namespace }}
+spec:
+  type: ClusterIP
+  selector:
+    app: vault-server
+  ports:
+    - name: server
+      protocol: TCP
+      port: 3000
+      targetPort: 3000
+    - name: admin
+      protocol: TCP
+      port: 3010
+      targetPort: 3010
+
+---
+apiVersion: apr.bytetrade.io/v1alpha1
+kind: SysEventRegistry
+metadata:
+  name: vault-user-delete-cb
+  namespace: {{ .Release.Namespace }}
+spec:
+  type: subscriber
+  event: user.delete
+  callback: http://vault-server.{{ .Release.Namespace }}:3010/callback/delete
+

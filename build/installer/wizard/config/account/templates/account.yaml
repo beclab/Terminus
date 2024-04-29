@@ -1,0 +1,19 @@
+
+
+---
+apiVersion: iam.kubesphere.io/v1alpha2
+kind: User
+metadata:
+  name: {{.Values.user.name}}
+  annotations:
+    iam.kubesphere.io/uninitialized: "true"
+    helm.sh/resource-policy: keep
+    bytetrade.io/owner-role: platform-admin
+    bytetrade.io/terminus-name: {{.Values.user.terminus_name}}
+    bytetrade.io/launcher-auth-policy: two_factor
+    bytetrade.io/launcher-access-level: "1"
+spec:
+  email: {{.Values.user.email}}
+  password: {{.Values.user.password}}
+status:
+  state: Active

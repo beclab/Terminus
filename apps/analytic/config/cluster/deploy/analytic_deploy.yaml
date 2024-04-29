@@ -1,0 +1,145 @@
+
+
+
+{{ $anayltic2_rootpath := "/terminus/rootfs/anayltic2" }}
+{{- $namespace := printf "%s" "os-system" -}}
+{{- $anayltic2_secret := (lookup "v1" "Secret" $namespace "anayltic2-secrets") -}}
+{{- $pg_password := "" -}}
+{{ if $anayltic2_secret -}}
+{{ $pg_password = (index $anayltic2_secret "data" "pg_password") }}
+{{ else -}}
+{{ $pg_password = randAlphaNum 16 | b64enc }}
+{{- end -}}
+
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: anayltic2-secrets
+  namespace: os-system
+type: Opaque
+data:
+  pg_password: {{ $pg_password }}
+
+---
+apiVersion: apr.bytetrade.io/v1alpha1
+kind: MiddlewareRequest
+metadata:
+  name: anayltic2-pg
+  namespace: os-system
+spec:
+  app: anayltic2
+  appNamespace: os-system
+  middleware: postgres
+  postgreSQL:
+    user: anayltic2_os_system
+    password:
+      valueFrom:
+        secretKeyRef:
+          key: pg_password
+          name: anayltic2-secrets
+    databases:
+      - name: anayltic2
+
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: anayltic2-server
+  namespace: {{ .Release.Namespace }}
+  labels:
+    app: anayltic2-server
+    applications.app.bytetrade.io/author: bytetrade.io
+spec:
+  replicas: 1
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app: anayltic2-server
+  template:
+    metadata:
+      labels:
+        app: anayltic2-server
+    spec:
+      initContainers:
+      - name: init-container
+        image: 'postgres:16.0-alpine3.18'
+        command:
+          - sh
+          - '-c'
+          - >-
+            echo -e "Checking for the availability of PostgreSQL Server deployment"; until psql -h $PGHOST -p $PGPORT -U $PGUSER -d $PGDB -c "SELECT 1"; do sleep 1; printf "-"; done; sleep 5; echo -e " >> PostgreSQL DB Server has started";
+        env:
+          - name: PGHOST
+            value: citus-0.citus-headless.os-system
+          - name: PGPORT
+            value: "5432"
+          - name: PGUSER
+            value: anayltic2_os_system
+          - name: PGPASSWORD
+            value: {{ $pg_password | b64dec }}
+          - name: PGDB
+            value: os_system_anayltic2
+      containers:
+      - name: anayltic2-server
+        image: beclab/analytic-api:v0.0.3
+        imagePullPolicy: IfNotPresent
+        ports:
+        - containerPort: 3010
+        env:
+        - name: PL_DATA_BACKEND
+          value: postgres
+        - name: PL_DATA_POSTGRES_HOST
+          value: citus-0.citus-headless.os-system
+        - name: PL_DATA_POSTGRES_PORT
+          value: "5432"
+        - name: PL_DATA_POSTGRES_DATABASE
+          value: os_system_anayltic2
+        - name: PL_DATA_POSTGRES_USER
+          value: anayltic2_os_system
+        - name: PL_DATA_POSTGRES_PASSWORD
+          value: {{ $pg_password | b64dec }}
+        - name: DATABASE_URL
+          value: postgres://$(PL_DATA_POSTGRES_USER):$(PL_DATA_POSTGRES_PASSWORD)@$(PL_DATA_POSTGRES_HOST)/$(PL_DATA_POSTGRES_DATABASE)?sslmode=disable
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: anayltic2-server
+  namespace: {{ .Release.Namespace }}
+spec:
+  type: ClusterIP
+  selector:
+    app: anayltic2-server
+  ports:
+    - name: server
+      protocol: TCP
+      port: 3010
+      targetPort: 3010
+
+---
+apiVersion: apr.bytetrade.io/v1alpha1
+kind: SysEventRegistry
+metadata:
+  name: anayltic2-user-create-cb
+  namespace: {{ .Release.Namespace }}
+spec:
+  type: subscriber
+  event: user.create
+  callback: http://anayltic2-server.{{ .Release.Namespace }}:3010/callback/create
+
+---
+apiVersion: apr.bytetrade.io/v1alpha1
+kind: SysEventRegistry
+metadata:
+  name: anayltic2-user-delete-cb
+  namespace: {{ .Release.Namespace }}
+spec:
+  type: subscriber
+  event: user.delete
+  callback: http://anayltic2-server.{{ .Release.Namespace }}:3010/callback/delete
+
+
+
