@@ -161,6 +161,7 @@ terminus_files=(
 /usr/local/bin/velero
 /etc/systemd/system/redis-server.service
 /etc/systemd/system/minio.service
+/etc/systemd/system/minio-operator.service
 /etc/systemd/system/juicefs.service
 /etc/systemd/system/containerd.service
 )
@@ -169,7 +170,7 @@ remove_storage() {
     log_info 'destroy storage'
 
     # stop and disable service
-    for srv in juicefs minio redis-server; do
+    for srv in juicefs minio minio-operator redis-server; do
         $sh_c "systemctl stop $srv 2>/dev/null; systemctl disable $srv 2>/dev/null; true"
     done
     
