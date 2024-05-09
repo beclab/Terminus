@@ -1096,7 +1096,7 @@ EOF
 }
 
 install_k8s_ks() {
-    KKE_VERSION=0.1.18
+    KKE_VERSION=0.1.19
 
     ensure_success $sh_c "mkdir -p /etc/kke"
 
@@ -1340,6 +1340,7 @@ bfl:
   nodeport_ingress_http: 30083
   nodeport_ingress_https: 30082
   username: '${username}'
+  admin_user: true
 _EOF
 
   sed -i "s/#__DOMAIN_NAME__/${domainname}/" ${BASE_DIR}/wizard/config/settings/templates/terminus_cr.yaml
