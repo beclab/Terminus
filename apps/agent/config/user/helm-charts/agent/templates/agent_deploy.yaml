@@ -47,7 +47,7 @@ metadata:
     app: agent
     applications.app.bytetrade.io/author: bytetrade.io
     applications.app.bytetrade.io/name: agent
-    applications.app.bytetrade.io/owner: {{ .Values.bfl.username }}
+    applications.app.bytetrade.io/owner: '{{ .Values.bfl.username }}'
   annotations:
     applications.app.bytetrade.io/icon: https://file.bttcdn.com/appstore/agent/icon.png
     applications.app.bytetrade.io/title: agent
@@ -148,7 +148,7 @@ spec:
             fieldRef:
               fieldPath: status.podIP
       - name: dify-gateway
-        image: beclab/search2-gateway:v0.0.34
+        image: beclab/search2-gateway:v0.0.35
         imagePullPolicy: IfNotPresent
         ports:
           - name: dify-gateway
@@ -168,7 +168,7 @@ spec:
           - name: DIFY_ADMIN_USER_PASSWORD
             value: abcd123456
           - name: DIFY_USER_NAME
-            value: {{ .Values.bfl.username }}
+            value: '{{ .Values.bfl.username }}'
           - name: DIFY_USER_PASSWORD
             value: abcd123456
           - name: WATCH_DIR

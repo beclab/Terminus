@@ -25,7 +25,7 @@ metadata:
   labels:
     app: files
     applications.app.bytetrade.io/name: files
-    applications.app.bytetrade.io/owner: {{ .Values.bfl.username }}
+    applications.app.bytetrade.io/owner: '{{ .Values.bfl.username }}'
     applications.app.bytetrade.io/author: bytetrade.io
   annotations:
     applications.app.bytetrade.io/icon: https://file.bttcdn.com/appstore/files/icon.png
@@ -92,7 +92,7 @@ spec:
           value: system-server.user-system-{{ .Values.bfl.username }}
 
       - name: files
-        image: beclab/files-server:v0.2.11
+        image: beclab/files-server:v0.2.15
         imagePullPolicy: IfNotPresent
         volumeMounts:
         - name: fb-data
@@ -103,6 +103,8 @@ spec:
           mountPath: /data/Application
         - name: watch-dir
           mountPath: /data/Home/Documents
+        - name: upload-appdata
+          mountPath: /appcache/
         ports:
         - containerPort: 8110
         env:
@@ -161,7 +163,7 @@ spec:
         - /filebrowser
         - --noauth
       - name: files-frontend
-        image: beclab/files-frontend:v0.4.51
+        image: beclab/files-frontend:v0.4.57
         imagePullPolicy: IfNotPresent
         ports:
         - containerPort: 80

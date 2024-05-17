@@ -164,7 +164,7 @@ spec:
 
       containers:
         - name: devbox
-          image: beclab/devbox-server:v0.1.25
+          image: beclab/devbox-server:v0.1.26
           imagePullPolicy: IfNotPresent
           args:
           - server
@@ -200,7 +200,7 @@ spec:
             - name: NAME_SPACE
               value: {{ .Release.Namespace }}
             - name: OWNER
-              value: {{ .Values.bfl.username }}
+              value: '{{ .Values.bfl.username }}'
           resources:
             requests:
               cpu: "50m"
@@ -268,7 +268,7 @@ metadata:
   labels:
     app: devbox
     applications.app.bytetrade.io/name: devbox
-    applications.app.bytetrade.io/owner: {{ .Values.bfl.username }}
+    applications.app.bytetrade.io/owner: '{{ .Values.bfl.username }}'
     applications.app.bytetrade.io/author: bytetrade.io
   annotations:
     applications.app.bytetrade.io/icon: https://file.bttcdn.com/appstore/devbox/icon.png
@@ -327,7 +327,7 @@ spec:
                 fieldPath: status.podIP
       containers:
         - name: devbox
-          image: beclab/devbox:v0.1.25
+          image: beclab/devbox:v0.1.26
           imagePullPolicy: IfNotPresent
           ports:
             - name: port

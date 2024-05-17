@@ -9,7 +9,7 @@ metadata:
   labels:
     app: vault
     applications.app.bytetrade.io/name: vault
-    applications.app.bytetrade.io/owner: {{ .Values.bfl.username }}
+    applications.app.bytetrade.io/owner: '{{ .Values.bfl.username }}'
     applications.app.bytetrade.io/author: bytetrade.io
   annotations:
     applications.app.bytetrade.io/icon: https://file.bttcdn.com/appstore/vault/icon.png
@@ -65,13 +65,13 @@ spec:
 
       containers:
       - name: vault-frontend
-        image: beclab/vault-frontend:v0.4.51
+        image: beclab/vault-frontend:v0.4.57
         imagePullPolicy: IfNotPresent
         ports:
         - containerPort: 80
       
       - name: notification-server
-        image: beclab/vault-notification:v0.4.51
+        image: beclab/vault-notification:v0.4.57
         imagePullPolicy: IfNotPresent
         ports:
         - containerPort: 3010

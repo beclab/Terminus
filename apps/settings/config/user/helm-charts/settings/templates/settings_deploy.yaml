@@ -9,7 +9,7 @@ metadata:
   labels:
     app: settings
     applications.app.bytetrade.io/name: settings
-    applications.app.bytetrade.io/owner: {{ .Values.bfl.username }}
+    applications.app.bytetrade.io/owner: '{{ .Values.bfl.username }}'
     applications.app.bytetrade.io/author: bytetrade.io
   annotations:
     applications.app.bytetrade.io/icon: https://file.bttcdn.com/appstore/settings/icon.png
@@ -61,13 +61,13 @@ spec:
               fieldPath: status.podIP
       containers:
       - name: settings
-        image: beclab/settings:v0.1.59
+        image: beclab/settings:v0.1.61
         imagePullPolicy: IfNotPresent
         ports:
         - containerPort: 80
 
       - name: settings-server
-        image: beclab/settings-server:v0.1.59
+        image: beclab/settings-server:v0.1.62
         imagePullPolicy: IfNotPresent
         ports:
         - containerPort: 3000
@@ -82,6 +82,12 @@ spec:
           value: app-service.os-system
         - name: APP_SERVICE_SERVICE_PORT
           value: '6755'
+        - name: APP_SERVICE_CHAIN_ID
+          value: '10'
+        - name: APP_SERVICE_VERIFYING_CONTRACT
+          value: '0xe2eaba0979277a90511f8873ae1e8ca26b54e740'
+        - name: APP_SERVICE_CLOUD_URL
+          value: 'https://cloud-api.bttcdn.com'
         # value: none / nvidia / nvshare / virtaitech
         - name: GPU
           value: {{ .Values.gpu }}
@@ -192,6 +198,8 @@ spec:
     - Query
     - GetSearchFolderStatus
     - UpdateSearchFolderPaths
+    - GetDatasetFolderStatus
+    - UpdateDatasetFolderPaths
     version: v1
   - dataType: datastore
     group: service.bfl

@@ -962,8 +962,8 @@ install_velero_plugin_terminus() {
   namespace="os-system"
   storage_location="terminus-cloud"
   bucket="terminus-cloud"
-  image="beclab/velero:v1.11.0"
-  plugin="beclab/velero-plugin-for-terminus:v1.0.1"
+  image="beclab/velero:v1.11.1"
+  plugin="beclab/velero-plugin-for-terminus:v1.0.2"
 
   if [[ "$provider" == x"" || "$namespace" == x"" || "$bucket" == x"" || "$image" == x"" || "$plugin" == x"" ]]; then
     echo "Backup plugin install params invalid."
@@ -1096,7 +1096,7 @@ EOF
 }
 
 install_k8s_ks() {
-    KKE_VERSION=0.1.18
+    KKE_VERSION=0.1.19
 
     ensure_success $sh_c "mkdir -p /etc/kke"
 
@@ -1340,11 +1340,19 @@ bfl:
   nodeport_ingress_http: 30083
   nodeport_ingress_https: 30082
   username: '${username}'
+  admin_user: true
 _EOF
 
   sed -i "s/#__DOMAIN_NAME__/${domainname}/" ${BASE_DIR}/wizard/config/settings/templates/terminus_cr.yaml
+
+  publicIp=$(curl --connect-timeout 5 -sL http://169.254.169.254/latest/meta-data/public-ipv4 2>&1)
+  publicHostname=$(curl --connect-timeout 5 -sL http://169.254.169.254/latest/meta-data/public-hostname 2>&1)
+
   local selfhosted="true"
   if [[ ! -z "${TERMINUS_IS_CLOUD_VERSION}" && x"${TERMINUS_IS_CLOUD_VERSION}" == x"true" ]]; then
+    selfhosted="false"
+  fi
+  if [[ x"$publicHostname" =~ "amazonaws" && -n "$publicIp" && ! x"$publicIp" =~ "Not Found" ]]; then
     selfhosted="false"
   fi
   sed -i "s/#__SELFHOSTED__/${selfhosted}/" ${BASE_DIR}/wizard/config/settings/templates/terminus_cr.yaml
