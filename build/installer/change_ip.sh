@@ -88,6 +88,30 @@ precheck_os() {
     local_ip="$ip"
 }
 
+regen_cert_conf(){
+	for pem in $1 ; do
+	echo -e "[ req ]\ndefault_bits\t= 4096\ndistinguished_name\t= req_distinguished_name\nreq_extensions\t= v3_ext\nprompt\t= no\n[ req_distinguished_name ]" ; 
+	IFS="," 
+
+		for att in `openssl x509 -in $pem -text -noout | grep Subject: | cut -d: -f2 ` ;  
+
+			do VALUE=`echo $att | cut -d= -f2-9 `; 
+				case $att in 
+				\ C\ =*) echo "countryName_default = $VALUE" ;; 
+				\ ST\ =*) echo "StateOrProvinceName_default = $VALUE" ;; 
+				\ L\ =*) echo "localityName_default = $VALUE";; 
+				\ O\ =*) echo "organizationName_default = $VALUE" ;; 
+				\ OU\ =*)  echo "organizationUnitName_default = $VALUE" ;; 
+				\ CN\ =*)  echo "commonName = $VALUE" ;; 
+			esac 
+		done
+
+			openssl x509 -in $pem -text | grep -A1 Subject\ Alternative\ Name | tail -1 | xargs echo -e "[ v3_ext ]\nsubjectAltName = "|sed -e 's/IP Address/IP/g'
+	done
+}
+
+
+
 
 update_juicefs() {
 	ensure_success $sh_c "systemctl stop juicefs minio minio-operator redis-server"
@@ -220,7 +244,32 @@ post_update_k3s_master(){
 	ensure_success $sh_c "sed -i 's/$old_ip/$local_ip/g' /etc/systemd/system/k3s.service"
 	ensure_success $sh_c "sed -i 's/$old_ip/$local_ip/g' /etc/systemd/system/k3s.service.env"
 	ensure_success $sh_c "sed -i 's/$old_ip/$local_ip/g' /etc/etcd.env"
-	/usr/local/bin/kube-scripts/etcd-backup.sh
+	ensure_success $sh_c "sed -i 's/$old_ip/$local_ip/g' /usr/local/bin/kube-scripts/etcd-backup.sh"
+
+	# renew etcd cert
+	local tmpdir=$(mktemp -d)
+	ensure_success $sh_c "mv /etc/ssl/etcd/ssl/* $tmpdir/."
+	ensure_success $sh_c "cp $tmpdir/{ca.pem, ca-key.pem} /etc/ssl/etcd/ssl/."
+	local confile = "$tmpdir/cert.conf"
+	ensure_success regen_cert_conf $tmpdir/admin-$HOSTNAME.pem > $confile
+
+	for instance in admin-$HOSTNAME member-$HOSTNAME node-$HOSTNAME; do
+		ensure_success $sh_c "openssl req -newkey rsa:2048 -nodes \
+             -keyout /etc/ssl/etcd/ssl/${instance}-key.pem \
+             -config ${confile} \
+             -out /etc/ssl/etcd/ssl/${instance}-cert.csr"
+
+		ensure_success $sh_c "openssl x509 -req \
+             -extfile ${confile} \
+             -extensions v3_ext \
+             -in /etc/ssl/etcd/ssl/${instance}-cert.csr \
+             -CA /etc/ssl/etcd/ssl/ca.pem \
+             -CAkey /etc/ssl/etcd/ssl/ca-key.pem \
+             -CAcreateserial \
+             -out /etc/ssl/etcd/ssl/${instance}.pem \
+             -days 3650 -sha256"
+	done
+
 
     ensure_success $sh_c "systemctl daemon-reload"
 	ensure_success $sh_c "systemctl start etcd"
