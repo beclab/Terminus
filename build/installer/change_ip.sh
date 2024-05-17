@@ -100,10 +100,14 @@ update_juicefs() {
     local redis_conf="${redis_root}/etc/redis.conf"
 
 	# TODO: get old ip
-	old_ip==$($sh_c "awk '/bind/{print \$NF}' $redis_conf")
+	old_ip=$($sh_c "awk '/bind/{print \$NF}' $redis_conf")
 	while [ -z "$old_ip" ]; do
 		read -r -p "Cannot find the previous IP, please input: " old_ip </dev/tty
 	done
+
+	echo "the previous IP is $old_ip"
+
+	ensure_success $sh_c "sed -i 's/$old_ip/$local_ip/g' /etc/hosts"
 
 	ensure_success $sh_c "sed -i 's/bind [0-9.]*/bind $local_ip/g' $redis_conf"
 	
@@ -172,6 +176,7 @@ update_juicefs() {
 	log_info 'updating juicefs'
 	ensure_success $sh_c "sed -i 's/$old_ip/$local_ip/g' /etc/systemd/system/juicefs.service"
 
+	ensure_success $sh_c "systemctl daemon-reload"
 	ensure_success $sh_c "systemctl start juicefs"
 
 	if [ "$storage_type" == "minio" ]; then
@@ -208,39 +213,53 @@ update_minio_operator(){
 update_k3s_master() {
 	ensure_success $sh_c "$KUBECTL delete node $HOSTNAME"
 
-	ensure_success $sh_c "systemctl stop k3s"
+	ensure_success $sh_c "systemctl stop k3s etcd"
+}
+
+post_update_k3s_master(){
+	ensure_success $sh_c "sed -i 's/$old_ip/$local_ip/g' /etc/systemd/system/k3s.service"
+	ensure_success $sh_c "sed -i 's/$old_ip/$local_ip/g' /etc/systemd/system/k3s.service.env"
+	ensure_success $sh_c "sed -i 's/$old_ip/$local_ip/g' /etc/etcd.env"
+	/usr/local/bin/kube-scripts/etcd-backup.sh
+
+    ensure_success $sh_c "systemctl daemon-reload"
+	ensure_success $sh_c "systemctl start etcd"
+	ensure_success $sh_c "systemctl start k3s"
+	ensure_success $sh_c "systemctl --no-pager status k3s"
 }
 
 update_k8s_master() {
-	systemctl stop kubelet docker
+	ensure_success $sh_c "systemctl stop kubelet containerd"
 
 	cd /etc/
+	local KUBEADM=$(command -v kubeadm)
 
 	# backup old kubernetes data
-	mv kubernetes kubernetes-backup
-	mv /var/lib/kubelet /var/lib/kubelet-backup
+	tmpdir=$(mktemp -d)
+	ensure_success $sh_c "mv kubernetes $tmpdir/kubernetes-backup"
+	ensure_success $sh_c "mv /var/lib/kubelet $tmpdir/kubelet-backup"
 
 	# restore certificates
-	mkdir -p kubernetes
-	cp -r kubernetes-backup/pki kubernetes
-	rm kubernetes/pki/{apiserver.*,etcd/peer.*}
+	ensure_success $sh_c "mkdir -p kubernetes"
+	ensure_success $sh_c "cp -r $tmpdir/kubernetes-backup/pki kubernetes"
+	ensure_success $sh_c "rm kubernetes/pki/{apiserver.*,etcd/peer.*}"
 
-	systemctl start docker
+	ensure_success $sh_c "systemctl start containerd"
 
 	# reinit master with data in etcd
 	# add --kubernetes-version, --pod-network-cidr and --token options if needed
-	kubeadm init --ignore-preflight-errors=DirAvailable--var-lib-etcd
+	ensure_success $sh_c "$KUBEADM init --ignore-preflight-errors=DirAvailable--var-lib-etcd"
 
 	# update kubectl config
-	cp kubernetes/admin.conf ~/.kube/config
+	ensure_success $sh_c "cp kubernetes/admin.conf /root/.kube/config"
 
 	# wait for some time and delete old node
 	sleep 120
-	kubectl get nodes --sort-by=.metadata.creationTimestamp
-	kubectl delete node $(kubectl get nodes -o jsonpath='{.items[?(@.status.conditions[0].status=="Unknown")].metadata.name}')
+	ensure_success $sh_c "$KUBECTL get nodes --sort-by=.metadata.creationTimestamp"
+	ensure_success $sh_c "$KUBECTL delete node $($KUBECTL get nodes -o jsonpath='{.items[?(@.status.conditions[0].status==\"Unknown\")].metadata.name}')"
 
 	# check running pods
-	kubectl get pods --all-namespaces
+	ensure_success $sh_c "$KUBECTL get pods --all-namespaces"
 }
 
 main() {
@@ -253,6 +272,12 @@ main() {
 	fi 
 
 	update_juicefs
+
+	if system_service_active "k3s" ; then
+		post_update_k3s_master
+	else
+	    update_k8s_master
+	fi 
 
 	if [ "$storage_type" == "minio" ]; then 
 		update_minio_operator
