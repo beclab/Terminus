@@ -291,13 +291,15 @@ update_k8s_master() {
 	# restore certificates
 	ensure_success $sh_c "mkdir -p kubernetes"
 	ensure_success $sh_c "cp -r $tmpdir/kubernetes-backup/pki kubernetes"
-	ensure_success $sh_c "rm kubernetes/pki/{apiserver.*,etcd/peer.*}"
+	ensure_success $sh_c "rm -rf kubernetes/pki/{apiserver.*,etcd/peer.*}"
 
 	ensure_success $sh_c "systemctl start containerd"
 
 	# reinit master with data in etcd
 	# add --kubernetes-version, --pod-network-cidr and --token options if needed
-	ensure_success $sh_c "$KUBEADM init --ignore-preflight-errors=DirAvailable--var-lib-etcd"
+	ensure_success $sh_c "$KUBEADM init \ 
+		--ignore-preflight-errors=DirAvailable--var-lib-etcd,Port-10259,Port-10257 \
+		--skip-phases=addon/coredns,addon/kube-proxy"
 
 	# update kubectl config
 	ensure_success $sh_c "cp kubernetes/admin.conf /root/.kube/config"
