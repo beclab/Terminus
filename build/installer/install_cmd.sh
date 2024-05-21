@@ -65,8 +65,7 @@ function retry_cmd(){
         done
 
         if [ $ret -ne 0 ]; then
-            echo "Fatal error, command: '$*'"
-            exit $ret
+            log_fatal "command: '$*'"
         fi
     fi
 
@@ -110,8 +109,7 @@ function ensure_success() {
                 ((max_retries--))
             done
         else
-            echo "Fatal error, command: '$*'"
-            exit $ret
+            log_fatal "command: '$*'"
         fi
     fi
 
@@ -173,9 +171,10 @@ system_service_active() {
 precheck_os() {
     local ip os_type os_arch
 
-    # check os type and arch
+    # check os type and arch and os vesion
     os_type=$(uname -s)
     os_arch=$(uname -m)
+    os_verion=$(lsb_release -d 2>&1 | awk -F'\t' '{print $2}')
 
     if [ x"${os_type}" != x"Linux" ]; then
         log_fatal "unsupported os type '${os_type}', only supported 'Linux' operating system"
@@ -183,6 +182,10 @@ precheck_os() {
 
     if [[ x"${os_arch}" != x"x86_64" && x"${os_arch}" != x"amd64" ]]; then
         log_fatal "unsupported os arch '${os_arch}', only supported 'x86_64' architecture"
+    fi
+
+    if [[ $(is_ubuntu) -eq 0 && $(is_debian) -eq 0 ]]; then
+        log_fatal "unsupported os version '${os_verion}', only supported Ubuntu 20.x, 22.x, 24.x and Debian 11, 12"
     fi
 
     # try to resolv hostname
@@ -234,6 +237,59 @@ precheck_os() {
             ensure_success $sh_c "rm -rf /etc/resolv.conf.bak"
         fi
 
+    fi
+
+    # ubuntu 24 upgrade apparmor
+    ubuntuversion=$(is_ubuntu)
+    if [ ${ubuntuversion} -eq 2 ]; then
+        aapv=$(apparmor_parser --version)
+        if [[ ! ${aapv} =~ "4.0.1" ]]; then
+            ensure_success $sh_c "curl ${CURL_TRY} -k -sfLO https://launchpad.net/ubuntu/+source/apparmor/4.0.1-0ubuntu1/+build/28428840/+files/apparmor_4.0.1-0ubuntu1_amd64.deb"
+            ensure_success $sh_c "dpkg -i apparmor_4.0.1-0ubuntu1_amd64.deb"
+        fi
+    fi
+}
+
+is_debian() {
+    lsb_release=$(lsb_release -d 2>&1 | awk -F'\t' '{print $2}')
+    if [ -z "$lsb_release" ]; then
+        echo 0
+        return
+    fi
+    if [[ ${lsb_release} == *Debian*} ]]; then
+        case "$lsb_release" in
+            *12.* | *11.*)
+                echo 1
+                ;;
+            *)
+                echo 0
+                ;;
+        esac
+    else
+        echo 0
+    fi
+}
+
+is_ubuntu() {
+    lsb_release=$(lsb_release -d 2>&1 | awk -F'\t' '{print $2}')
+    if [ -z "$lsb_release" ]; then
+        echo 0
+        return
+    fi
+    if [[ ${lsb_release} == *Ubuntu* ]];then 
+        case "$lsb_release" in
+            *24.*)
+                echo 2
+                ;;
+            *22.* | *20.*)
+                echo 1
+                ;;
+            *)
+                echo 0
+                ;;
+        esac
+    else
+        echo 0
     fi
 }
 
@@ -962,8 +1018,8 @@ install_velero_plugin_terminus() {
   namespace="os-system"
   storage_location="terminus-cloud"
   bucket="terminus-cloud"
-  image="beclab/velero:v1.11.0"
-  plugin="beclab/velero-plugin-for-terminus:v1.0.1"
+  image="beclab/velero:v1.11.1"
+  plugin="beclab/velero-plugin-for-terminus:v1.0.2"
 
   if [[ "$provider" == x"" || "$namespace" == x"" || "$bucket" == x"" || "$image" == x"" || "$plugin" == x"" ]]; then
     echo "Backup plugin install params invalid."
@@ -1345,8 +1401,8 @@ _EOF
 
   sed -i "s/#__DOMAIN_NAME__/${domainname}/" ${BASE_DIR}/wizard/config/settings/templates/terminus_cr.yaml
 
-  publicIp=$(curl -sL http://169.254.169.254/latest/meta-data/public-ipv4 2>&1)
-  publicHostname=$(curl -sL http://169.254.169.254/latest/meta-data/public-hostname 2>&1)
+  publicIp=$(curl --connect-timeout 5 -sL http://169.254.169.254/latest/meta-data/public-ipv4 2>&1)
+  publicHostname=$(curl --connect-timeout 5 -sL http://169.254.169.254/latest/meta-data/public-hostname 2>&1)
 
   local selfhosted="true"
   if [[ ! -z "${TERMINUS_IS_CLOUD_VERSION}" && x"${TERMINUS_IS_CLOUD_VERSION}" == x"true" ]]; then

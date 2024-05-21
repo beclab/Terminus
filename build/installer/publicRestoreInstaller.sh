@@ -153,7 +153,23 @@ build_contrack(){
 }
 
 precheck_os() {
-    local ip
+    local ip os_type os_arch
+
+    os_type=$(uname -s)
+    os_arch=$(uname -m)
+    os_verion=$(lsb_release -d 2>&1 | awk -F'\t' '{print $2}')
+
+    if [ x"${os_type}" != x"Linux" ]; then
+        log_fatal "unsupported os type '${os_type}', only supported 'Linux' operating system"
+    fi
+
+    if [[ x"${os_arch}" != x"x86_64" && x"${os_arch}" != x"amd64" ]]; then
+        log_fatal "unsupported os arch '${os_arch}', only supported 'x86_64' architecture"
+    fi
+
+    if [[ $(is_ubuntu) -eq 0 && $(is_debian) -eq 0 ]]; then
+        log_fatal "unsupported os version '${os_verion}', only supported Ubuntu 20.x, 22.x, 24.x and Debian 11, 12"
+    fi
 
     # try to resolv hostname
     ensure_success $sh_c "hostname -i >/dev/null"
@@ -200,6 +216,59 @@ precheck_os() {
     http_code=$(curl ${CURL_TRY} --connect-timeout 30 -ksL -o /dev/null -w "%{http_code}" https://download.docker.com/linux/ubuntu)
     if [ "$http_code" != 200 ]; then
         config_resolv_conf
+    fi
+
+    # ubuntu 24 upgrade apparmor
+    ubuntuversion=$(is_ubuntu)
+    if [ ${ubuntuversion} -eq 2 ]; then
+        aapv=$(apparmor_parser --version)
+        if [[ ! ${aapv} =~ "4.0.1" ]]; then
+            ensure_success $sh_c "curl ${CURL_TRY} -k -sfLO https://launchpad.net/ubuntu/+source/apparmor/4.0.1-0ubuntu1/+build/28428840/+files/apparmor_4.0.1-0ubuntu1_amd64.deb"
+            ensure_success $sh_c "dpkg -i apparmor_4.0.1-0ubuntu1_amd64.deb"
+        fi
+    fi
+}
+
+is_debian() {
+    lsb_release=$(lsb_release -d 2>&1 | awk -F'\t' '{print $2}')
+    if [ -z "$lsb_release" ]; then
+        echo 0
+        return
+    fi
+    if [[ ${lsb_release} == *Debian*} ]]; then
+        case "$lsb_release" in
+            *12.* | *11.*)
+                echo 1
+                ;;
+            *)
+                echo 0
+                ;;
+        esac
+    else
+        echo 0
+    fi
+}
+
+is_ubuntu() {
+    lsb_release=$(lsb_release -d 2>&1 | awk -F'\t' '{print $2}')
+    if [ -z "$lsb_release" ]; then
+        echo 0
+        return
+    fi
+    if [[ ${lsb_release} == *Ubuntu* ]];then 
+        case "$lsb_release" in
+            *24.*)
+                echo 2
+                ;;
+            *22.* | *20.*)
+                echo 1
+                ;;
+            *)
+                echo 0
+                ;;
+        esac
+    else
+        echo 0
     fi
 }
 
@@ -841,7 +910,7 @@ install_velero_plugin_terminus() {
   namespace="os-system"
   storage_location="terminus-cloud"
   bucket="terminus-cloud"
-  plugin="beclab/velero-plugin-for-terminus:v1.0.1"
+  plugin="beclab/velero-plugin-for-terminus:v1.0.2"
 
   if [[ "$provider" == x"" || "$namespace" == x"" || "$bucket" == x"" || "$plugin" == x"" ]]; then
     echo "velero plugin install params invalid."
@@ -911,10 +980,10 @@ restore_k8s_os() {
     local include_status_rgs="applicationpermissions.sys.bytetrade.io,providerregistries.sys.bytetrade.io"
     include_status_rgs+=",applications.app.bytetrade.io,terminus.sys.bytetrade.io,middlewarerequests.apr.bytetrade.io"
     include_status_rgs+=",pgclusterbackups.apr.bytetrade.io,pgclusterrestores.apr.bytetrade.io"
-    include_status_rgs+=",redisclusterbackups.redis.kun,distributedredisclusters.redis.kun"
+    include_status_rgs+=",redisclusterbackups.redis.kun"
 
     log_info 'Creating k8s restore task ...'
-    ensure_success $sh_c "${VELERO} -n os-system restore create --status-include-resources $include_status_rgs --status-exclude-resources perconaservermongodbs.psmdb.percona.com --selector 'managered-by notin (mongo-backup-mongo-cluster,mongo-restore-mongo-cluster)' --from-backup $backupName"
+    ensure_success $sh_c "${VELERO} -n os-system restore create --status-include-resources $include_status_rgs --status-exclude-resources perconaservermongodbs.psmdb.percona.com,distributedredisclusters.redis.kun --selector 'managered-by notin (mongo-backup-mongo-cluster,mongo-restore-mongo-cluster)' --from-backup $backupName"
 
     check_restore_available
 }
