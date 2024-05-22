@@ -1,6 +1,8 @@
 #!/usr/bin/env bash
 ERR_EXIT=-1
 
+old_ip=$1
+
 log_info() {
     local msg now
 
@@ -60,10 +62,18 @@ system_service_active() {
 
     local ret
     ret=$($sh_c "systemctl is-active $1")
-    if [ "$ret" == "active" ]; then
+    if [[ "$ret" == "active" || "$ret" == "activating" ]]; then
         return 0
     fi
     return 1
+}
+
+is_k3s(){
+	if [ -f /etc/systemd/system/k3s.service ]; then
+		return 0
+	fi
+
+	return 1
 }
 
 precheck_os() {
@@ -89,9 +99,10 @@ precheck_os() {
 }
 
 regen_cert_conf(){
+	old_IFS=$IFS
 	for pem in $1 ; do
-	echo -e "[ req ]\ndefault_bits\t= 4096\ndistinguished_name\t= req_distinguished_name\nreq_extensions\t= v3_ext\nprompt\t= no\n[ req_distinguished_name ]" ; 
-	IFS="," 
+		echo -e "[ req ]\ndefault_bits\t= 4096\ndistinguished_name\t= req_distinguished_name\nreq_extensions\t= v3_ext\nprompt\t= no\n[ req_distinguished_name ]" ; 
+		IFS="," 
 
 		for att in `openssl x509 -in $pem -text -noout | grep Subject: | cut -d: -f2 ` ;  
 
@@ -106,15 +117,16 @@ regen_cert_conf(){
 			esac 
 		done
 
-			openssl x509 -in $pem -text | grep -A1 Subject\ Alternative\ Name | tail -1 | xargs echo -e "[ v3_ext ]\nsubjectAltName = "|sed -e 's/IP Address/IP/g'
+		openssl x509 -in $pem -text | grep -A1 Subject\ Alternative\ Name | tail -1 | xargs echo -e "[ v3_ext ]\nsubjectAltName = "|sed -e 's/IP Address/IP/g'|sed -e "s/$old_ip/$local_ip/g"
 	done
+	IFS=$old_IFS
 }
 
 
 
 
 update_juicefs() {
-	ensure_success $sh_c "systemctl stop juicefs minio minio-operator redis-server"
+	$sh_c "systemctl stop juicefs minio minio-operator redis-server"
 
 	local TERMINUS_ROOT="/terminus"
     local fsname="rootfs"
@@ -123,8 +135,11 @@ update_juicefs() {
 	local redis_root="${TERMINUS_ROOT}/data/redis"
     local redis_conf="${redis_root}/etc/redis.conf"
 
-	# TODO: get old ip
-	old_ip=$($sh_c "awk '/bind/{print \$NF}' $redis_conf")
+	# get old ip
+	if [ -z "$old_ip" ]; then
+		old_ip=$($sh_c "awk '/bind/{print \$NF}' $redis_conf")
+	fi
+
 	while [ -z "$old_ip" ]; do
 		read -r -p "Cannot find the previous IP, please input: " old_ip </dev/tty
 	done
@@ -235,22 +250,20 @@ update_minio_operator(){
 }
 
 update_k3s_master() {
-	ensure_success $sh_c "$KUBECTL delete node $HOSTNAME"
+#	ensure_success $sh_c "$KUBECTL delete node $HOSTNAME"
 
-	ensure_success $sh_c "systemctl stop k3s etcd"
+	ensure_success $sh_c "systemctl stop k3s etcd backup-etcd"
 }
 
-post_update_k3s_master(){
-	ensure_success $sh_c "sed -i 's/$old_ip/$local_ip/g' /etc/systemd/system/k3s.service"
-	ensure_success $sh_c "sed -i 's/$old_ip/$local_ip/g' /etc/systemd/system/k3s.service.env"
+update_etcd(){
 	ensure_success $sh_c "sed -i 's/$old_ip/$local_ip/g' /etc/etcd.env"
 	ensure_success $sh_c "sed -i 's/$old_ip/$local_ip/g' /usr/local/bin/kube-scripts/etcd-backup.sh"
 
 	# renew etcd cert
 	local tmpdir=$(mktemp -d)
 	ensure_success $sh_c "mv /etc/ssl/etcd/ssl/* $tmpdir/."
-	ensure_success $sh_c "cp $tmpdir/{ca.pem, ca-key.pem} /etc/ssl/etcd/ssl/."
-	local confile = "$tmpdir/cert.conf"
+	ensure_success $sh_c "cp $tmpdir/{ca.pem,ca-key.pem} /etc/ssl/etcd/ssl/."
+	local confile="$tmpdir/cert.conf"
 	ensure_success regen_cert_conf $tmpdir/admin-$HOSTNAME.pem > $confile
 
 	for instance in admin-$HOSTNAME member-$HOSTNAME node-$HOSTNAME; do
@@ -270,69 +283,155 @@ post_update_k3s_master(){
              -days 3650 -sha256"
 	done
 
+    ensure_success $sh_c "systemctl daemon-reload"
+	ensure_success $sh_c "systemctl start etcd backup-etcd"
+}
+
+post_update_k3s_master(){
+	ensure_success $sh_c "sed -i 's/$old_ip/$local_ip/g' /etc/systemd/system/k3s.service"
+	ensure_success $sh_c "sed -i 's/$old_ip/$local_ip/g' /etc/systemd/system/k3s.service.env"
 
     ensure_success $sh_c "systemctl daemon-reload"
-	ensure_success $sh_c "systemctl start etcd"
 	ensure_success $sh_c "systemctl start k3s"
 	ensure_success $sh_c "systemctl --no-pager status k3s"
+
+	log_info 'IP changed, the OS will be reloaded in 2 minutes...'
+	sleep 120
+	# check running pods
+	ensure_success $sh_c "$KUBECTL get pods --all-namespaces"
+
 }
 
 update_k8s_master() {
+    local KUBEADM=$(command -v kubeadm)
+
 	ensure_success $sh_c "systemctl stop kubelet containerd"
 
-	cd /etc/
-	local KUBEADM=$(command -v kubeadm)
+	ensure_success $sh_c "sed -i 's/$old_ip/$local_ip/g' /etc/systemd/system/kubelet.service.d/10-kubeadm.conf"
+	ensure_success $sh_c "sed -i 's/$old_ip/$local_ip/g' /etc/kubernetes/*.yaml"
+	ensure_success $sh_c "sed -i 's/$old_ip/$local_ip/g' /etc/kubernetes/*.conf"
+	ensure_success $sh_c "sed -i 's/$old_ip/$local_ip/g' /etc/kubernetes/manifests/*.yaml"
+	ensure_success $sh_c "sed -i 's/$old_ip/$local_ip/g' /etc/kubernetes/addons/*.yaml"
 
-	# backup old kubernetes data
-	tmpdir=$(mktemp -d)
-	ensure_success $sh_c "mv kubernetes $tmpdir/kubernetes-backup"
-	ensure_success $sh_c "mv /var/lib/kubelet $tmpdir/kubelet-backup"
+	ensure_success $sh_c "rm -f /etc/kubernetes/pki/{apiserver*,front-proxy-client*}"
+	ensure_success $sh_c "$KUBEADM init phase certs apiserver --config=/etc/kubernetes/kubeadm-config.yaml"
+	ensure_success $sh_c "$KUBEADM init phase certs apiserver-kubelet-client --config=/etc/kubernetes/kubeadm-config.yaml"
+	ensure_success $sh_c "$KUBEADM init phase certs front-proxy-client --config=/etc/kubernetes/kubeadm-config.yaml"
 
-	# restore certificates
-	ensure_success $sh_c "mkdir -p kubernetes"
-	ensure_success $sh_c "cp -r $tmpdir/kubernetes-backup/pki kubernetes"
-	ensure_success $sh_c "rm -rf kubernetes/pki/{apiserver.*,etcd/peer.*}"
+	ensure_success $sh_c "kubeadm init phase kubeconfig admin --config=/etc/kubernetes/kubeadm-config.yaml"
+	ensure_success $sh_c "cp -f /etc/kubernetes/admin.conf /root/.kube/config"
 
-	ensure_success $sh_c "systemctl start containerd"
+    ensure_success $sh_c "systemctl daemon-reload"
+	ensure_success $sh_c "systemctl start kubelet containerd"
 
-	# reinit master with data in etcd
-	# add --kubernetes-version, --pod-network-cidr and --token options if needed
-	ensure_success $sh_c "$KUBEADM init \ 
-		--ignore-preflight-errors=DirAvailable--var-lib-etcd,Port-10259,Port-10257 \
-		--skip-phases=addon/coredns,addon/kube-proxy"
-
-	# update kubectl config
-	ensure_success $sh_c "cp kubernetes/admin.conf /root/.kube/config"
+	# restart k8s processes
+	$sh_c "killall kube-apiserver" 
+	$sh_c "killall kube-scheduler" 
+	$sh_c "killall kube-controller-manager" 
 
 	# wait for some time and delete old node
+	log_info 'IP changed, the OS will be reloaded in 2 minutes...'
 	sleep 120
 	ensure_success $sh_c "$KUBECTL get nodes --sort-by=.metadata.creationTimestamp"
-	ensure_success $sh_c "$KUBECTL delete node $($KUBECTL get nodes -o jsonpath='{.items[?(@.status.conditions[0].status==\"Unknown\")].metadata.name}')"
 
 	# check running pods
 	ensure_success $sh_c "$KUBECTL get pods --all-namespaces"
 }
+
+get_auth_status(){
+    $sh_c "${KUBECTL} get pod  -n user-space-${username} -l 'app=authelia' -o jsonpath='{.items[*].status.phase}'"
+}
+
+get_profile_status(){
+    $sh_c "${KUBECTL} get pod  -n user-space-${username} -l 'app=profile' -o jsonpath='{.items[*].status.phase}'"
+}
+
+get_desktop_status(){
+    $sh_c "${KUBECTL} get pod  -n user-space-${username} -l 'app=edge-desktop' -o jsonpath='{.items[*].status.phase}'"
+}
+
+get_vault_status(){
+    $sh_c "${KUBECTL} get pod  -n user-space-${username} -l 'app=vault' -o jsonpath='{.items[*].status.phase}'"
+}
+
+get_appservice_status(){
+    $sh_c "${KUBECTL} get pod  -n os-system -l 'tier=app-service' -o jsonpath='{.items[*].status.phase}'"
+}
+
+get_bfl_status(){
+    $sh_c "${KUBECTL} get pod  -n user-space-${username} -l 'tier=bfl' -o jsonpath='{.items[*].status.phase}'"
+}
+
+get_settings_status(){
+    $sh_c "${KUBECTL} get pod  -n user-space-${username} -l 'app=settings' -o jsonpath='{.items[*].status.phase}'"
+}
+
+check_together(){
+    local all=$@
+    
+    local s=""
+    for f in "${all[@]}"; do 
+        s=$($f)
+        if [ "x${s}" != "xRunning" ]; then
+            break
+        fi
+    done
+
+    echo "${s}"
+}
+
+check_desktop(){
+    status=$(check_together get_appservice_status get_bfl_status get_vault_status get_profile_status get_auth_status get_desktop_status get_settings_status)
+    n=0
+    while [ "x${status}" != "xRunning" ]; do
+        n=$(expr $n + 1)
+        dotn=$(($n % 10))
+        dot=$(repeat $dotn '>')
+
+        echo -ne "\rPlease waiting ${dot}"
+        sleep 0.5
+
+        status=$(check_together get_appservice_status get_bfl_status get_vault_status  get_profile_status get_auth_status get_desktop_status get_settings_status)
+        echo -ne "\rPlease waiting          "
+
+    done
+    echo
+}
+
 
 main() {
 	get_shell_exec
 	precheck_os
 
 	local storage_type="s3"
-	if system_service_active "k3s" ; then
-		update_k3s_master
-	fi 
+	if is_k3s; then
+		if system_service_active "k3s" ; then
+			update_k3s_master
+		fi 
+	fi
 
 	update_juicefs
+	update_etcd
 
-	if system_service_active "k3s" ; then
+	if is_k3s ; then
+		log_info "updating k3s"
+
 		post_update_k3s_master
 	else
+		log_info "updating k8s"
+
 	    update_k8s_master
 	fi 
 
 	if [ "$storage_type" == "minio" ]; then 
 		update_minio_operator
 	fi
+
+	# check os auto-reloading
+    log_info 'Waiting for Terminus reloading ...'
+    check_desktop
+
+	log_info 'Success to change the Terminus IP address!'
 }
 
 main
