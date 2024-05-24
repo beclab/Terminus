@@ -435,7 +435,7 @@ main() {
     log_info 'Waiting for Terminus reloading ...'
     check_desktop
 
-	for u in get_all_user ; do
+	for u in $(get_all_user) ; do
 		$sh_c "${KUBECTL} rollout restart deploy -n user-space-$u edge-desktop"
 		$sh_c "${KUBECTL} rollout restart deploy -n user-space-$u headscale-server"
 	done
