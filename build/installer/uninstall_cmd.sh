@@ -123,6 +123,8 @@ remove_cluster(){
         $sh_c "ipvsadm -C"
     fi
     $sh_c "iptables -F"
+
+    $sh_c "killall /usr/local/bin/containerd || true"
 }
 
 docker_files=(/usr/bin/docker*

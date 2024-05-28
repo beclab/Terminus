@@ -92,7 +92,7 @@ spec:
           value: system-server.user-system-{{ .Values.bfl.username }}
 
       - name: files
-        image: beclab/files-server:v0.2.15
+        image: beclab/files-server:v0.2.18
         imagePullPolicy: IfNotPresent
         volumeMounts:
         - name: fb-data
@@ -108,6 +108,8 @@ spec:
         ports:
         - containerPort: 8110
         env:
+        - name: BFL_NAME
+          value: '{{ .Values.bfl.username }}'
         - name: FB_DATABASE
           value: /appdata/database/filebrowser.db
         - name: FB_CONFIG
@@ -163,7 +165,7 @@ spec:
         - /filebrowser
         - --noauth
       - name: files-frontend
-        image: beclab/files-frontend:v0.4.57
+        image: beclab/files-frontend:v0.4.63
         imagePullPolicy: IfNotPresent
         ports:
         - containerPort: 80
@@ -172,12 +174,12 @@ spec:
           mountPath: /data
 
       - name: terminus-upload-sidecar
-        image: beclab/upload:v1.0.2
+        image: beclab/upload:v1.0.3
         env:
         - name: UPLOAD_FILE_TYPE
           value: '*'
         - name: UPLOAD_LIMITED_SIZE
-          value: '4793247329'
+          value: '21474836481'
         volumeMounts:
         - name: upload-data
           mountPath: /data/Home
@@ -185,6 +187,8 @@ spec:
           mountPath: /appdata/
         - name: userspace-app-dir
           mountPath: /data/Application
+        - name: uploads-temp
+          mountPath: /uploadstemp
         resources: { }
         terminationMessagePath: /dev/termination-log
         terminationMessagePolicy: File
@@ -255,6 +259,10 @@ spec:
         hostPath:
           type: DirectoryOrCreate
           path: {{ .Values.userspace.appCache}}
+      - name: uploads-temp
+        hostPath:
+          type: DirectoryOrCreate
+          path: {{ .Values.userspace.appCache }}/files/uploadstemp
       - name: terminus-sidecar-config
         configMap:
           name: sidecar-upload-configs
