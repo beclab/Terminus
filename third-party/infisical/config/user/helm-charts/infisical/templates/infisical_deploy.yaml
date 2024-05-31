@@ -191,6 +191,17 @@ spec:
         app: infisical
     spec:
       serviceAccountName: infisical-sa
+      initContainers:
+      - name: "migration-init"
+        image: "beclab/infisical:0.1.1"
+        imagePullPolicy: IfNotPresent
+        command: ["npm", "run", "migration:latest"]
+        envFrom:
+        - secretRef:
+            name: infisical-backend
+        env:
+        - name: DB_CONNECTION_URI
+          value: "postgres://$(POSTGRES_USER):$(POSTGRES_PASSWORD)@citus-master-svc.user-system-{{ .Values.bfl.username }}/$(POSTGRES_DB)?sslmode=disable"
       containers:
       - name: infisical
         image: "beclab/infisical:0.1.1"
