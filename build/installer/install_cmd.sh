@@ -1792,7 +1792,7 @@ check_orion_gpu(){
         echo -ne "\rWaiting for orionx-container-runtime starting ${dot}"
         sleep 0.5
 
-        status=$(get_gpu_status)
+        status=$(get_orion_gpu_status)
         echo -ne "\rWaiting for orionx-container-runtime starting          "
 
     done
