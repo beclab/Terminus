@@ -29,7 +29,41 @@
   {{ $mongo_password_data = $mongo_password | b64dec }}
 {{- end -}}
 
+{{- $pg_password := "" -}}
+{{ if $knowledge_secret -}}
+{{ $pg_password = (index $knowledge_secret "data" "pg_password") }}
+{{ else -}}
+{{ $pg_password = randAlphaNum 16 | b64enc }}
+{{- end -}}
 
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: knowledge-secrets
+  namespace: user-system-{{ .Values.bfl.username }}
+type: Opaque
+data:
+  pg_password: {{ $pg_password }}
+---
+apiVersion: apr.bytetrade.io/v1alpha1
+kind: MiddlewareRequest
+metadata:
+  name: knowledge-pg
+  namespace: user-system-{{ .Values.bfl.username }}
+spec:
+  app: knowledge
+  appNamespace: {{ .Release.Namespace }}
+  middleware: postgres
+  postgreSQL:
+    user: knowledge_{{ .Values.bfl.username }}
+    password:
+      valueFrom:
+        secretKeyRef:
+          key: pg_password
+          name: knowledge-secrets
+    databases:
+    - name: knowledge   
 ---
 apiVersion: v1
 kind: ConfigMap
@@ -105,6 +139,16 @@ spec:
               key: redis_addr
         - name: PDF_SAVE_PATH
           value: /data/Home/Documents/Pdf/
+        - name: PG_USERNAME
+          value: knowledge_{{ .Values.bfl.username }}
+        - name: PG_PASSWORD
+          value: {{ $pg_password | b64dec }}
+        - name: PG_HOST
+          value: citus-master-svc.user-system-{{ .Values.bfl.username }}
+        - name: PG_PORT
+          value: "5432"
+        - name: PG_DATABASE
+          value: user_space_{{ .Values.bfl.username }}_knowledge
         volumeMounts:
         - name: watch-dir
           mountPath: /data/Home/Documents
@@ -160,6 +204,7 @@ spec:
           value: https://recommend-wechat-prd.bttcdn.com/api/wechat/entries
         - name: WECHAT_ENTRY_CONTENT_GET_API_URL
           value: https://recommend-wechat-prd.bttcdn.com/api/wechat/entry/content
+
         
         ports:
         - containerPort: 8080
