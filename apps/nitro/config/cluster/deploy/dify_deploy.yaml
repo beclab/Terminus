@@ -860,7 +860,7 @@ spec:
           - name: NGL_VALUE
             value: '33'
           - name: C_VALUE
-            value: '4096'
+            value: '1024'
           - name: OTHER_VALUES
           - name: PGID
             value: '1000'
