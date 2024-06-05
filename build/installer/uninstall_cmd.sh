@@ -9,6 +9,10 @@ CURL_TRY="--connect-timeout 30 --retry 5 --retry-delay 1 --retry-max-time 10 "
 RM=$(command -v rm)
 KUBECTL=$(command -v kubectl)
 KKE_FILE="/etc/kke/version"
+STS_ACCESS_KEY=""
+STS_SECRET_KEY=""
+STS_TOKEN=""
+STS_CLUSTER_ID=""
 
 command_exists() {
 	command -v "$@" > /dev/null 2>&1
@@ -76,6 +80,13 @@ find_version(){
     fi
 
     echo "Warning: file $KKE_FILE does not exists, and kube version not be found"
+}
+
+find_storage_key(){
+    STS_ACCESS_KEY=$($sh_c "${KUBECTL} get terminus terminus -o jsonpath='{.metadata.annotations.bytetrade\.io/s3-ak}'" &>/dev/null;true)
+    STS_SECRET_KEY=$($sh_c "${KUBECTL} get terminus terminus -o jsonpath='{.metadata.annotations.bytetrade\.io/s3-sk}'" &>/dev/null;true)
+    STS_TOKEN=$($sh_c "${KUBECTL} get terminus terminus -o jsonpath='{.metadata.annotations.bytetrade\.io/s3-sts}'" &>/dev/null;true)
+    STS_CLUSTER_ID=$($sh_c "${KUBECTL} get terminus terminus -o jsonpath='{.metadata.labels.bytetrade\.io/cluster-id}'" &>/dev/null;true)
 }
 
 remove_cluster(){
@@ -207,6 +218,22 @@ remove_mount() {
     storage="${STORAGE}"
     s3_bucket="${S3_BUCKET}"
 
+    if [ -z "$STS_ACCESS_KEY"]; then
+        STS_ACCESS_KEY=${AWS_ACCESS_KEY_ID_SETUP}
+    fi
+
+    if [ -z "$STS_SECRET_KEY"]; then
+        STS_SECRET_KEY=${AWS_SECRET_ACCESS_KEY_SETUP}
+    fi
+
+    if [ -z "$STS_TOKEN"]; then
+        STS_TOKEN=${AWS_SESSION_TOKEN_SETUP}
+    fi
+
+    if [ -z "$STS_CLUSTER_ID" ]; then
+        STS_CLUSTER_ID=${CLUSTER_ID}
+    fi
+
     if [ x"$version" == x"true" ]; then
         log_info 'remove juicefs s3 mount'
         ensure_success $sh_c "apt install unzip"
@@ -230,7 +257,7 @@ remove_mount() {
                 s3=$($sh_c "echo $s3 | sed 's/https/s3/'")
 
                 log_info 'clean juicefs s3 mount'
-                ensure_success $sh_c "AWS_ACCESS_KEY_ID=${AWS_ACCESS_KEY_ID_SETUP} AWS_SECRET_ACCESS_KEY=${AWS_SECRET_ACCESS_KEY_SETUP} AWS_SESSION_TOKEN=${AWS_SESSION_TOKEN_SETUP} ${AWS} s3 rm $s3/${CLUSTER_ID} --recursive"
+                ensure_success $sh_c "AWS_ACCESS_KEY_ID=${STS_ACCESS_KEY} AWS_SECRET_ACCESS_KEY=${STS_SECRET_KEY} AWS_SESSION_TOKEN=${STS_TOKEN} ${AWS} s3 rm $s3/${STS_CLUSTER_ID} --recursive"
                 ;;
             "oss")
                 local osscli_file="ossutil-v1.7.18-linux-amd64.zip"
@@ -254,7 +281,7 @@ remove_mount() {
                 
                 log_info 'clean juicefs oss mount'
                 OSSUTIL=$(command -v ossutil64)
-                ensure_success $sh_c "${OSSUTIL} rm ${oss}/${CLUSTER_ID}/ --endpoint=${endpoint} --access-key-id=${AWS_ACCESS_KEY_ID_SETUP} --access-key-secret=${AWS_SECRET_ACCESS_KEY_SETUP} --sts-token=${AWS_SESSION_TOKEN_SETUP} -r -f"
+                ensure_success $sh_c "${OSSUTIL} rm ${oss}/${STS_CLUSTER_ID}/ --endpoint=${endpoint} --access-key-id=${STS_ACCESS_KEY} --access-key-secret=${STS_SECRET_KEY} --sts-token=${STS_TOKEN} -r -f >/dev/null"
                 ;;
             *)
                 ;;
@@ -274,6 +301,7 @@ mkdir -p ${INSTALL_DIR} && cd ${INSTALL_DIR}
 
 log_info 'Uninstalling OS ...'
 find_version
+find_storage_key
 remove_cluster
 remove_storage
 remove_mount
