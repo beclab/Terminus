@@ -4,6 +4,8 @@
 
 ERR_EXIT=1
 
+CURL_TRY="--connect-timeout 30 --retry 5 --retry-delay 1 --retry-max-time 10 "
+
 RM=$(command -v rm)
 KUBECTL=$(command -v kubectl)
 KKE_FILE="/etc/kke/version"
@@ -65,7 +67,7 @@ find_version(){
         [ x"$KKE_VERSION" != x"" ] && [ x"$KUBE_VERSION" != x"" ] && return
     fi
 
-    KKE_VERSION=0.1.19       # don't need to change it, as long as it's greater than 0.1.6
+    KKE_VERSION=0.1.20      # don't need to change it, as long as it's greater than 0.1.6
 
     local kube="$(get_kubelet_version)"
     if [ x"$kube" != x"" ]; then
@@ -82,25 +84,27 @@ remove_cluster(){
     fi
 
     if [ x"$KKE_VERSION" == x"" ]; then
-        KKE_VERSION="0.1.19"
+        KKE_VERSION="0.1.20"
     fi
 
     forceUninstall="${FORCE_UNINSTALL_CLUSTER}"
 
     log_info 'remove kubernetes cluster'
 
+    local kk_tar="${HOME}/install_wizard/components/kubekey-ext-v${KKE_VERSION}-linux-amd64.tar.gz"
+
     if [ x"$PROXY" != x"" ]; then
         ensure_success $sh_c "cat /etc/resolv.conf > /etc/resolv.conf.bak"
         ensure_success $sh_c "echo nameserver $PROXY > /etc/resolv.conf"
         # if download failed
-        if [ -f "${HOME}/kubekey-ext-v${KKE_VERSION}-linux-amd64.tar.gz" ]; then
-            ensure_success $sh_c "cp ${HOME}/kubekey-ext-v${KKE_VERSION}-linux-amd64.tar.gz ${INSTALL_DIR}"
+        if [ -f "${kk_tar}" ]; then
+            ensure_success $sh_c "cp ${kk_tar} ${INSTALL_DIR}"
         else
             ensure_success $sh_c "curl ${CURL_TRY} -kLO https://github.com/beclab/kubekey-ext/releases/download/${KKE_VERSION}/kubekey-ext-v${KKE_VERSION}-linux-amd64.tar.gz"
         fi
         ensure_success $sh_c "tar xf kubekey-ext-v${KKE_VERSION}-linux-amd64.tar.gz"
         ensure_success $sh_c "cat /etc/resolv.conf.bak > /etc/resolv.conf"
-    else
+    else 
     	ensure_success $sh_c "curl -sfL https://raw.githubusercontent.com/beclab/kubekey-ext/master/downloadKKE.sh | VERSION=${KKE_VERSION} bash -"
     fi
     ensure_success $sh_c "chmod +x kk"
@@ -203,25 +207,58 @@ remove_mount() {
     storage="${STORAGE}"
     s3_bucket="${S3_BUCKET}"
 
-    if [[ x"$version" == x"true" && x"$storage" == x"s3" ]]; then
-
-        local s3
+    if [ x"$version" == x"true" ]; then
         log_info 'remove juicefs s3 mount'
+        ensure_success $sh_c "apt install unzip"
+        case "$storage" in
+            "s3")
+                local awscli_file="awscli-exe-linux-x86_64.zip"
+                local awscli_tar="${HOME}/components/${awscli_file}"
+                if ! command_exists aws; then 
+                    if [ -f "${awscli_tar}" ]; then
+                        ensure_success $sh_c "cp ${awscli_tar} ."
+                    else
+                        ensure_success $sh_c 'curl ${CURL_TRY} -kLO "https://awscli.amazonaws.com/${awscli_file}"'
+                    fi
+                    ensure_success $sh_c "unzip -q ${awscli_file}"
+                    ensure_success $sh_c "./aws/install --update"
+                fi
 
-        if ! command_exists aws; then 
-            ensure_success $sh_c "apt install unzip"
-            ensure_success $sh_c 'curl "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o "awscliv2.zip"'
-            ensure_success $sh_c "unzip -q awscliv2.zip"
-            ensure_success $sh_c "./aws/install --update"
-        fi
-        
-        AWS=$(command -v aws)
+                AWS=$(command -v aws)
 
-        s3=$($sh_c "echo $s3_bucket | rev | cut -d '.' -f 5 | rev")
-        s3=$($sh_c "echo $s3 | sed 's/https/s3/'")
+                s3=$($sh_c "echo $s3_bucket | rev | cut -d '.' -f 5 | rev")
+                s3=$($sh_c "echo $s3 | sed 's/https/s3/'")
 
-        log_info 'clean juicefs s3 mount'
-        ensure_success $sh_c "AWS_ACCESS_KEY_ID=${AWS_ACCESS_KEY_ID_SETUP} AWS_SECRET_ACCESS_KEY=${AWS_SECRET_ACCESS_KEY_SETUP} AWS_SESSION_TOKEN=${AWS_SESSION_TOKEN_SETUP} ${AWS} s3 rm $s3/${CLUSTER_ID} --recursive"
+                log_info 'clean juicefs s3 mount'
+                ensure_success $sh_c "AWS_ACCESS_KEY_ID=${AWS_ACCESS_KEY_ID_SETUP} AWS_SECRET_ACCESS_KEY=${AWS_SECRET_ACCESS_KEY_SETUP} AWS_SESSION_TOKEN=${AWS_SESSION_TOKEN_SETUP} ${AWS} s3 rm $s3/${CLUSTER_ID} --recursive"
+                ;;
+            "oss")
+                local osscli_file="ossutil-v1.7.18-linux-amd64.zip"
+                local osscli_tar="${HOME}/components/${osscli_file}"
+                if ! command_exists ossutil64; then
+                    if [ -f "${osscli_tar}" ]; then
+                        ensure_success $sh_c "cp ${osscli_tar} ."
+                    else
+                        ensure_success $sh_c 'curl ${CURL_TRY} -kLO "https://github.com/aliyun/ossutil/releases/download/v1.7.18/${osscli_file}"'
+                    fi
+
+                    ensure_success $sh_c "unzip -q ${osscli_file}"
+                    ensure_success $sh_c "mv ./ossutil-v1.7.18-linux-amd64/* /usr/local/sbin/"
+
+                    ensure_success $sh_c "chmod +x /usr/local/bin/ossutil*"
+                fi
+
+                oss=$($sh_c "echo $s3_bucket | rev | cut -d '.' -f 4 | rev")
+                oss=$($sh_c "echo $oss | sed 's/https/oss/'")
+                endpoint=$($sh_c "echo $s3_bucket | awk -F[/.] '{print \"https://\"\$(NF-2)\".\"\$(NF-1)\".\"\$NF}'")
+                
+                log_info 'clean juicefs oss mount'
+                OSSUTIL=$(command -v ossutil64)
+                ensure_success $sh_c "${OSSUTIL} rm ${oss}/${CLUSTER_ID}/ --endpoint=${endpoint} --access-key-id=${AWS_ACCESS_KEY_ID_SETUP} --access-key-secret=${AWS_SECRET_ACCESS_KEY_SETUP} --sts-token=${AWS_SESSION_TOKEN_SETUP} -r -f"
+                ;;
+            *)
+                ;;
+        esac
     fi
 }
 
