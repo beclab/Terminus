@@ -113,8 +113,8 @@ spec:
     spec:
       containers:
       - name: knowledge
-        image: "beclab/knowledge-base-api:v0.1.26"
-        imagePullPolicy: IfNotPresent
+        image: "beclab/knowledge-base-api:v0.0.0.0.1"
+        imagePullPolicy: Always
         ports:
         - containerPort: 3010
         env:
@@ -162,8 +162,8 @@ spec:
             memory: 1Gi
 
       - name: backend-server
-        image: "beclab/recommend-backend:v0.0.3"
-        imagePullPolicy: IfNotPresent
+        image: "beclab/recommend-backend:v0.0.0.0.1"
+        imagePullPolicy: Always
         env:
         - name: MONGODB_PASSWORD
           valueFrom:
@@ -204,6 +204,16 @@ spec:
           value: https://recommend-wechat-prd.bttcdn.com/api/wechat/entries
         - name: WECHAT_ENTRY_CONTENT_GET_API_URL
           value: https://recommend-wechat-prd.bttcdn.com/api/wechat/entry/content
+        - name: PG_USER
+          value: knowledge_{{ .Values.bfl.username }}
+        - name: PG_PASS
+          value: {{ $pg_password | b64dec }}
+        - name: PG_HOST
+          value: citus-master-svc.user-system-{{ .Values.bfl.username }}
+        - name: PG_PORT
+          value: "5432"
+        - name: PG_DB_NAME
+          value: user_space_{{ .Values.bfl.username }}_knowledge
 
         
         ports:
