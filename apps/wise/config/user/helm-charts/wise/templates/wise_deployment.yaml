@@ -62,7 +62,7 @@ spec:
 
       containers:
       - name: frontend
-        image: zyh2023/wise:v0.1.26-test2
+        image: zyh2023/wise:v0.1.26-test5
         imagePullPolicy: Always
         ports:
         - containerPort: 80
