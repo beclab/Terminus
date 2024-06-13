@@ -490,6 +490,8 @@ run_install() {
         else
             ensure_success $sh_c "${HELM} upgrade -i gpu ${BASE_DIR}/wizard/config/gpu -n gpu-system --force --set gpu.server=${GPU_DOMAIN} --set container.manager=containerd --create-namespace"
         fi
+
+        check_orion_gpu
     fi
 
     GPU_TYPE="none"
@@ -1042,6 +1044,84 @@ random_string() {
     echo -n "$text"
 }
 
+pull_velero_image() {
+    local count
+    local velero_ver=$1
+    count=$(_check_velero_image_exists "$velero_ver")
+    if [ x"$count" == x"0" ]; then
+        echo "pull velero image $velero_ver ..."
+        ensure_success $sh_c "$CRICTL pull docker.io/beclab/velero:${velero_ver} &>/dev/null;true"
+    fi
+
+    while [ "$count" -lt 1 ]; do
+        sleep 3
+        count=$(_check_velero_image_exists "$velero_ver")
+    done
+    echo
+}
+
+_check_velero_image_exists() {
+  local exists=0
+  local ver=$1
+  local res=$($sh_c "${CRICTL} images |grep 'velero ' 2>/dev/null")
+  if [ "$?" -ne 0 ]; then
+      echo "0"
+  fi
+  exists=$(echo "$res" | while IFS= read -r line; do
+      linev=$(echo $line |awk '{print $2}')
+      if [ "$linev" == "$ver" ]; then
+          echo 1
+          break
+      fi
+  done)
+
+  if [ -z "$exists" ]; then
+      exists=0
+  fi
+
+  echo "${exists}"
+}
+
+pull_velero_plugin_image() {
+    local count
+    local velero_plugin_ver=$1
+    count=$(_check_velero_plugin_image_exists "$velero_plugin_ver")
+    if [ x"$count" == x"0" ]; then
+        echo "pull velero-plugin image $velero_plugin_ver ..."
+        ensure_success $sh_c "$CRICTL pull docker.io/beclab/velero-plugin-for-terminus:${velero_plugin_ver} &>/dev/null;true"
+    fi
+
+    while [ "$count" -lt 1 ]; do
+        sleep 3
+        count=$(_check_velero_plugin_image_exists "$velero_plugin_ver")
+    done
+    echo
+}
+
+_check_velero_plugin_image_exists() {
+  local exists=0
+  local ver=$1
+  local query="${CRICTL} images"
+  local res=$($sh_c "${CRICTL} images |grep 'velero-plugin-for-terminus' 2>/dev/null")
+  if [ "$?" -ne 0 ]; then
+      echo "0"
+  fi
+
+  exists=$(echo "$res" | while IFS= read -r line; do
+      linev=$(echo $line |awk '{print $2}')
+      if [ "$linev" == "$ver" ]; then
+          echo 1
+          break
+      fi
+  done)
+
+  if [ -z "$exists" ]; then
+      exists=0
+  fi
+
+  echo "$exists"
+}
+
 install_velero() {
     config_proxy_resolv_conf
 
@@ -1071,16 +1151,16 @@ install_velero_plugin_terminus() {
   namespace="os-system"
   storage_location="terminus-cloud"
   bucket="terminus-cloud"
-  image="beclab/velero:v1.11.1"
-  plugin="beclab/velero-plugin-for-terminus:v1.0.2"
+  velero_ver="v1.11.1"
+  velero_plugin_ver="v1.0.2"
 
-  if [[ "$provider" == x"" || "$namespace" == x"" || "$bucket" == x"" || "$image" == x"" || "$plugin" == x"" ]]; then
+  if [[ "$provider" == x"" || "$namespace" == x"" || "$bucket" == x"" || "$velero_ver" == x"" || "$velero_plugin_ver" == x"" ]]; then
     echo "Backup plugin install params invalid."
     exit $ERR_EXIT
   fi
 
-  velero_plugin_image_pull=$($sh_c "${CRICTL} pull ${image}")
-  velero_plugin_image_pull=$($sh_c "${CRICTL} pull ${plugin}")
+  pull_velero_image "$velero_ver"
+  pull_velero_plugin_image "$velero_plugin_ver"
 
   terminus_backup_location=$($sh_c "${VELERO} backup-location get -n os-system | awk '\$1 == \"${storage_location}\" {count++} END{print count}'")
   if [[ ${terminus_backup_location} == x"" || ${terminus_backup_location} -lt 1 ]]; then
@@ -1100,13 +1180,13 @@ install_velero_plugin_terminus() {
   if [[ ${velero_plugin_terminus} == x"" || ${velero_plugin_terminus} -lt 1 ]]; then
     velero_plugin_install_cmd="${VELERO} install"
     velero_plugin_install_cmd+=" --no-default-backup-location --namespace $namespace"
-    velero_plugin_install_cmd+=" --image $image --use-volume-snapshots=false"
-    velero_plugin_install_cmd+=" --no-secret --plugins $plugin"
+    velero_plugin_install_cmd+=" --image beclab/velero:$velero_ver --use-volume-snapshots=false"
+    velero_plugin_install_cmd+=" --no-secret --plugins beclab/velero-plugin-for-terminus:$velero_plugin_ver"
     velero_plugin_install_cmd+=" --velero-pod-cpu-request=50m --velero-pod-cpu-limit=500m"
     velero_plugin_install_cmd+=" --node-agent-pod-cpu-request=50m --node-agent-pod-cpu-limit=500m"
     velero_plugin_install_cmd+=" --wait"
     ensure_success $sh_c "$velero_plugin_install_cmd"
-    velero_plugin_install_cmd="${VELERO} plugin add $plugin -n os-system"
+    velero_plugin_install_cmd="${VELERO} plugin add beclab/velero-plugin-for-terminus:$plugin -n os-system"
     msg=$($sh_c "$velero_plugin_install_cmd 2>&1")
   fi
 
@@ -1134,7 +1214,7 @@ install_containerd(){
         # preinstall containerd for k8s
         if command_exists containerd && [ -f /etc/systemd/system/containerd.service ];  then
             ctr_cmd=$(command -v ctr)
-            if ! system_service_active "containerd"; then            
+            if ! system_service_active "containerd"; then
                 ensure_success $sh_c "systemctl start containerd"
             fi
         else
@@ -1145,7 +1225,6 @@ install_containerd(){
             if [ -f "$containerd_tar" ]; then
                 ensure_success $sh_c "cp ${containerd_tar} containerd-${CONTAINERD_VERSION}-linux-amd64.tar.gz"
             else
-                echo "---download containerd---" # ! debug
                 ensure_success $sh_c "wget https://github.com/containerd/containerd/releases/download/v${CONTAINERD_VERSION}/containerd-${CONTAINERD_VERSION}-linux-amd64.tar.gz"
             fi
             ensure_success $sh_c "tar Cxzvf /usr/local containerd-${CONTAINERD_VERSION}-linux-amd64.tar.gz"
@@ -1153,18 +1232,17 @@ install_containerd(){
             if [ -f "$runc_tar" ]; then
                 ensure_success $sh_c "cp ${runc_tar} runc.amd64"
             else
-                echo "---download runc---" # ! debug
-                ensure_success $sh_c "wget https://github.com/opencontainers/runc/releases/download/v1.1.4/runc.amd64"
+                ensure_success $sh_c "wget https://github.com/opencontainers/runc/releases/download/v${RUNC_VERSION}/runc.amd64"
             fi
             ensure_success $sh_c "install -m 755 runc.amd64 /usr/local/sbin/runc"
 
             if [ -f "$cni_plugin_tar" ]; then
                 ensure_success $sh_c "cp ${cni_plugin_tar} cni-plugins-linux-amd64-v${CNI_PLUGIN_VERSION}.tgz"
             else
-                ensure_success $sh_c "wget https://github.com/containernetworking/plugins/releases/download/v1.1.1/cni-plugins-linux-amd64-v1.1.1.tgz"
+                ensure_success $sh_c "wget https://github.com/containernetworking/plugins/releases/download/v${CNI_PLUGIN_VERSION}/cni-plugins-linux-amd64-v${CNI_PLUGIN_VERSION}.tgz"
             fi
             ensure_success $sh_c "mkdir -p /opt/cni/bin"
-            ensure_success $sh_c "tar Cxzvf /opt/cni/bin cni-plugins-linux-amd64-v1.1.1.tgz"
+            ensure_success $sh_c "tar Cxzvf /opt/cni/bin cni-plugins-linux-amd64-v${CNI_PLUGIN_VERSION}.tgz"
             ensure_success $sh_c "mkdir -p /etc/containerd"
             ensure_success $sh_c "containerd config default | tee /etc/containerd/config.toml"
             ensure_success $sh_c "sed -i 's/SystemdCgroup \= false/SystemdCgroup \= true/g' /etc/containerd/config.toml"
@@ -1231,18 +1309,23 @@ install_k8s_ks() {
     KKE_VERSION=0.1.20
 
     ensure_success $sh_c "mkdir -p /etc/kke"
+    local kk_bin="${BASE_DIR}/components/kk"
     local kk_tar="${BASE_DIR}/components/kubekey-ext-v${KKE_VERSION}-linux-amd64.tar.gz"
 
-    if [ ! -f "$kk_tar" ]; then
-        if [ x"$PROXY" != x"" ]; then
-          ensure_success $sh_c "curl ${CURL_TRY} -k -sfLO https://github.com/beclab/kubekey-ext/releases/download/${KKE_VERSION}/kubekey-ext-v${KKE_VERSION}-linux-amd64.tar.gz"
-          ensure_success $sh_c "tar xf kubekey-ext-v${KKE_VERSION}-linux-amd64.tar.gz"
+    if [ ! -f "$kk_bin" ]; then
+        if [ ! -f "$kk_tar" ]; then
+            if [ x"$PROXY" != x"" ]; then
+              ensure_success $sh_c "curl ${CURL_TRY} -k -sfLO https://github.com/beclab/kubekey-ext/releases/download/${KKE_VERSION}/kubekey-ext-v${KKE_VERSION}-linux-amd64.tar.gz"
+              ensure_success $sh_c "tar xf kubekey-ext-v${KKE_VERSION}-linux-amd64.tar.gz"
+            else
+              ensure_success $sh_c "curl ${CURL_TRY} -sfL https://raw.githubusercontent.com/beclab/kubekey-ext/master/downloadKKE.sh | VERSION=${KKE_VERSION} sh -"
+            fi
         else
-          ensure_success $sh_c "curl ${CURL_TRY} -sfL https://raw.githubusercontent.com/beclab/kubekey-ext/master/downloadKKE.sh | VERSION=${KKE_VERSION} sh -"
+            ensure_success $sh_c "cp ${kk_tar} kubekey-ext-v${KKE_VERSION}-linux-amd64.tar.gz"
+            ensure_success $sh_c "tar xf kubekey-ext-v${KKE_VERSION}-linux-amd64.tar.gz"
         fi
-    else
-        ensure_success $sh_c "cp ${kk_tar} kubekey-ext-v${KKE_VERSION}-linux-amd64.tar.gz"
-        ensure_success $sh_c "tar xf kubekey-ext-v${KKE_VERSION}-linux-amd64.tar.gz"
+    else 
+        ensure_success $sh_c "cp ${kk_bin} ./"
     fi
     ensure_success $sh_c "chmod +x kk"
 
@@ -1558,6 +1641,10 @@ get_gpu_status(){
     $sh_c "${KUBECTL} get pod  -n kube-system -l 'name=nvidia-device-plugin-ds' -o jsonpath='{.items[*].status.phase}'"
 }
 
+get_orion_gpu_status(){
+    $sh_c "${KUBECTL} get pod  -n gpu-system -l 'app=orionx-container-runtime' -o jsonpath='{.items[*].status.phase}'"
+}
+
 get_userspace_dir(){
     $sh_c "${KUBECTL} get pod  -n user-space-${username} -l 'tier=bfl' -o \
     jsonpath='{range .items[0].spec.volumes[*]}{.name}{\" \"}{.persistentVolumeClaim.claimName}{\"\\n\"}{end}}'" | \
@@ -1775,12 +1862,35 @@ check_gpu(){
     echo
 }
 
+check_orion_gpu(){
+    status=$(get_orion_gpu_status)
+    n=0
+    while [ "x${status}" != "xRunning" ]; do
+        n=$(expr $n + 1)
+        dotn=$(($n % 10))
+        dot=$(repeat $dotn '>')
+
+        echo -ne "\rWaiting for orionx-container-runtime starting ${dot}"
+        sleep 0.5
+
+        status=$(get_orion_gpu_status)
+        echo -ne "\rWaiting for orionx-container-runtime starting          "
+
+    done
+    echo
+}
+
 install_gpu(){
     # only for leishen mix
     # to be tested
     log_info 'Installing Nvidia GPU Driver ...\n'
 
     distribution=$(. /etc/os-release;echo $ID$VERSION_ID|sed 's/\.//g')
+
+    if [ "$distribution" == "ubuntu2404" ]; then
+        echo "Not supported Ubuntu 24.04"
+        return
+    fi
 
     if [[ "$distribution" =~ "ubuntu" ]]; then
         case "$distribution" in

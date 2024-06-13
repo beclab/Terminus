@@ -844,7 +844,7 @@ spec:
               - SYS_ADMIN
       {{- if and .Values.gpu (not (eq .Values.gpu "none" )) }}
       - name: nitro
-        image: 'beclab/nitro:v0.0.2'
+        image: 'beclab/nitro:v0.0.6'
         ports:
           - name: nitro-port
             containerPort: 3928
@@ -853,12 +853,14 @@ spec:
             containerPort: 3900
             protocol: TCP
         env:
+          - name: LLM_UTIL
+            value: 'NITRO'
           - name: PREFIX
             value: '/nitro'
           - name: NGL_VALUE
             value: '33'
           - name: C_VALUE
-            value: '4096'
+            value: '1024'
           - name: OTHER_VALUES
           - name: PGID
             value: '1000'
