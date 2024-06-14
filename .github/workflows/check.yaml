@@ -6,6 +6,8 @@ on:
   pull_request_target:
     branches: [ "main", "release-*" ]
 
+  workflow_dispatch:
+
 
 jobs:
   lint-test:
