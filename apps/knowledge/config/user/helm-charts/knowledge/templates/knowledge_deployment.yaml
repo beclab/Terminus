@@ -19,15 +19,6 @@
 {{- $redis_password_data := "" -}}
 {{ $redis_password_data = $redis_password | b64dec }}
 
-# {{- $mongo_secret := (lookup "v1" "Secret" .Release.Namespace "knowledge-mongodb") -}}
-# {{- $mongo_password := randAlphaNum 16 | b64enc -}}
-
-# {{- $mongo_password_data := "" -}}
-# {{ if $mongo_secret -}}
-#   {{ $mongo_password_data = (index $mongo_secret "data" "mongodb-passwords" ) | b64dec }}
-# {{ else -}}
-#   {{ $mongo_password_data = $mongo_password | b64dec }}
-# {{- end -}}
 
 {{- $pg_password := "" -}}
 {{ if $knowledge_secret -}}
@@ -78,8 +69,6 @@ data:
   redis_addr: redis-cluster-proxy.user-system-{{ .Values.bfl.username }}:6379
   redis_host: redis-cluster-proxy.user-system-{{ .Values.bfl.username }}
   redis_port: '6379'
-  # mongo_url: mongodb://knowledge-{{ .Values.bfl.username }}:{{ $mongo_password_data }}@mongo-cluster-mongos.user-system-{{ .Values.bfl.username }}:27017/{{ .Release.Namespace }}_knowledge
-  # mongo_db: {{ .Release.Namespace }}_knowledge
 ---
 apiVersion: v1
 kind: ConfigMap
@@ -116,18 +105,11 @@ spec:
     spec:
       containers:
       - name: knowledge
-        image: "beclab/knowledge-base-api:v0.1.26"
+        image: "beclab/knowledge-base-api:v0.1.27"
         imagePullPolicy: Always
         ports:
         - containerPort: 3010
         env:
-        #- name: MONGODB_PASSWORD
-        #  valueFrom:
-        #    secretKeyRef:
-        #      name: knowledge-mongodb
-        #      key: mongodb-passwords
-        #- name: MONGO_URL
-        #  value: "mongodb://knowledge-{{ .Values.bfl.username }}:$(MONGODB_PASSWORD)@mongo-cluster-mongos.user-system-{{ .Values.bfl.username }}:27017/{{ .Release.Namespace }}_knowledge"
         - name: BACKEND_URL
           value: http://127.0.0.1:8080
         - name: REDIS_PASSWORD
@@ -165,22 +147,9 @@ spec:
             memory: 1Gi
 
       - name: backend-server
-        image: "beclab/recommend-backend:v0.0.0.0.1"
+        image: "beclab/recommend-backend:v0.0.4"
         imagePullPolicy: Always
         env:
-        #- name: MONGODB_PASSWORD
-        #  valueFrom:
-        #    secretKeyRef:
-        #      name: knowledge-mongodb
-        #      key: mongodb-passwords
-        #- name: MONGODB_URI
-        #  value: "mongodb://knowledge-{{ .Values.bfl.username }}:$(MONGODB_PASSWORD)@mongo-cluster-mongos.user-system-{{ .Values.bfl.username }}:27017/{{ .Release.Namespace }}_knowledge"
-        #- name: MONGODB_NAME
-        #  value: {{ .Release.Namespace }}_knowledge
-        #- name: MONGODB_FEED_COLL
-        #  value: feeds
-        #- name: MONGODB_ENTRY_COLL
-        #  value: entries
         - name: LISTEN_ADDR
           value: 127.0.0.1:8080
         - name: OS_SYSTEM_SERVER
