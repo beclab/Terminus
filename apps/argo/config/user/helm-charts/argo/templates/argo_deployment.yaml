@@ -34,16 +34,6 @@
 {{- $pg_user :=  printf "%s%s" "rss_" .Values.bfl.username -}}
 {{- $pg_user = $pg_user | b64enc -}}
 
-{{- $postgres_password := "" -}}
-{{ if $knowledge_secret -}}
-{{ $postgres_password = (index $knowledge_secret "data" "pg_password") }}
-{{ else -}}
-{{ $postgres_password = randAlphaNum 16 | b64enc }}
-{{- end -}}
-
-{{- $postgress_password_data := "" -}}
-{{ $postgress_password_data = $postgres_password | b64dec }}
-
 ---
 
 apiVersion: v1
@@ -120,7 +110,7 @@ data:
   mongo_db: {{ .Release.Namespace }}_knowledge
   postgres_host: citus-master-svc.user-system-{{ .Values.bfl.username }}
   postgres_user: knowledge_{{ .Values.bfl.username }}
-  postgres_password: "{{ $postgress_password_data }}"
+  postgres_password: "{{ $pg_password_data }}"
   postgres_db: user_space_{{ .Values.bfl.username }}_knowledge
   postgres_port: '5432'
 
