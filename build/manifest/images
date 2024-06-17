@@ -7,7 +7,7 @@ calico/cni:v3.23.2
 calico/kube-controllers:v3.23.2
 calico/node:v3.23.2
 calico/pod2daemon-flexvol:v3.23.2
-citusdata/citus:11.3.0-alpine
+beclab/citus:11.3
 coredns/coredns:1.8.0
 csiplugin/snapshot-controller:v4.0.0
 beclab/ks-installer-ext:v0.1.8-ext
@@ -45,5 +45,7 @@ quay.io/argoproj/argoexec:v3.5.0
 quay.io/argoproj/workflow-controller:v3.5.0
 redis:5.0.14-alpine
 beclab/velero:v1.11.0
+beclab/velero:v1.11.1
 beclab/velero-plugin-for-terminus:v1.0.1
+beclab/velero-plugin-for-terminus:v1.0.2
 rancher/coredns-coredns:1.8.3
