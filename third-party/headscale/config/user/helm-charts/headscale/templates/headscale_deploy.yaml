@@ -184,7 +184,7 @@ spec:
           mountPath: /etc/headscale
       containers:
       - name: headscale
-        image: beclab/headscale:0.22.3
+        image: headscale/headscale:0.22.3
         imagePullPolicy: IfNotPresent
         command:
         - headscale
@@ -252,7 +252,7 @@ spec:
       dnsPolicy: ClusterFirstWithHostNet
       containers:
       - name: tailscale
-        image: beclab/tailscale:v1.48.1
+        image: tailscale/tailscale:v1.48.1
         imagePullPolicy: IfNotPresent
         command: ["/bin/sh", "-c"]
         args:
