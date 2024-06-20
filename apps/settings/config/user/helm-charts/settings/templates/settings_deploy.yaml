@@ -65,6 +65,12 @@ spec:
         imagePullPolicy: IfNotPresent
         ports:
         - containerPort: 80
+      
+      - name: drive
+        image: beclab/drive:v0.0.1
+        imagePullPolicy: IfNotPresent
+        ports:
+        - containerPort: 8080
 
       - name: settings-server
         image: beclab/settings-server:v0.1.68
