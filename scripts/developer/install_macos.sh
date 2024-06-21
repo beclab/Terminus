@@ -539,6 +539,8 @@ run_install(){
     check_kscm # wait for ks launch
     check_ksapi
 
+    retry_cmd $sh_c "$KUBECTL apply -f ${BASE_DIR}/deploy/patch-k3s.yaml"
+
     log_info 'Installing account ...'
     # add the first account
     retry_cmd $sh_c "${HELM} upgrade -i account ${BASE_DIR}/wizard/config/account --force"
