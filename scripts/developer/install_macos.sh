@@ -381,6 +381,30 @@ validate_userpwd() {
     return 0
 }
 
+preload_images(){
+    if [ -d $BASE_DIR/images ]; then
+        echo "preload images to local ... "
+        ensure_success eval $(minikube -p terminus-0 docker-env)
+        
+        local tar_count=$(find $BASE_DIR/images -type f -name '*.tar.gz'|wc -l)
+        if [ $tar_count -eq 0 ]; then
+            if [ -f $BASE_DIR/images/images.mf ]; then
+                echo "downloading images from terminus cloud ..."
+                while read img; do
+                    local filename=$(echo -n "$img"|md5sum|awk '{print $1}')
+                    filename="$filename.tar.gz"
+                    echo "downloading ${filename} ..."
+                    curl -fsSL https://dc3p1870nn3cj.cloudfront.net/${filename} -o $BASE_DIR/images/$filename
+                done < $BASE_DIR/images/images.mf
+            fi
+        fi
+
+        find $BASE_DIR/images -type f -name '*.tar.gz' | while read filename; do
+            $sh_c "gunzip -c ${filename} | docker load -"
+        done
+    fi
+}
+
 setup_ws() {
 
     if ! command_exists htpasswd; then
@@ -507,6 +531,8 @@ run_install(){
     GPU_TYPE="none"
     HELM=$(command -v helm)
     KUBECTL=$(command -v kubectl)
+
+    preload_images
 
     install_ks
 
@@ -647,7 +673,7 @@ main(){
     if command_exists minikube ; then
         running=$(minikube profile list|grep "terminus-${CLUSTER_NAME:-0}"|grep Running)
         if [ x"$running" == x"" ]; then
-            ensure_success minikube start -p "terminus-${CLUSTER_NAME:-0}" --kubernetes-version=v1.22.10 --network-plugin=cni --cni=calico --cpus='4' --memory='8g'
+            ensure_success minikube start -p "terminus-${CLUSTER_NAME:-0}" --kubernetes-version=v1.22.10 --network-plugin=cni --cni=calico --cpus='4' --memory='8g' --ports=30180:30180,443:443,80:80
         fi
     else
         log_fatal "Please install minikube on your machine"
