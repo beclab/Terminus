@@ -24,7 +24,7 @@ bash $BASE_DIR/save-images.sh images.mf $PLATFORM
 popd
 
 pushd ${BASE_DIR}/../.dependencies
-bash $BASE_DIR/save-deps.sh
+bash $BASE_DIR/save-deps.sh $PLATFORM
 popd
 
 pushd $DIST_PATH
