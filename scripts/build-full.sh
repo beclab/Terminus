@@ -17,7 +17,7 @@ DIST_PATH=${DIST_PATH} bash ${BASE_DIR}/package.sh
 cp ${BASE_DIR}/upgrade.sh ${DIST_PATH}/.
 
 bash ${BASE_DIR}/image-manifest.sh
-bash ${BASE_DIR}/deps-manifest.sh
+bash ${BASE_DIR}/deps-manifest.sh $PLATFORM
 
 pushd ${BASE_DIR}/../.manifest
 bash $BASE_DIR/save-images.sh images.mf $PLATFORM

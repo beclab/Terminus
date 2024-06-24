@@ -16,5 +16,5 @@ if [ $? -eq 0 ]; then
     tar -zxvf ${fileprefix}-${name}.tar.gz
     rm -rf ${fileprefix}-${name}.tar.gz
 else
-    bash ${BASE_DIR}/download-deps.sh
+    bash ${BASE_DIR}/download-deps.sh $PLATFORM
 fi
