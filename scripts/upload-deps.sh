@@ -24,7 +24,7 @@ if [ $? -eq 0 ]; then
     exit 1
 fi
 
-bash ${BASE_DIR}/download-deps.sh
+bash ${BASE_DIR}/download-deps.sh $PLATFORM
 
 name=$(md5sum dependencies.mf |awk '{print $1}')
 echo "filename: ${fileprefix}-${name}.tar.gz"
