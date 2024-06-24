@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 
-PLATFORM=${2:-linux/amd64}
+PLATFORM=${1:-linux/amd64}
 
 arch="amd64"
 if [ x"$PLATFORM" == x"linux/arm64" ]; then

@@ -7,7 +7,7 @@ if [ ! -d ".dependencies" ]; then
     exit 1
 fi
 
-PLATFORM=${2:-linux/amd64}
+PLATFORM=${1:-linux/amd64}
 
 path=""
 if [ x"$PLATFORM" == x"linux/arm64" ]; then
