@@ -103,8 +103,8 @@ log_fatal() {
 }
 
 install_ks(){
-    $sh_c "${KUBECTL}  apply -f ${BASE_DIR}/kubesphere-installer.yaml"
-    $sh_c "${KUBECTL}  apply -f ${BASE_DIR}/cluster-configuration.yaml"
+    ensure_success $sh_c "${KUBECTL}  apply -f ${BASE_DIR}/kubesphere-installer.yaml"
+    ensure_success $sh_c "${KUBECTL}  apply -f ${BASE_DIR}/cluster-configuration.yaml"
 }
 
 get_auth_status(){

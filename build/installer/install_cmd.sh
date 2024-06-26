@@ -210,6 +210,18 @@ precheck_os() {
         log_fatal "unsupported os version '${os_verion}'"
     fi
 
+    if [[ $(is_raspbian) -ne 0 ]]; then
+
+        systemctl disable --user gvfs-udisks2-volume-monitor
+        systemctl stop --user gvfs-udisks2-volume-monitor
+
+        local cpu_cgroups_enbaled=$(cat /proc/cgroups |awk '{if($1=="cpu")print $4}')
+        local mem_cgroups_enbaled=$(cat /proc/cgroups |awk '{if($1=="memory")print $4}')
+        if  [[ $cpu_cgroups_enbaled -eq 0 || $mem_cgroups_enbaled -eq 0 ]]; then
+            log_fatal "cpu or memory cgroups disabled, please edit /boot/cmdline.txt or /boot/firmware/cmdline.txt and reboot to enable it."
+        fi
+    fi
+
     # try to resolv hostname
     ensure_success $sh_c "hostname -i >/dev/null"
 
@@ -652,7 +664,8 @@ EOF
     ensure_success $sh_c "${KUBECTL} delete user admin"
     ensure_success $sh_c "${KUBECTL} delete deployment kubectl-admin -n kubesphere-controls-system"
     ensure_success $sh_c "${KUBECTL} scale deployment/ks-installer --replicas=0 -n kubesphere-system"
-
+    ensure_success $sh_c "${KUBECTL} delete deployment -n kubesphere-controls-system default-http-backend"
+    
     # delete storageclass accessor webhook
     ensure_success $sh_c "${KUBECTL} delete validatingwebhookconfigurations storageclass-accessor.storage.kubesphere.io"
 
@@ -1179,10 +1192,10 @@ install_velero() {
     if [ -f "$velero_tar" ]; then
         ensure_success $sh_c "cp ${velero_tar} velero-${VELERO_VERSION}-linux-${ARCH}.tar.gz"
     else
-        ensure_success $sh_c "curl ${CURL_TRY} -k -sfLO https://github.com/vmware-tanzu/velero/releases/download/v1.11.0/velero-v1.11.0-linux-${ARCH}.tar.gz"
+        ensure_success $sh_c "curl ${CURL_TRY} -k -sfLO https://github.com/vmware-tanzu/velero/releases/download/${VELERO_VERSION}/velero-${VELERO_VERSION}-linux-${ARCH}.tar.gz"
     fi
-    ensure_success $sh_c "tar xf velero-v1.11.0-linux-${ARCH}.tar.gz"
-    ensure_success $sh_c "install velero-v1.11.0-linux-${ARCH}/velero /usr/local/bin"
+    ensure_success $sh_c "tar xf velero-${VELERO_VERSION}-linux-${ARCH}.tar.gz"
+    ensure_success $sh_c "install velero-${VELERO_VERSION}-linux-${ARCH}/velero /usr/local/bin"
 
     CRICTL=$(command -v crictl)
     VELERO=$(command -v velero)
