@@ -210,7 +210,8 @@ precheck_os() {
         log_fatal "unsupported os version '${os_verion}'"
     fi
 
-    if [[ $(is_raspbian) -ne 0 ]]; then
+    if [[ -f /boot/cmdline.txt || -f /boot/firmware/cmdline.txt ]]; then
+     # raspbian 
 
         systemctl disable --user gvfs-udisks2-volume-monitor
         systemctl stop --user gvfs-udisks2-volume-monitor
