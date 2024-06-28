@@ -188,16 +188,38 @@ precheck_os() {
     os_arch=$(uname -m)
     os_verion=$(lsb_release -d 2>&1 | awk -F'\t' '{print $2}')
 
+    case "$os_arch" in 
+        x86_64) ARCH=amd64; ;; 
+        armv7l) ARCH=arm; ;; 
+        aarch64) ARCH=arm64; ;; 
+        ppc64le) ARCH=ppc64le; ;; 
+        s390x) ARCH=s390x; ;; 
+        *) echo "unsupported arch, exit ..."; 
+        exit -1; ;; 
+    esac 
+
     if [ x"${os_type}" != x"Linux" ]; then
         log_fatal "unsupported os type '${os_type}', only supported 'Linux' operating system"
     fi
 
-    if [[ x"${os_arch}" != x"x86_64" && x"${os_arch}" != x"amd64" ]]; then
-        log_fatal "unsupported os arch '${os_arch}', only supported 'x86_64' architecture"
+    if [[ x"${os_arch}" != x"x86_64" && x"${os_arch}" != x"amd64" && x"${os_arch}" != x"aarch64" ]]; then
+        log_fatal "unsupported os arch '${os_arch}', only supported 'x86_64' or 'aarch64' architecture"
     fi
 
-    if [[ $(is_ubuntu) -eq 0 && $(is_debian) -eq 0 ]]; then
-        log_fatal "unsupported os version '${os_verion}', only supported Ubuntu 20.x, 22.x, 24.x and Debian 11, 12"
+    if [[ $(is_ubuntu) -eq 0 && $(is_debian) -eq 0 && $(is_raspbian) -eq 0 ]]; then
+        log_fatal "unsupported os version '${os_verion}'"
+    fi
+
+    if [[ $(is_raspbian) -ne 0 ]]; then
+
+        systemctl disable --user gvfs-udisks2-volume-monitor
+        systemctl stop --user gvfs-udisks2-volume-monitor
+
+        local cpu_cgroups_enbaled=$(cat /proc/cgroups |awk '{if($1=="cpu")print $4}')
+        local mem_cgroups_enbaled=$(cat /proc/cgroups |awk '{if($1=="memory")print $4}')
+        if  [[ $cpu_cgroups_enbaled -eq 0 || $mem_cgroups_enbaled -eq 0 ]]; then
+            log_fatal "cpu or memory cgroups disabled, please edit /boot/cmdline.txt or /boot/firmware/cmdline.txt and reboot to enable it."
+        fi
     fi
 
     # try to resolv hostname
@@ -211,6 +233,7 @@ precheck_os() {
     fi
 
     local_ip="$ip"
+    OS_ARCH="$os_arch"
 
     # disable local dns
     case "$lsb_dist" in
@@ -256,13 +279,17 @@ precheck_os() {
     if [ ${ubuntuversion} -eq 2 ]; then
         aapv=$(apparmor_parser --version)
         if [[ ! ${aapv} =~ "4.0.1" ]]; then
-            local aapv_tar="${BASE_DIR}/components/apparmor_4.0.1-0ubuntu1_amd64.deb"
+            local aapv_tar="${BASE_DIR}/components/apparmor_4.0.1-0ubuntu1_${ARCH}.deb"
             if [ ! -f "$aapv_tar" ]; then
-                ensure_success $sh_c "curl ${CURL_TRY} -k -sfLO https://launchpad.net/ubuntu/+source/apparmor/4.0.1-0ubuntu1/+build/28428840/+files/apparmor_4.0.1-0ubuntu1_amd64.deb"
+                if [ x"${ARCH}" == x"arm64" ]; then
+                    ensure_success $sh_c "curl ${CURL_TRY} -k -sfLO https://launchpad.net/ubuntu/+source/apparmor/4.0.1-0ubuntu1/+build/28428841/+files/apparmor_4.0.1-0ubuntu1_arm64.deb"
+                else
+                    ensure_success $sh_c "curl ${CURL_TRY} -k -sfLO https://launchpad.net/ubuntu/+source/apparmor/4.0.1-0ubuntu1/+build/28428840/+files/apparmor_4.0.1-0ubuntu1_amd64.deb"
+                fi
             else
                 ensure_success $sh_c "cp ${aapv_tar} ./"
             fi
-            ensure_success $sh_c "dpkg -i apparmor_4.0.1-0ubuntu1_amd64.deb"
+            ensure_success $sh_c "dpkg -i apparmor_4.0.1-0ubuntu1_${ARCH}.deb"
         fi
     fi
 
@@ -304,6 +331,26 @@ is_ubuntu() {
                 echo 2
                 ;;
             *22.* | *20.*)
+                echo 1
+                ;;
+            *)
+                echo 0
+                ;;
+        esac
+    else
+        echo 0
+    fi
+}
+
+is_raspbian(){
+    lsb_release=$(lsb_release -d 2>&1 | awk -F'\t' '{print $2}')
+    if [ -z "$lsb_release" ]; then
+        echo 0
+        return
+    fi
+    if [[ ${lsb_release} == *Raspbian* ]];then 
+        case "$lsb_release" in
+            *11*)
                 echo 1
                 ;;
             *)
@@ -617,7 +664,8 @@ EOF
     ensure_success $sh_c "${KUBECTL} delete user admin"
     ensure_success $sh_c "${KUBECTL} delete deployment kubectl-admin -n kubesphere-controls-system"
     ensure_success $sh_c "${KUBECTL} scale deployment/ks-installer --replicas=0 -n kubesphere-system"
-
+    ensure_success $sh_c "${KUBECTL} delete deployment -n kubesphere-controls-system default-http-backend"
+    
     # delete storageclass accessor webhook
     ensure_success $sh_c "${KUBECTL} delete validatingwebhookconfigurations storageclass-accessor.storage.kubesphere.io"
 
@@ -628,6 +676,20 @@ EOF
 install_storage() {
     TERMINUS_ROOT="/terminus"
     storage_type="minio"    # or s3
+
+    if [[ ! -z "${TERMINUS_IS_CLOUD_VERSION}" && x"${TERMINUS_IS_CLOUD_VERSION}" == x"true" ]]; then
+        local DATA_DIR="/osdata"
+        if [ -d $DATA_DIR ]; then
+            if [[ -d $TERMINUS_ROOT || -f $TERMINUS_ROOT ]]; then
+                $sh_c "rm -rf $TERMINUS_ROOT"
+            fi
+
+            ensure_success $sh_c "mkdir -p $DATA_DIR$TERMINUS_ROOT"
+            ensure_success $sh_c "ln -s $DATA_DIR$TERMINUS_ROOT $TERMINUS_ROOT"
+
+        fi
+    fi
+
 
     log_info 'Preparing object storage ...\n'
 
@@ -677,7 +739,7 @@ install_minio() {
         if [ -f "$minio_tar" ]; then
             ensure_success $sh_c "cp ${minio_tar} minio"
         else
-            ensure_success $sh_c "curl ${CURL_TRY} -kLo minio https://dl.min.io/server/minio/release/linux-amd64/archive/minio.${MINIO_VERSION}"
+            ensure_success $sh_c "curl ${CURL_TRY} -kLo minio https://dl.min.io/server/minio/release/linux-${ARCH}/archive/minio.${MINIO_VERSION}"
         fi
         ensure_success $sh_c "chmod +x minio"
         ensure_success $sh_c "install minio /usr/local/bin"
@@ -777,16 +839,16 @@ init_minio_cluster(){
         exit $ERR_EXIT
     fi
 
-    local minio_operator_tar="${BASE_DIR}/components/minio-operator-${MINIO_OPERATOR_VERSION}-linux-amd64.tar.gz"
+    local minio_operator_tar="${BASE_DIR}/components/minio-operator-${MINIO_OPERATOR_VERSION}-linux-${ARCH}.tar.gz"
     local minio_operator_bin="/usr/local/bin/minio-operator"
 
     if [ ! -f "$minio_operator_bin" ]; then
         if [ -f "$minio_operator_tar" ]; then
-            ensure_success $sh_c "cp ${minio_operator_tar} minio-operator-${MINIO_OPERATOR_VERSION}-linux-amd64.tar.gz"
+            ensure_success $sh_c "cp ${minio_operator_tar} minio-operator-${MINIO_OPERATOR_VERSION}-linux-${ARCH}.tar.gz"
         else
-            ensure_success $sh_c "curl ${CURL_TRY} -k -sfLO https://github.com/beclab/minio-operator/releases/download/${MINIO_OPERATOR_VERSION}/minio-operator-${MINIO_OPERATOR_VERSION}-linux-amd64.tar.gz"
+            ensure_success $sh_c "curl ${CURL_TRY} -k -sfLO https://github.com/beclab/minio-operator/releases/download/${MINIO_OPERATOR_VERSION}/minio-operator-${MINIO_OPERATOR_VERSION}-linux-${ARCH}.tar.gz"
         fi
-	      ensure_success $sh_c "tar zxf minio-operator-${MINIO_OPERATOR_VERSION}-linux-amd64.tar.gz"
+	      ensure_success $sh_c "tar zxf minio-operator-${MINIO_OPERATOR_VERSION}-linux-${ARCH}.tar.gz"
         ensure_success $sh_c "install -m 755 minio-operator $minio_operator_bin"
     fi
 
@@ -941,7 +1003,7 @@ install_juicefs() {
     local ak="$ACCESS_KEY"
     local sk="$SECRET_KEY"
 
-    local juicefs_tar="${BASE_DIR}/components/juicefs-${JFS_VERSION}-linux-amd64.tar.gz"
+    local juicefs_tar="${BASE_DIR}/components/juicefs-${JFS_VERSION}-linux-${ARCH}.tar.gz"
     local juicefs_bin="/usr/local/bin/juicefs"
     local jfs_mountpoint="${TERMINUS_ROOT}/${fsname}"
     local jfs_cachedir="${TERMINUS_ROOT}/jfscache"
@@ -950,11 +1012,11 @@ install_juicefs() {
 
     if [ ! -f "$juicefs_bin" ]; then
         if [ -f "$juicefs_tar" ]; then
-            ensure_success $sh_c "cp ${juicefs_tar} juicefs-${JFS_VERSION}-linux-amd64.tar.gz"
+            ensure_success $sh_c "cp ${juicefs_tar} juicefs-${JFS_VERSION}-linux-${ARCH}.tar.gz"
         else
-            ensure_success $sh_c "curl ${CURL_TRY} -kLO https://github.com/beclab/juicefs-ext/releases/download/${JFS_VERSION}/juicefs-${JFS_VERSION}-linux-amd64.tar.gz"
+            ensure_success $sh_c "curl ${CURL_TRY} -kLO https://github.com/beclab/juicefs-ext/releases/download/${JFS_VERSION}/juicefs-${JFS_VERSION}-linux-${ARCH}.tar.gz"
         fi
-        ensure_success $sh_c "tar -zxf juicefs-${JFS_VERSION}-linux-amd64.tar.gz"
+        ensure_success $sh_c "tar -zxf juicefs-${JFS_VERSION}-linux-${ARCH}.tar.gz"
         ensure_success $sh_c "chmod +x juicefs"
         ensure_success $sh_c "install juicefs /usr/local/bin"
         ensure_success $sh_c "install juicefs /sbin/mount.juicefs"
@@ -1126,14 +1188,14 @@ install_velero() {
     config_proxy_resolv_conf
 
     VELERO_VERSION="v1.11.0"
-    local velero_tar="${BASE_DIR}/components/velero-${VELERO_VERSION}-linux-amd64.tar.gz"
+    local velero_tar="${BASE_DIR}/components/velero-${VELERO_VERSION}-linux-${ARCH}.tar.gz"
     if [ -f "$velero_tar" ]; then
-        ensure_success $sh_c "cp ${velero_tar} velero-${VELERO_VERSION}-linux-amd64.tar.gz"
+        ensure_success $sh_c "cp ${velero_tar} velero-${VELERO_VERSION}-linux-${ARCH}.tar.gz"
     else
-        ensure_success $sh_c "curl ${CURL_TRY} -k -sfLO https://github.com/vmware-tanzu/velero/releases/download/v1.11.0/velero-v1.11.0-linux-amd64.tar.gz"
+        ensure_success $sh_c "curl ${CURL_TRY} -k -sfLO https://github.com/vmware-tanzu/velero/releases/download/${VELERO_VERSION}/velero-${VELERO_VERSION}-linux-${ARCH}.tar.gz"
     fi
-    ensure_success $sh_c "tar xf velero-v1.11.0-linux-amd64.tar.gz"
-    ensure_success $sh_c "install velero-v1.11.0-linux-amd64/velero /usr/local/bin"
+    ensure_success $sh_c "tar xf velero-${VELERO_VERSION}-linux-${ARCH}.tar.gz"
+    ensure_success $sh_c "install velero-${VELERO_VERSION}-linux-${ARCH}/velero /usr/local/bin"
 
     CRICTL=$(command -v crictl)
     VELERO=$(command -v velero)
@@ -1218,31 +1280,31 @@ install_containerd(){
                 ensure_success $sh_c "systemctl start containerd"
             fi
         else
-            local containerd_tar="${BASE_DIR}/pkg/containerd/${CONTAINERD_VERSION}/amd64/containerd-${CONTAINERD_VERSION}-linux-amd64.tar.gz"
-            local runc_tar="${BASE_DIR}/pkg/runc/v${RUNC_VERSION}/amd64/runc.amd64"
-            local cni_plugin_tar="${BASE_DIR}/pkg/cni/v${CNI_PLUGIN_VERSION}/amd64/cni-plugins-linux-amd64-v${CNI_PLUGIN_VERSION}.tgz"
+            local containerd_tar="${BASE_DIR}/pkg/containerd/${CONTAINERD_VERSION}/${ARCH}/containerd-${CONTAINERD_VERSION}-linux-${ARCH}.tar.gz"
+            local runc_tar="${BASE_DIR}/pkg/runc/v${RUNC_VERSION}/${ARCH}/runc.${ARCH}"
+            local cni_plugin_tar="${BASE_DIR}/pkg/cni/v${CNI_PLUGIN_VERSION}/${ARCH}/cni-plugins-linux-${ARCH}-v${CNI_PLUGIN_VERSION}.tgz"
 
             if [ -f "$containerd_tar" ]; then
-                ensure_success $sh_c "cp ${containerd_tar} containerd-${CONTAINERD_VERSION}-linux-amd64.tar.gz"
+                ensure_success $sh_c "cp ${containerd_tar} containerd-${CONTAINERD_VERSION}-linux-${ARCH}.tar.gz"
             else
-                ensure_success $sh_c "wget https://github.com/containerd/containerd/releases/download/v${CONTAINERD_VERSION}/containerd-${CONTAINERD_VERSION}-linux-amd64.tar.gz"
+                ensure_success $sh_c "wget https://github.com/containerd/containerd/releases/download/v${CONTAINERD_VERSION}/containerd-${CONTAINERD_VERSION}-linux-${ARCH}.tar.gz"
             fi
-            ensure_success $sh_c "tar Cxzvf /usr/local containerd-${CONTAINERD_VERSION}-linux-amd64.tar.gz"
+            ensure_success $sh_c "tar Cxzvf /usr/local containerd-${CONTAINERD_VERSION}-linux-${ARCH}.tar.gz"
 
             if [ -f "$runc_tar" ]; then
-                ensure_success $sh_c "cp ${runc_tar} runc.amd64"
+                ensure_success $sh_c "cp ${runc_tar} runc.${ARCH}"
             else
-                ensure_success $sh_c "wget https://github.com/opencontainers/runc/releases/download/v${RUNC_VERSION}/runc.amd64"
+                ensure_success $sh_c "wget https://github.com/opencontainers/runc/releases/download/v${RUNC_VERSION}/runc.${ARCH}"
             fi
-            ensure_success $sh_c "install -m 755 runc.amd64 /usr/local/sbin/runc"
+            ensure_success $sh_c "install -m 755 runc.${ARCH} /usr/local/sbin/runc"
 
             if [ -f "$cni_plugin_tar" ]; then
-                ensure_success $sh_c "cp ${cni_plugin_tar} cni-plugins-linux-amd64-v${CNI_PLUGIN_VERSION}.tgz"
+                ensure_success $sh_c "cp ${cni_plugin_tar} cni-plugins-linux-${ARCH}-v${CNI_PLUGIN_VERSION}.tgz"
             else
-                ensure_success $sh_c "wget https://github.com/containernetworking/plugins/releases/download/v${CNI_PLUGIN_VERSION}/cni-plugins-linux-amd64-v${CNI_PLUGIN_VERSION}.tgz"
+                ensure_success $sh_c "wget https://github.com/containernetworking/plugins/releases/download/v${CNI_PLUGIN_VERSION}/cni-plugins-linux-${ARCH}-v${CNI_PLUGIN_VERSION}.tgz"
             fi
             ensure_success $sh_c "mkdir -p /opt/cni/bin"
-            ensure_success $sh_c "tar Cxzvf /opt/cni/bin cni-plugins-linux-amd64-v${CNI_PLUGIN_VERSION}.tgz"
+            ensure_success $sh_c "tar Cxzvf /opt/cni/bin cni-plugins-linux-${ARCH}-v${CNI_PLUGIN_VERSION}.tgz"
             ensure_success $sh_c "mkdir -p /etc/containerd"
             ensure_success $sh_c "containerd config default | tee /etc/containerd/config.toml"
             ensure_success $sh_c "sed -i 's/SystemdCgroup \= false/SystemdCgroup \= true/g' /etc/containerd/config.toml"
@@ -1306,23 +1368,23 @@ EOF
 }
 
 install_k8s_ks() {
-    KKE_VERSION=0.1.20
+    KKE_VERSION=0.1.21
 
     ensure_success $sh_c "mkdir -p /etc/kke"
     local kk_bin="${BASE_DIR}/components/kk"
-    local kk_tar="${BASE_DIR}/components/kubekey-ext-v${KKE_VERSION}-linux-amd64.tar.gz"
+    local kk_tar="${BASE_DIR}/components/kubekey-ext-v${KKE_VERSION}-linux-${ARCH}.tar.gz"
 
     if [ ! -f "$kk_bin" ]; then
         if [ ! -f "$kk_tar" ]; then
             if [ x"$PROXY" != x"" ]; then
-              ensure_success $sh_c "curl ${CURL_TRY} -k -sfLO https://github.com/beclab/kubekey-ext/releases/download/${KKE_VERSION}/kubekey-ext-v${KKE_VERSION}-linux-amd64.tar.gz"
-              ensure_success $sh_c "tar xf kubekey-ext-v${KKE_VERSION}-linux-amd64.tar.gz"
+              ensure_success $sh_c "curl ${CURL_TRY} -k -sfLO https://github.com/beclab/kubekey-ext/releases/download/${KKE_VERSION}/kubekey-ext-v${KKE_VERSION}-linux-${ARCH}.tar.gz"
+              ensure_success $sh_c "tar xf kubekey-ext-v${KKE_VERSION}-linux-${ARCH}.tar.gz"
             else
               ensure_success $sh_c "curl ${CURL_TRY} -sfL https://raw.githubusercontent.com/beclab/kubekey-ext/master/downloadKKE.sh | VERSION=${KKE_VERSION} sh -"
             fi
         else
-            ensure_success $sh_c "cp ${kk_tar} kubekey-ext-v${KKE_VERSION}-linux-amd64.tar.gz"
-            ensure_success $sh_c "tar xf kubekey-ext-v${KKE_VERSION}-linux-amd64.tar.gz"
+            ensure_success $sh_c "cp ${kk_tar} kubekey-ext-v${KKE_VERSION}-linux-${ARCH}.tar.gz"
+            ensure_success $sh_c "tar xf kubekey-ext-v${KKE_VERSION}-linux-${ARCH}.tar.gz"
         fi
     else 
         ensure_success $sh_c "cp ${kk_bin} ./"
@@ -1701,7 +1763,7 @@ get_app_key_secret(){
 }
 
 get_app_settings(){
-    apps=("portfolio" "vault" "desktop" "message" "wise" "search" "appstore" "notification" "dashboard" "settings" "devbox" "profile" "agent" "files")
+    apps=("portfolio" "vault" "desktop" "message" "wise" "search" "appstore" "notification" "dashboard" "settings" "profile" "agent" "files")
     for a in "${apps[@]}";do
         ks=($(get_app_key_secret $a))
         echo '

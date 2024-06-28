@@ -60,12 +60,12 @@ spec:
                 fieldPath: status.podIP
       containers:
       - name: appstore
-        image: beclab/market-frontend:v0.2.4
+        image: beclab/market-frontend:v0.2.7
         imagePullPolicy: IfNotPresent
         ports:
         - containerPort: 80
       - name: appstore-backend
-        image: beclab/market-backend:v0.2.4
+        image: beclab/market-backend:v0.2.7
         imagePullPolicy: IfNotPresent
         ports:
           - containerPort: 81
@@ -95,7 +95,7 @@ spec:
           - name: opt-data
             mountPath: /opt/app/data
       - name: terminus-envoy-sidecar
-        image: envoyproxy/envoy-distroless:v1.25.2
+        image: bytetrade/envoy:v1.25.11
         imagePullPolicy: IfNotPresent
         securityContext:
           allowPrivilegeEscalation: false

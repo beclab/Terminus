@@ -60,12 +60,12 @@ spec:
                 fieldPath: status.podIP
       containers:
       - name: control-hub-frontend
-        image: beclab/admin-console-frontend-v1:v0.2.13
+        image: beclab/admin-console-frontend-v1:v0.2.22
         imagePullPolicy: IfNotPresent
         ports:
         - containerPort: 80
       - name: terminus-envoy-sidecar
-        image: envoyproxy/envoy-distroless:v1.25.2
+        image: bytetrade/envoy:v1.25.11
         imagePullPolicy: IfNotPresent
         securityContext:
           allowPrivilegeEscalation: false
