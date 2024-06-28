@@ -305,9 +305,9 @@ is_debian() {
         echo 0
         return
     fi
-    if [[ ${lsb_release} == *Debian*} ]]; then
+    if [[ ${lsb_release} == *Debian* ]]; then
         case "$lsb_release" in
-            *12.* | *11.*)
+            *12* | *11*)
                 echo 1
                 ;;
             *)
@@ -350,7 +350,7 @@ is_raspbian(){
     fi
     if [[ ${lsb_release} == *Raspbian* ]];then 
         case "$lsb_release" in
-            *11*)
+            *11* | *12*)
                 echo 1
                 ;;
             *)
