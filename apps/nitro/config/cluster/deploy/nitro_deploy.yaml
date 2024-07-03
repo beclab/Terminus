@@ -1,6 +1,6 @@
-#
-#{{ $dify_appcache_rootpath := "/terminus/userdata/Cache/dify" }}
-#
+
+{{ $nitro_appcache_rootpath := "/terminus/userdata/Cache/nitro" }}
+
 #{{- $namespace := printf "%s" "os-system" -}}
 #{{- $dify_secret := (lookup "v1" "Secret" $namespace "dify-secrets") -}}
 #{{- $pg_password := "" -}}
@@ -73,7 +73,7 @@
 kind: ConfigMap
 apiVersion: v1
 metadata:
-  name: dify-nginx-config
+  name: nitro-nginx-config
   namespace: {{ .Release.Namespace }}
   annotations:
     kubesphere.io/creator: bytetrade.io
@@ -85,17 +85,22 @@ data:
 
       location /nitro/model_server/ {
           # proxy_pass http://127.0.0.1:3928/;
-          proxy_pass http://dify:3928/;
+          proxy_pass http://nitro:3928/;
           include proxy.conf;
       }
 
-      location /nitro/dify/ {
-          proxy_pass http://127.0.0.1:80/;
-          include proxy.conf;
-      }
+#      location /nitro/dify/ {
+#          proxy_pass http://127.0.0.1:80/;
+#          include proxy.conf;
+#      }
 
       location /nitro/ {
         proxy_pass http://127.0.0.1:3900/;
+        include proxy.conf;
+      }
+
+      location / {
+        proxy_pass http://127.0.0.1:3900;
         include proxy.conf;
       }
     }
@@ -316,7 +321,7 @@ data:
 kind: Service
 apiVersion: v1
 metadata:
-  name: dify
+  name: nitro
   namespace: {{ .Release.Namespace }}
 spec:
   type: ClusterIP
@@ -345,30 +350,30 @@ spec:
     port: 3928
     targetPort: 3928
   selector:
-    app: dify
+    app: nitro
 
 ---
 # create statefulset
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: dify
+  name: nitro
   namespace: {{ .Release.Namespace }}
   labels:
-    app: dify
+    app: nitro
 spec:
   replicas: 1
   strategy:
     type: Recreate
   selector:
     matchLabels:
-      app: dify
-      name: dify
+      app: nitro
+      name: nitro
   template:
     metadata:
       labels:
-        app: dify
-        name: dify
+        app: nitro
+        name: nitro
     spec:
 #      initContainers:
 #        - name: init-container
@@ -794,13 +799,13 @@ spec:
             name: nginx-port
             protocol: TCP
         volumeMounts:
-          - name: dify-nginx-config
+          - name: nitro-nginx-config
             mountPath: /etc/nginx/nginx.conf
             subPath: nginx.conf
-          - name: dify-nginx-config
+          - name: nitro-nginx-config
             mountPath: /etc/nginx/proxy.conf
             subPath: proxy.conf
-          - name: dify-nginx-config
+          - name: nitro-nginx-config
             mountPath: /etc/nginx/conf.d/default.conf
             subPath: default.conf
 #          - name: dify-nginx-config
@@ -900,11 +905,11 @@ spec:
       - name: custom-model-config-vol
         hostPath:
           type: DirectoryOrCreate
-          path: {{ $dify_appcache_rootpath }}/volumes/app/custom_model_config
+          path: {{ $nitro_appcache_rootpath }}/volumes/app/custom_model_config
       - name: model-vol
         hostPath:
           type: DirectoryOrCreate
-          path: {{ $dify_appcache_rootpath }}/volumes/app/model
+          path: {{ $nitro_appcache_rootpath }}/volumes/app/model
 #      - name: api-vol
 #        hostPath:
 #          type: DirectoryOrCreate
@@ -925,9 +930,9 @@ spec:
 #          type: DirectoryOrCreate
 #          path: {{ $dify_appcache_rootpath }}/volumes/redis/data
 
-      - name: dify-nginx-config
+      - name: nitro-nginx-config
         configMap:
-          name: dify-nginx-config
+          name: nitro-nginx-config
           items:
             - key: nginx.conf
               path: nginx.conf
