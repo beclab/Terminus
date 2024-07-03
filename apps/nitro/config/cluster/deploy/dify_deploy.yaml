@@ -1,6 +1,6 @@
-#
-#{{ $dify_appcache_rootpath := "/terminus/userdata/Cache/dify" }}
-#
+
+{{ $dify_appcache_rootpath := "/terminus/userdata/Cache/dify" }}
+
 #{{- $namespace := printf "%s" "os-system" -}}
 #{{- $dify_secret := (lookup "v1" "Secret" $namespace "dify-secrets") -}}
 #{{- $pg_password := "" -}}
