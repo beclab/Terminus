@@ -110,7 +110,7 @@ data:
         filename: /app/notification.txt
     identity_providers:
       oidc:
-        hmac_secret: {{ hmac_secret | b64dec }}
+        hmac_secret: {{ $hmac_secret | b64dec }}
         issuer_certificate_chain: |
           -----BEGIN CERTIFICATE-----
           MIIFDTCCAvWgAwIBAgIUTY+5CtZNunClFgmYWiqPsR96k60wDQYJKoZIhvcNAQEL
