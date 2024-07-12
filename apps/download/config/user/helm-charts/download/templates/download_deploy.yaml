@@ -71,6 +71,10 @@ spec:
         env:
         - name: RPC_SECRET
           value: kubespider
+        - name: PUID
+          value: "0"
+        - name: PGID
+          value: "0"
         volumeMounts:
         - name: config-dir
           mountPath: /config
