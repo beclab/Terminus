@@ -88,7 +88,7 @@ spec:
             cpu: "1"
             memory: 300Mi
       - name: yt-dlp
-        image: "beclab/yt-dlp"
+        image: "beclab/yt-dlp:v0.0.1"
         imagePullPolicy: IfNotPresent
         ports:
         - containerPort: 3082
@@ -117,7 +117,7 @@ spec:
             memory: 300Mi
 
       - name: download-spider
-        image: "beclab/download-spider"
+        image: "beclab/download-spider:v0.0.1"
         imagePullPolicy: IfNotPresent
         env:
         - name: PG_USERNAME
