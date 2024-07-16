@@ -697,7 +697,8 @@ main(){
 
     log_info 'Installation wizard is complete\n'
 
-    ip=$(ping -c 1 "$HOSTNAME" |awk -F '[()]' '/icmp_seq/{print $2}')
+    HOSTNAME=$(hostname)
+    ip=$(ping -c 1 "$HOSTNAME" |awk -F '[ :]' '/icmp_seq/{print $4}')
 
     # install complete
     echo -e " Terminus is running"
