@@ -212,6 +212,11 @@ precheck_os() {
 
     if [[ -f /boot/cmdline.txt || -f /boot/firmware/cmdline.txt ]]; then
      # raspbian 
+        SHOULD_RETRY=1
+
+        if ! command_exists iptables; then 
+            ensure_success $sh_c "apt update && apt install -y iptables"
+        fi
 
         systemctl disable --user gvfs-udisks2-volume-monitor
         systemctl stop --user gvfs-udisks2-volume-monitor
@@ -298,6 +303,7 @@ precheck_os() {
     if [ -d /opt/deps ]; then
         ensure_success $sh_c "mv /opt/deps/* ${BASE_DIR}"
     fi
+
 }
 
 is_debian() {
@@ -361,6 +367,16 @@ is_raspbian(){
     else
         echo 0
     fi
+}
+
+is_wsl(){
+    wsl=$(uname -a 2>&1)
+    if [[ ${wsl} == *WSL* ]]; then
+        echo 1
+        return
+    fi
+
+    echo 0
 }
 
 install_deps() {
@@ -454,7 +470,7 @@ run_install() {
 
     # env 'KUBE_TYPE' is specific the special kubernetes (k8s or k3s), default k3s
     if [ x"$KUBE_TYPE" == x"k3s" ]; then
-        k8s_version=v1.21.4-k3s
+        k8s_version=v1.22.16-k3s
     fi
     create_cmd="./kk create cluster --with-kubernetes $k8s_version --with-kubesphere $ks_version --container-manager containerd"  # --with-addon ${ADDON_CONFIG_FILE}
 
@@ -480,9 +496,7 @@ run_install() {
     create_cmd+=" $extra"
 
     # add env OS_LOCALIP
-    export OS_LOCALIP="$local_ip"
-
-    ensure_success $sh_c "$create_cmd"
+    ensure_success $sh_c "export OS_LOCALIP=$local_ip && $create_cmd"
 
     log_info 'k8s and kubesphere installation is complete'
 
@@ -502,6 +516,14 @@ run_install() {
         install_gpu
     fi
 
+    if [ $SHOULD_RETRY -eq 1 ]; then
+        run_cmd=retry_cmd
+    else
+        run_cmd=ensure_success
+    fi
+
+
+
     ensure_success $sh_c "sed -i '/${local_ip} $HOSTNAME/d' /etc/hosts"
 
     if [ x"$KUBE_TYPE" == x"k3s" ]; then
@@ -517,14 +539,14 @@ run_install() {
     retry_cmd $sh_c "${HELM} upgrade -i account ${BASE_DIR}/wizard/config/account --force"
 
     log_info 'Installing settings ...'
-    ensure_success $sh_c "${HELM} upgrade -i settings ${BASE_DIR}/wizard/config/settings --force"
+    $run_cmd $sh_c "${HELM} upgrade -i settings ${BASE_DIR}/wizard/config/settings --force"
 
     # install gpu if necessary
     if [[ "x${GPU_ENABLE}" == "x1" && "x${GPU_DOMAIN}" != "x" ]]; then
         log_info 'Installing gpu ...'
 
         if [ x"$KUBE_TYPE" == x"k3s" ]; then
-            ensure_success $sh_c "${HELM} upgrade -i gpu ${BASE_DIR}/wizard/config/gpu -n gpu-system --force --set gpu.server=${GPU_DOMAIN} --set container.manager=k3s --create-namespace"
+            $run_cmd $sh_c "${HELM} upgrade -i gpu ${BASE_DIR}/wizard/config/gpu -n gpu-system --force --set gpu.server=${GPU_DOMAIN} --set container.manager=k3s --create-namespace"
             ensure_success $sh_c "mkdir -p /var/lib/rancher/k3s/agent/etc/containerd"
             ensure_success $sh_c "cp ${BASE_DIR}/deploy/orion-config.toml.tmpl /var/lib/rancher/k3s/agent/etc/containerd/config.toml.tmpl" 
             ensure_success $sh_c "systemctl restart k3s"
@@ -536,7 +558,7 @@ run_install() {
             # waiting for kubesphere webhooks starting
             sleep 30
         else
-            ensure_success $sh_c "${HELM} upgrade -i gpu ${BASE_DIR}/wizard/config/gpu -n gpu-system --force --set gpu.server=${GPU_DOMAIN} --set container.manager=containerd --create-namespace"
+            $run_cmd $sh_c "${HELM} upgrade -i gpu ${BASE_DIR}/wizard/config/gpu -n gpu-system --force --set gpu.server=${GPU_DOMAIN} --set container.manager=containerd --create-namespace"
         fi
 
         check_orion_gpu
@@ -579,11 +601,11 @@ metadata:
   name: backup-config
   namespace: os-system
 _END
-    ensure_success $sh_c "$KUBECTL apply -f cm-backup-config.yaml"
+    $run_cmd $sh_c "$KUBECTL apply -f cm-backup-config.yaml"
 
     # patch
-    ensure_success $sh_c "$KUBECTL apply -f ${BASE_DIR}/deploy/patch-globalrole-workspace-manager.yaml"
-    ensure_success $sh_c "$KUBECTL apply -f ${BASE_DIR}/deploy/patch-notification-manager.yaml"
+    $run_cmd $sh_c "$KUBECTL apply -f ${BASE_DIR}/deploy/patch-globalrole-workspace-manager.yaml"
+    $run_cmd $sh_c "$KUBECTL apply -f ${BASE_DIR}/deploy/patch-notification-manager.yaml"
 
     # install app-store charts repo to app sevice
     log_info 'waiting for appservice'
@@ -595,7 +617,7 @@ _END
 
     log_info 'Installing launcher ...'
     # install launcher , and init pv
-    ensure_success $sh_c "${HELM} upgrade -i launcher-${username} ${BASE_DIR}/wizard/config/launcher -n user-space-${username} --force --set bfl.appKey=${bfl_ks[0]} --set bfl.appSecret=${bfl_ks[1]}"
+    $run_cmd $sh_c "${HELM} upgrade -i launcher-${username} ${BASE_DIR}/wizard/config/launcher -n user-space-${username} --force --set bfl.appKey=${bfl_ks[0]} --set bfl.appSecret=${bfl_ks[1]}"
 
     log_info 'waiting for bfl'
     check_bfl
@@ -639,11 +661,10 @@ os:
 EOF
 
     log_info 'Installing built-in apps ...'
-
     for appdir in "${BASE_DIR}/wizard/config/apps"/*/; do
       if [ -d "$appdir" ]; then
         releasename=$(basename "$appdir")
-        ensure_success $sh_c "${HELM} upgrade -i ${releasename} ${appdir} -n user-space-${username} --force --set kubesphere.redis_password=${ks_redis_pwd} -f ${BASE_DIR}/wizard/config/apps/values.yaml"
+        $run_cmd $sh_c "${HELM} upgrade -i ${releasename} ${appdir} -n user-space-${username} --force --set kubesphere.redis_password=${ks_redis_pwd} -f ${BASE_DIR}/wizard/config/apps/values.yaml"
       fi
     done
 
@@ -655,23 +676,23 @@ EOF
     cat /dev/null > ${BASE_DIR}/wizard/config/launcher/values.yaml
     copy_charts=("launcher" "apps")
     for cc in "${copy_charts[@]}"; do
-        ensure_success $sh_c "${KUBECTL} cp ${BASE_DIR}/wizard/config/${cc} os-system/${appservice_pod}:/userapps"
+        $run_cmd $sh_c "${KUBECTL} cp ${BASE_DIR}/wizard/config/${cc} os-system/${appservice_pod}:/userapps"
     done
 
     log_info 'Performing the final configuration ...'
     # delete admin user after kubesphere installed,
     # admin user creating in the ks-install image should be modified.
-    ensure_success $sh_c "${KUBECTL} patch user admin -p '{\"metadata\":{\"finalizers\":[\"finalizers.kubesphere.io/users\"]}}' --type='merge'"
-    ensure_success $sh_c "${KUBECTL} delete user admin"
-    ensure_success $sh_c "${KUBECTL} delete deployment kubectl-admin -n kubesphere-controls-system"
-    ensure_success $sh_c "${KUBECTL} scale deployment/ks-installer --replicas=0 -n kubesphere-system"
-    ensure_success $sh_c "${KUBECTL} delete deployment -n kubesphere-controls-system default-http-backend"
+    $run_cmd $sh_c "${KUBECTL} patch user admin -p '{\"metadata\":{\"finalizers\":[\"finalizers.kubesphere.io/users\"]}}' --type='merge'"
+    $run_cmd $sh_c "${KUBECTL} delete user admin"
+    $run_cmd $sh_c "${KUBECTL} delete deployment kubectl-admin -n kubesphere-controls-system"
+    $run_cmd $sh_c "${KUBECTL} scale deployment/ks-installer --replicas=0 -n kubesphere-system"
+    $run_cmd $sh_c "${KUBECTL} delete deployment -n kubesphere-controls-system default-http-backend"
     
     # delete storageclass accessor webhook
-    ensure_success $sh_c "${KUBECTL} delete validatingwebhookconfigurations storageclass-accessor.storage.kubesphere.io"
+    $run_cmd $sh_c "${KUBECTL} delete validatingwebhookconfigurations storageclass-accessor.storage.kubesphere.io"
 
     # calico config for tailscale
-    ensure_success $sh_c "${KUBECTL} patch felixconfiguration default -p '{\"spec\":{\"featureDetectOverride\": \"SNATFullyRandom=false,MASQFullyRandom=false\"}}' --type='merge'"
+    $run_cmd $sh_c "${KUBECTL} patch felixconfiguration default -p '{\"spec\":{\"featureDetectOverride\": \"SNATFullyRandom=false,MASQFullyRandom=false\"}}' --type='merge'"
 }
 
 install_storage() {
@@ -1188,12 +1209,12 @@ _check_velero_plugin_image_exists() {
 install_velero() {
     config_proxy_resolv_conf
 
-    VELERO_VERSION="v1.11.0"
+    VELERO_VERSION="v1.11.2"
     local velero_tar="${BASE_DIR}/components/velero-${VELERO_VERSION}-linux-${ARCH}.tar.gz"
     if [ -f "$velero_tar" ]; then
         ensure_success $sh_c "cp ${velero_tar} velero-${VELERO_VERSION}-linux-${ARCH}.tar.gz"
     else
-        ensure_success $sh_c "curl ${CURL_TRY} -k -sfLO https://github.com/vmware-tanzu/velero/releases/download/${VELERO_VERSION}/velero-${VELERO_VERSION}-linux-${ARCH}.tar.gz"
+        ensure_success $sh_c "curl ${CURL_TRY} -k -sfLO https://github.com/beclab/velero/releases/download/${VELERO_VERSION}/velero-${VELERO_VERSION}-linux-${ARCH}.tar.gz"
     fi
     ensure_success $sh_c "tar xf velero-${VELERO_VERSION}-linux-${ARCH}.tar.gz"
     ensure_success $sh_c "install velero-${VELERO_VERSION}-linux-${ARCH}/velero /usr/local/bin"
@@ -1247,9 +1268,9 @@ install_velero_plugin_terminus() {
     velero_plugin_install_cmd+=" --no-secret --plugins beclab/velero-plugin-for-terminus:$velero_plugin_ver"
     velero_plugin_install_cmd+=" --velero-pod-cpu-request=50m --velero-pod-cpu-limit=500m"
     velero_plugin_install_cmd+=" --node-agent-pod-cpu-request=50m --node-agent-pod-cpu-limit=500m"
-    velero_plugin_install_cmd+=" --wait"
+    velero_plugin_install_cmd+=" --wait --wait-minute 30"
     ensure_success $sh_c "$velero_plugin_install_cmd"
-    velero_plugin_install_cmd="${VELERO} plugin add beclab/velero-plugin-for-terminus:$plugin -n os-system"
+    velero_plugin_install_cmd="${VELERO} plugin add beclab/velero-plugin-for-terminus:$velero_plugin_ver -n os-system"
     msg=$($sh_c "$velero_plugin_install_cmd 2>&1")
   fi
 
@@ -1353,7 +1374,7 @@ EOF
         fi
 
         if [ x"$KUBE_TYPE" == x"k3s" ]; then
-            K3S_PRELOAD_IMAGE_PATH="/var/lib/rancher/k3s/agent/images"
+            K3S_PRELOAD_IMAGE_PATH="/var/lib/images"
             $sh_c "mkdir -p ${K3S_PRELOAD_IMAGE_PATH} && rm -rf ${K3S_PRELOAD_IMAGE_PATH}/*"
         fi
 
@@ -1369,7 +1390,7 @@ EOF
 }
 
 install_k8s_ks() {
-    KKE_VERSION=0.1.21
+    KKE_VERSION=0.1.24
 
     ensure_success $sh_c "mkdir -p /etc/kke"
     local kk_bin="${BASE_DIR}/components/kk"
@@ -1425,6 +1446,10 @@ install_k8s_ks() {
 
     log_info 'Installation wizard is complete\n'
 
+    if [[ $(is_wsl) -eq 1 ]]; then
+        PORT=30181
+    fi
+
     # install complete
     echo -e " Terminus is running at"
     echo -e "${GREEN_LINE}"
@@ -1436,6 +1461,16 @@ install_k8s_ks() {
     echo -e " Password: ${userpwd} "
     echo -e " "
     echo -e " Please change the default password after login."
+
+    if [[ $(is_wsl) -eq 1 ]]; then
+        echo -e " "
+        echo -e " "
+        echo -e " Press Ctrl-C to exit until initialized in Wizard."
+        echo -e " "
+
+        socat TCP-LISTEN:30181,fork,reuseaddr TCP4:${local_ip}:30180
+    fi
+
 }
 
 read_tty(){
@@ -2057,7 +2092,11 @@ Main() {
 
         log_info 'Installing terminus ...\n'
         config_proxy_resolv_conf
-        install_storage
+
+        if [[ $(is_wsl) -eq 0 ]]; then
+            install_storage
+        fi
+
         install_k8s_ks
     ) 2>&1
 

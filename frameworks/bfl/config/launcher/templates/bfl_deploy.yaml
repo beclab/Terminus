@@ -238,7 +238,7 @@ spec:
           mkdir -p /userspace/Data
       containers:
       - name: api
-        image: beclab/bfl:v0.3.30
+        image: beclab/bfl:v0.3.31
         imagePullPolicy: IfNotPresent
         volumeMounts:
         - name: userspace-dir
@@ -289,7 +289,7 @@ spec:
           value: v0.1.0
 
       - name: ingress
-        image: beclab/bfl-ingress:v0.2.9
+        image: beclab/bfl-ingress:v0.2.10
         imagePullPolicy: IfNotPresent
         volumeMounts:
         - name: ngxlog

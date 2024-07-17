@@ -55,7 +55,7 @@ spec:
 
       containers:
       - name: edge-desktop
-        image: beclab/desktop:v0.2.24
+        image: beclab/desktop:v0.2.25
         imagePullPolicy: IfNotPresent
         ports:
         - containerPort: 80
@@ -64,7 +64,7 @@ spec:
             value: http://bfl.{{ .Release.Namespace }}:8080
 
       - name: desktop-server
-        image: beclab/desktop-server:v0.2.24
+        image: beclab/desktop-server:v0.2.25
         imagePullPolicy: IfNotPresent
         volumeMounts:
         - name: userspace-dir
@@ -236,6 +236,27 @@ spec:
   opApis:
   - name: POST
     uri: /server/intent/send
+status:
+  state: active
+
+---
+apiVersion: sys.bytetrade.io/v1alpha1
+kind: ProviderRegistry
+metadata:
+  name: intent-api-v2
+  namespace: user-system-{{ .Values.bfl.username }}
+spec:
+  dataType: legacy_api
+  deployment: edge-desktop
+  description: edge-desktop legacy api
+  endpoint: edge-desktop.{{ .Release.Namespace }}
+  group: api.intent
+  kind: provider
+  namespace: {{ .Release.Namespace }}
+  version: v2
+  opApis:
+    - name: POST
+      uri: /server/intent/send
 status:
   state: active
 
