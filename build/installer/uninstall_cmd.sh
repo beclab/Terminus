@@ -341,5 +341,6 @@ set +o pipefail
 ls |grep install-wizard*.tar.gz | while read ar; do  ${RM} -f ${ar}; done
 
 [[ -f /usr/local/bin/k3s-uninstall.sh ]] && $sh_c "/usr/local/bin/k3s-uninstall.sh"
+[[ -f .installed ]] && $sh_c "rm -f .installed"
 
 log_info 'Uninstall OS success! '
