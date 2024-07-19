@@ -304,6 +304,7 @@ precheck_os() {
     if [ -d /opt/deps ]; then
         ensure_success $sh_c "mv /opt/deps/* ${BASE_DIR}"
     fi
+
 }
 
 is_debian() {
@@ -367,6 +368,16 @@ is_raspbian(){
     else
         echo 0
     fi
+}
+
+is_wsl(){
+    wsl=$(uname -a 2>&1)
+    if [[ ${wsl} == *WSL* ]]; then
+        echo 1
+        return
+    fi
+
+    echo 0
 }
 
 install_deps() {
@@ -486,9 +497,7 @@ run_install() {
     create_cmd+=" $extra"
 
     # add env OS_LOCALIP
-    export OS_LOCALIP="$local_ip"
-
-    ensure_success $sh_c "$create_cmd"
+    ensure_success $sh_c "export OS_LOCALIP=$local_ip && $create_cmd"
 
     log_info 'k8s and kubesphere installation is complete'
 
@@ -1201,12 +1210,12 @@ _check_velero_plugin_image_exists() {
 install_velero() {
     config_proxy_resolv_conf
 
-    VELERO_VERSION="v1.11.0"
+    VELERO_VERSION="v1.11.2"
     local velero_tar="${BASE_DIR}/components/velero-${VELERO_VERSION}-linux-${ARCH}.tar.gz"
     if [ -f "$velero_tar" ]; then
         ensure_success $sh_c "cp ${velero_tar} velero-${VELERO_VERSION}-linux-${ARCH}.tar.gz"
     else
-        ensure_success $sh_c "curl ${CURL_TRY} -k -sfLO https://github.com/vmware-tanzu/velero/releases/download/${VELERO_VERSION}/velero-${VELERO_VERSION}-linux-${ARCH}.tar.gz"
+        ensure_success $sh_c "curl ${CURL_TRY} -k -sfLO https://github.com/beclab/velero/releases/download/${VELERO_VERSION}/velero-${VELERO_VERSION}-linux-${ARCH}.tar.gz"
     fi
     ensure_success $sh_c "tar xf velero-${VELERO_VERSION}-linux-${ARCH}.tar.gz"
     ensure_success $sh_c "install velero-${VELERO_VERSION}-linux-${ARCH}/velero /usr/local/bin"
@@ -1260,9 +1269,9 @@ install_velero_plugin_terminus() {
     velero_plugin_install_cmd+=" --no-secret --plugins beclab/velero-plugin-for-terminus:$velero_plugin_ver"
     velero_plugin_install_cmd+=" --velero-pod-cpu-request=50m --velero-pod-cpu-limit=500m"
     velero_plugin_install_cmd+=" --node-agent-pod-cpu-request=50m --node-agent-pod-cpu-limit=500m"
-    velero_plugin_install_cmd+=" --wait"
+    velero_plugin_install_cmd+=" --wait --wait-minute 30"
     ensure_success $sh_c "$velero_plugin_install_cmd"
-    velero_plugin_install_cmd="${VELERO} plugin add beclab/velero-plugin-for-terminus:$plugin -n os-system"
+    velero_plugin_install_cmd="${VELERO} plugin add beclab/velero-plugin-for-terminus:$velero_plugin_ver -n os-system"
     msg=$($sh_c "$velero_plugin_install_cmd 2>&1")
   fi
 
@@ -1438,6 +1447,10 @@ install_k8s_ks() {
 
     log_info 'Installation wizard is complete\n'
 
+    if [[ $(is_wsl) -eq 1 ]]; then
+        PORT=30181
+    fi
+
     # install complete
     echo -e " Terminus is running at"
     echo -e "${GREEN_LINE}"
@@ -1449,6 +1462,16 @@ install_k8s_ks() {
     echo -e " Password: ${userpwd} "
     echo -e " "
     echo -e " Please change the default password after login."
+
+    if [[ $(is_wsl) -eq 1 ]]; then
+        echo -e " "
+        echo -e " "
+        echo -e " Press Ctrl-C to exit until initialized in Wizard."
+        echo -e " "
+
+        socat TCP-LISTEN:30181,fork,reuseaddr TCP4:${local_ip}:30180
+    fi
+
 }
 
 read_tty(){
@@ -2070,7 +2093,11 @@ Main() {
 
         log_info 'Installing terminus ...\n'
         config_proxy_resolv_conf
-        install_storage
+
+        if [[ $(is_wsl) -eq 0 ]]; then
+            install_storage
+        fi
+
         install_k8s_ks
     ) 2>&1
 
