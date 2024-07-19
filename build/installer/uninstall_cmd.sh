@@ -314,6 +314,10 @@ remove_mount() {
 set -o pipefail
 set -e
 
+if [ ! -f '.installed' ]; then
+    exit 0
+fi
+
 get_shell_exec
 precheck_os
 
