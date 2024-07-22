@@ -43,6 +43,7 @@ function dpkg_locked() {
 }
 
 function retry_cmd(){
+    wait_k8s_health
     "$@"
     local ret=$?
     if [ $ret -ne 0 ];then
@@ -73,6 +74,7 @@ function retry_cmd(){
 }
 
 function ensure_success() {
+    wait_k8s_health
     exec 13> "$fd_errlog"
 
     "$@" 2>&13
@@ -458,6 +460,32 @@ restore_resolv_conf() {
         fi
     fi
 }
+
+k8s_health(){
+    if [ ! -z "$KUBECTL" ]; then
+        $sh_c "$KUBECTL get --raw='/readyz?verbose' 1>/dev/null"
+    fi
+}
+
+wait_k8s_health(){
+    local max_retry=60
+    local ok="n"
+    while [ $max_retry -ge 0 ]; do
+        if k8s_health; then
+            ok="y"
+            break
+        fi
+        sleep 5
+        ((max_retry--))
+    done
+
+    if [ x"$ok" != x"y" ]; then
+        echo "k8s is not health yet, please check it"
+        exit $ERR_EXIT
+    fi
+
+}
+
 
 run_install() {
     k8s_version=v1.22.10

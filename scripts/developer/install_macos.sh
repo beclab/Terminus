@@ -654,6 +654,8 @@ EOF
     ensure_success $sh_c "${KUBECTL} delete user admin"
     ensure_success $sh_c "${KUBECTL} delete deployment kubectl-admin -n kubesphere-controls-system"
     ensure_success $sh_c "${KUBECTL} scale deployment/ks-installer --replicas=0 -n kubesphere-system"
+    ensure_success $sh_c "${KUBECTL} delete deployment -n kubesphere-controls-system default-http-backend"
+
 
     # delete storageclass accessor webhook
     ensure_success $sh_c "${KUBECTL} delete validatingwebhookconfigurations storageclass-accessor.storage.kubesphere.io"
@@ -697,7 +699,8 @@ main(){
 
     log_info 'Installation wizard is complete\n'
 
-    ip=$(ping -c 1 "$HOSTNAME" |awk -F '[()]' '/icmp_seq/{print $2}')
+    HOSTNAME=$(hostname)
+    ip=$(ping -c 1 "$HOSTNAME" |awk -F '[()]' '/PING/{print $2}')
 
     # install complete
     echo -e " Terminus is running"
