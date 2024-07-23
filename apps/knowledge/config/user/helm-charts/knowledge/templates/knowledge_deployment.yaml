@@ -172,6 +172,8 @@ spec:
           value: user_space_{{ .Values.bfl.username }}_knowledge
         - name: DOWNLOAD_API_URL
           value: http://download-svc.user-space-{{ .Values.bfl.username }}:3080/api/termius/download
+        - name: SEARCH3_URL
+          value: 'http://search3.os-system:80/'
 
         ports:
         - containerPort: 8080
