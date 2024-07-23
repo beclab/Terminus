@@ -415,6 +415,7 @@ install_deps() {
 
 config_system() {
     local ntpdate hwclock
+    natgateway=""
 
     # kernel printk log level
     ensure_success $sh_c 'sysctl -w kernel.printk="3 3 1 7"'
@@ -427,6 +428,21 @@ config_system() {
     ensure_success $sh_c '/bin/sh cron.ntpdate'
     ensure_success $sh_c 'cat cron.ntpdate > /etc/cron.daily/ntpdate && chmod 0700 /etc/cron.daily/ntpdate'
     ensure_success rm -f cron.ntpdate
+
+    if ! system_service_active "ssh"; then
+        ensure_success $sh_c 'systemctl enable --now ssh'
+    fi 
+
+    if [[ $(is_wsl) -eq 1 ]]; then
+        while :; do
+            read_tty "Enter the windows host IP: " natgateway
+            natgateway=$(echo "$natgateway" | grep -E "[0-9]+(\.[0-9]+){3}" | grep -v "127.0.0.1")
+            if [ x"$natgateway" == x"" ]; then
+                continue
+            fi
+            break
+        done
+    fi
 }
 
 config_proxy_resolv_conf() {
@@ -647,7 +663,13 @@ _END
 
     log_info 'Installing launcher ...'
     # install launcher , and init pv
-    $run_cmd $sh_c "${HELM} upgrade -i launcher-${username} ${BASE_DIR}/wizard/config/launcher -n user-space-${username} --force --set bfl.appKey=${bfl_ks[0]} --set bfl.appSecret=${bfl_ks[1]}"
+    local xargs=""
+    if [[ $(is_wsl) -eq 1 && x"$natgateway" != x"" ]]; then
+        echo "annotate bfl with nat gateway ip"
+        xargs="--set ${natgateway}"
+    fi
+
+    $run_cmd $sh_c "${HELM} upgrade -i launcher-${username} ${BASE_DIR}/wizard/config/launcher -n user-space-${username} --force --set bfl.appKey=${bfl_ks[0]} --set bfl.appSecret=${bfl_ks[1]} ${xargs}"
 
     log_info 'waiting for bfl'
     check_bfl
@@ -655,6 +677,8 @@ _END
     bfl_doc_url=$(get_bfl_url)
 
     ns="user-space-${username}"
+
+
 
     log_info 'Try to find pv ...'
     userspace_pvc=$(get_k8s_annotation "$ns" sts bfl userspace_pvc)
@@ -1480,10 +1504,6 @@ install_k8s_ks() {
 
     log_info 'Installation wizard is complete\n'
 
-    if [[ $(is_wsl) -eq 1 ]]; then
-        PORT=30181
-    fi
-
     # install complete
     echo -e " Terminus is running at"
     echo -e "${GREEN_LINE}"
@@ -1497,12 +1517,8 @@ install_k8s_ks() {
     echo -e " Please change the default password after login."
 
     if [[ $(is_wsl) -eq 1 ]]; then
-        echo -e " "
-        echo -e " "
-        echo -e " Press Ctrl-C to exit until initialized in Wizard."
-        echo -e " "
-
-        socat TCP-LISTEN:30181,fork,reuseaddr TCP4:${local_ip}:30180
+        $sh_c "chattr +i /etc/hosts"
+        $sh_c "chattr +i /etc/resolv.conf"
     fi
 
 }

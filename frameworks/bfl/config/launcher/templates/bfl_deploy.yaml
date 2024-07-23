@@ -189,6 +189,10 @@ metadata:
     dbdata_sc: {{ default $dbdata_sc .Values.bfl.dbdata_sc }}
     dbdata_hostpath: {{ $dbdata_pv_rootpath }}/{{ default $dbdata_pvc .Values.bfl.dbdata_pvc }}
     dbdata_storage: {{ $dbdata_storage }}
+
+{{ if .Values.nat_gateway_ip }}
+    bytetrade.io/nat-gateway-ip: {{ .Values.nat_gateway_ip }}
+{{ end }}            
 spec:
   serviceName: bfl
   replicas: 1

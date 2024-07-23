@@ -586,7 +586,12 @@ _END
 
     log_info 'Installing launcher ...'
     # install launcher , and init pv
-    ensure_success $sh_c "${HELM} upgrade -i launcher-${username} ${BASE_DIR}/wizard/config/launcher -n user-space-${username} --force --set bfl.appKey=${bfl_ks[0]} --set bfl.appSecret=${bfl_ks[1]}"
+    local xargs=""
+    if [[ $(is_wsl) -eq 1 && x"$natgateway" != x"" ]]; then
+        echo "annotate bfl with nat gateway ip"
+        xargs="--set ${natgateway}"
+    fi
+    ensure_success $sh_c "${HELM} upgrade -i launcher-${username} ${BASE_DIR}/wizard/config/launcher -n user-space-${username} --force --set bfl.appKey=${bfl_ks[0]} --set bfl.appSecret=${bfl_ks[1]} ${xargs}"
 
     log_info 'waiting for bfl'
     check_bfl
@@ -666,6 +671,20 @@ EOF
 
 
 main(){
+    HOSTNAME=$(hostname)
+    natgateway=$(ping -c 1 "$HOSTNAME" |awk -F '[()]' '/PING/{print $2}')
+
+    if [ x"$natgateway" == x"" ]; then
+        while :; do
+            read_tty "Enter the host IP: " natgateway
+            natgateway=$(echo "$natgateway" | grep -E "[0-9]+(\.[0-9]+){3}" | grep -v "127.0.0.1")
+            if [ x"$natgateway" == x"" ]; then
+                continue
+            fi
+            break
+        done
+    fi
+
     sh_c="sh -c"
     if [[ "$OSTYPE" == "darwin"* ]]; then
         TAR=gtar
@@ -699,14 +718,12 @@ main(){
 
     log_info 'Installation wizard is complete\n'
 
-    HOSTNAME=$(hostname)
-    ip=$(ping -c 1 "$HOSTNAME" |awk -F '[()]' '/PING/{print $2}')
 
     # install complete
     echo -e " Terminus is running"
     echo -e " Open your browser and visit."
     echo -e "${GREEN_LINE}"
-    echo -e " http://${ip}:30180/"
+    echo -e " http://${natgateway}:30180/"
     echo -e "${GREEN_LINE}"
     echo -e " "
     echo -e " User: ${username} "
