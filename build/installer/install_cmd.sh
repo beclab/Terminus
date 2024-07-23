@@ -529,9 +529,9 @@ run_install() {
     local extra
 
     # env 'REGISTRY_MIRRORS' is a docker image cache mirrors, separated by commas
-    if [ x"$REGISTRY_MIRRORS" != x"" ]; then
-        extra=" --registry-mirrors $REGISTRY_MIRRORS"
-    fi
+    # if [ x"$REGISTRY_MIRRORS" != x"" ]; then
+    #     extra=" --registry-mirrors $REGISTRY_MIRRORS"
+    # fi
     # env 'PROXY' is a cache proxy server, to download binaries and container images
     # if [ x"$PROXY" != x"" ]; then
     #     # download binary with cache proxy
