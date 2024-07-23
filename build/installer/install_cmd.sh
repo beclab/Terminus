@@ -1282,7 +1282,7 @@ install_velero() {
     VELERO=$(command -v velero)
 
     # install velero crds
-    ensure_success $sh_c "${VELERO} install --crds-only"
+    ensure_success $sh_c "${VELERO} install --crds-only --retry 10 --delay 5"
     restore_resolv_conf
 }
 
