@@ -116,9 +116,9 @@ remove_cluster(){
         KUBE_VERSION="v1.22.10"
     fi
 
-    if [ x"$KKE_VERSION" == x"" ]; then
+    #if [ x"$KKE_VERSION" == x"" ]; then
         KKE_VERSION="0.1.21"
-    fi
+    #fi
 
     forceUninstall="${FORCE_UNINSTALL_CLUSTER}"
 

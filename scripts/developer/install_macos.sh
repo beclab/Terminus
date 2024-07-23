@@ -544,7 +544,12 @@ run_install(){
 
     log_info 'Installing account ...'
     # add the first account
-    retry_cmd $sh_c "${HELM} upgrade -i account ${BASE_DIR}/wizard/config/account --force"
+    local xargs=""
+    if [[ x"$natgateway" != x"" ]]; then
+        echo "annotate bfl with nat gateway ip"
+        xargs="--set nat_gateway_ip=${natgateway}"
+    fi
+    retry_cmd $sh_c "${HELM} upgrade -i account ${BASE_DIR}/wizard/config/account --force ${xargs}"
 
     log_info 'Installing settings ...'
     ensure_success $sh_c "${HELM} upgrade -i settings ${BASE_DIR}/wizard/config/settings --force"
@@ -586,12 +591,7 @@ _END
 
     log_info 'Installing launcher ...'
     # install launcher , and init pv
-    local xargs=""
-    if [[ $(is_wsl) -eq 1 && x"$natgateway" != x"" ]]; then
-        echo "annotate bfl with nat gateway ip"
-        xargs="--set ${natgateway}"
-    fi
-    ensure_success $sh_c "${HELM} upgrade -i launcher-${username} ${BASE_DIR}/wizard/config/launcher -n user-space-${username} --force --set bfl.appKey=${bfl_ks[0]} --set bfl.appSecret=${bfl_ks[1]} ${xargs}"
+    ensure_success $sh_c "${HELM} upgrade -i launcher-${username} ${BASE_DIR}/wizard/config/launcher -n user-space-${username} --force --set bfl.appKey=${bfl_ks[0]} --set bfl.appSecret=${bfl_ks[1]}"
 
     log_info 'waiting for bfl'
     check_bfl

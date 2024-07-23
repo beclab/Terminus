@@ -234,6 +234,12 @@ precheck_os() {
     # try to resolv hostname
     ensure_success $sh_c "hostname -i >/dev/null"
 
+    local badHostname
+    badHostname=$(echo "$HOSTNAME" | grep -E "[A-Z]")
+    if [ x"$badHostname" != x"" ]; then
+        log_fatal "please set the hostname with lowercase ['${badHostname}']"
+    fi
+
     ip=$(ping -c 1 "$HOSTNAME" |awk -F '[()]' '/icmp_seq/{print $2}')
     printf "%s\t%s\n\n" "$ip" "$HOSTNAME"
 
@@ -582,7 +588,12 @@ run_install() {
 
     log_info 'Installing account ...'
     # add the first account
-    retry_cmd $sh_c "${HELM} upgrade -i account ${BASE_DIR}/wizard/config/account --force"
+    local xargs=""
+    if [[ $(is_wsl) -eq 1 && x"$natgateway" != x"" ]]; then
+        echo "annotate bfl with nat gateway ip"
+        xargs="--set nat_gateway_ip=${natgateway}"
+    fi
+    retry_cmd $sh_c "${HELM} upgrade -i account ${BASE_DIR}/wizard/config/account --force ${xargs}"
 
     log_info 'Installing settings ...'
     $run_cmd $sh_c "${HELM} upgrade -i settings ${BASE_DIR}/wizard/config/settings --force"
@@ -663,13 +674,7 @@ _END
 
     log_info 'Installing launcher ...'
     # install launcher , and init pv
-    local xargs=""
-    if [[ $(is_wsl) -eq 1 && x"$natgateway" != x"" ]]; then
-        echo "annotate bfl with nat gateway ip"
-        xargs="--set ${natgateway}"
-    fi
-
-    $run_cmd $sh_c "${HELM} upgrade -i launcher-${username} ${BASE_DIR}/wizard/config/launcher -n user-space-${username} --force --set bfl.appKey=${bfl_ks[0]} --set bfl.appSecret=${bfl_ks[1]} ${xargs}"
+    retry_cmd $sh_c "${HELM} upgrade -i launcher-${username} ${BASE_DIR}/wizard/config/launcher -n user-space-${username} --force --set bfl.appKey=${bfl_ks[0]} --set bfl.appSecret=${bfl_ks[1]}"
 
     log_info 'waiting for bfl'
     check_bfl
@@ -739,11 +744,11 @@ EOF
     $run_cmd $sh_c "${KUBECTL} patch user admin -p '{\"metadata\":{\"finalizers\":[\"finalizers.kubesphere.io/users\"]}}' --type='merge'"
     $run_cmd $sh_c "${KUBECTL} delete user admin"
     $run_cmd $sh_c "${KUBECTL} delete deployment kubectl-admin -n kubesphere-controls-system"
-    $run_cmd $sh_c "${KUBECTL} scale deployment/ks-installer --replicas=0 -n kubesphere-system"
+    # $run_cmd $sh_c "${KUBECTL} scale deployment/ks-installer --replicas=0 -n kubesphere-system"
     $run_cmd $sh_c "${KUBECTL} delete deployment -n kubesphere-controls-system default-http-backend"
     
     # delete storageclass accessor webhook
-    $run_cmd $sh_c "${KUBECTL} delete validatingwebhookconfigurations storageclass-accessor.storage.kubesphere.io"
+    # $run_cmd $sh_c "${KUBECTL} delete validatingwebhookconfigurations storageclass-accessor.storage.kubesphere.io"
 
     # calico config for tailscale
     $run_cmd $sh_c "${KUBECTL} patch felixconfiguration default -p '{\"spec\":{\"featureDetectOverride\": \"SNATFullyRandom=false,MASQFullyRandom=false\"}}' --type='merge'"
@@ -1474,7 +1479,7 @@ install_k8s_ks() {
     else 
         ensure_success $sh_c "cp ${kk_bin} ./"
     fi
-    ensure_success $sh_c "chmod +x kk"
+    # ensure_success $sh_c "chmod +x kk"
 
     log_info 'Setup your first user ...\n'
     setup_ws
@@ -2116,8 +2121,12 @@ source ./wizard/bin/COLORS
 PORT="30180"  # desktop port
 show_launcher_ip() {
     IP=$(curl ${CURL_TRY} -s http://ifconfig.me/)
-    if [ -n "$local_ip" ]; then
-        echo -e "http://${local_ip}:$PORT "
+    if [ -n "$natgateway" ]; then
+        echo -e "http://${natgateway}:$PORT "
+    else
+        if [ -n "$local_ip" ]; then
+            echo -e "http://${local_ip}:$PORT "
+        fi
     fi
 
     if [ -n "$IP" ]; then
@@ -2134,6 +2143,7 @@ fd_errlog=/tmp/install_log/errlog_fd_13
 
 Main() {
     [[ -z $KUBE_TYPE ]] && KUBE_TYPE="k3s"
+    [[ ! -f $BASE_DIR/.installed ]] && touch $BASE_DIR/.installed
 
     log_info 'Start to Install Terminus ...\n'
     get_distribution
