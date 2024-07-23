@@ -1,6 +1,6 @@
 <div align="center">
 
-# Terminus OS - Your Free, Self-Hosted Operating System Based on Kubernetes <!-- omit in toc -->
+# Terminus - Your Self-Hosted Home Cloud, Powered by Kubernetes <!-- omit in toc -->
 
 [![Mission](https://img.shields.io/badge/Mission-Let%20people%20own%20their%20data%20again-purple)](#)<br />
 [![Last Commit](https://img.shields.io/github/last-commit/beclab/terminus)](https://github.com/beclab/terminus/commits/main)
@@ -13,6 +13,8 @@
 </div>
 
 ![cover](https://file.bttcdn.com/github/terminus/desktop-dark.jpeg)
+
+*Build your local AI assistants, sync data across places, self-hosted your workspace, stream your own media, and more——all in a true home cloud made possible by Terminus.*
 <p align="center">
   <a href="https://www.jointerminus.com">Website</a> ·
   <a href="https://docs.jointerminus.com">Documentation</a> ·
@@ -23,47 +25,59 @@
 
 ## Table of Contents <!-- omit in toc -->
 - [Introduction](#introduction)
-- [Motivation and Design](#motivation-and-design)
+- [Motivation and design](#motivation-and-design)
+- [Tech stacks](#tech-stacks)
 - [Features](#features)
-  - [Feature Comparison](#feature-comparison)
-- [Getting Started](#getting-started)
-- [Project Navigation](#project-navigation)
-- [Contributing to Terminus OS](#contributing-to-terminus-os)
-- [Community \& Contact](#community--contact)
-- [Staying Ahead](#staying-ahead)
-- [Special Thanks](#special-thanks)
+- [Feature comparison](#feature-comparison)
+- [Getting started](#getting-started)
+- [Project navigation](#project-navigation)
+- [Contributing to Terminus](#contributing-to-terminus)
+- [Community \& contact](#community--contact)
+- [Staying ahead](#staying-ahead)
+- [Special thanks](#special-thanks)
   
 ## Introduction
 
-Terminus OS is a free, self-hosted operating system built on Kubernetes. It is designed as a one-stop self-hosted solution for user-owned edge devices. Our goal is to enable users to securely store their most important data on their own hardware ad access services based on this private data from anywhere in the world. Typical use cases include：
+Transform your edge device into a true home cloud with Terminus - a free, self-hosted operating system built on Kubernetes. Terminus brings cloud-level capabilities to your home, without compromising on privacy or ease of use. By securely storing your data and accessing your self-hosted services from anywhere via Terminus, you gain complete control over your digital life.
 
-- 💻 **Self-hosted**: Terminus OS serves as a one-stop self-hosted solution where users can host and manage their data, operations, and digital life effectively, with full data ownership.
-- 🤖 **Local AI**: Build local AI agents with Terminus OS without writing code.
-- 🤝 **User-owned decentralized social media**: Easily install decentralized social media apps such as Mastodon, Ghost, and WordPress on Terminus OS, allowing you to build a personal brand without the risk of being banned or paying platform commissions.
+Typical use cases of Terminus include:
 
-## Motivation and Design
+🤖 **Local AI**: Host and run world-class open-source AI models locally, including large language models, image generation, and speech recognition. Create custom AI assistants that integrate seamlessly with your personal data and applications, all while ensuring enhanced privacy and control. <br>
+
+💻**Personal data repository**: Securely store, sync, and manage your photos, documents, and important files in a unified storage and access anywhere. <br>
+
+🛠️ **Self-hosted workspace**: Create a free, powerful workspace for your team or family with open source selfhosted alternatives. <br>
+
+🎥 **Private media server**: Host your own streaming services with your personal media collections. <br>
+
+🏡 **Smart Home Hub**: Create a central control point for your IoT devices and home automation. <br>
+
+🤝 **User-owned decentralized social media**: Easily install decentralized social media apps such as Mastodon, Ghost, and WordPress on Terminus, allowing you to build a personal brand without the risk of being banned or paying platform commissions.<br>
+
+📚 **Learning platform**: Explore self-hosting, container orchestration, and cloud technologies hands-on.
+
+## Motivation and design
 
 We believe the current state of the internet, where user data is centralized and exploited by monopolistic corporations, is deeply flawed. Our goal is to empower individuals with true data ownership and control.
 
-This vision is rooted in what we call the "BEC" (Blockchain, Edge, Client) model, where applications and data reside at the edge, secrets are stored on clients, identities on blockchain. By distributing data across personal Edge nodes rather than centralized servers, Terminus OS aims to restore user sovereignty over their digital information, communications, and online activities.  
+Terminus provides a next-generation decentralized Internet framework consisting of the following three integral components:  
 
-As an instantiation of the BEC model, the Terminus ecosystem is composed of three integral components:
+- **Snowinning Protocol**: A decentralized identity and reputation system that integrates decentralized identifiers (DIDs), verifiable credentials (VCs), and reputation data. 
+- **Terminus OS**: An one-stop self-hosted operating system running on edge devices, allowing users to host their own data and applications.  
+- **TermiPass**: A comprehensive client software that securely bridges users to their Terminus systems. It offers remote access, identity and device management, data storage, and productivity tools, providing a seamless interface for all Terminus interactions. Learn more in [documentation](https://docs.jointerminus.com/how-to/termipass/overview.html).
 
-- **Snowinning Protocol**: A decentralized identity and reputation system that integrates decentralized identifiers (DIDs), verifiable credentials (VCs), and reputation data into blockchain smart contracts. Learn more in [documentation](https://docs.jointerminus.com/overview/snowinning/overview.html). 
-  ![Snowinning Protocol](https://file.bttcdn.com/github/terminus/snowinning-protocol.jpg)
-- **Terminus OS**: An one-stop self-hosted OS running on edge devices.  
+## Tech stacks
+
   ![Tech Stacks](https://file.bttcdn.com/github/terminus/v2/tech-stack.jpeg)
-- **TermiPass**: A comprehensive client software that operates across multiple platforms. It securely stores users' private keys and manages their identities and data across various Edge devices. Learn more in [documentation](https://docs.jointerminus.com/how-to/termipass/overview.html).
-
 
 ## Features
 
-Terminus OS offers a wide array of features designed to enhance security, ease of use, and development flexibility:
+Terminus offers a wide array of features designed to enhance security, ease of use, and development flexibility:
 
 - **Enterprise-grade security**: Simplified network configuration using Tailscale, Headscale, Cloudflare Tunnel, and FRP.
 - **Secure and permissionless application ecosystem**: Sandboxing ensures application isolation and security.
-- **Unified filesystem and database**: Automated scaling, backups, and high availability.
-- **Single sign-on**: Log in once to access all applications within Terminus OS with a shared authentication service.
+- **Unified file system and database**: Automated scaling, backups, and high availability.
+- **Single sign-on**: Log in once to access all applications within Terminus with a shared authentication service.
 - **AI capabilities**: Comprehensive solution for GPU management, local AI model hosting, and private knowledge bases while maintaining data privacy.
 - **Built-in applications**: Includes file manager, sync drive, vault, reader, app market, settings, and dashboard.
 - **Seamless anywhere access**: Access your devices from anywhere using dedicated clients for mobile, desktop, and browsers.
@@ -74,20 +88,20 @@ Here are some screenshots from the UI for a sneak peek:
 | Desktop–AI-Powered Personal Desktop     |  **Files**–A Secure Home to Your Data
 | :--------: | :-------: |
 | ![Desktop](https://file.bttcdn.com/github/terminus/v2/desktop.jpg) | ![Files](https://file.bttcdn.com/github/terminus/v2/files.jpg) |
-| **Vault–1Password for the Web3 Era**|**Market–App Ecosystem in Your Control** |
+| **Vault–1Password alternative**|**Market–App ecosystem in your control** |
 | ![vault](https://file.bttcdn.com/github/terminus/v2/vault.jpg) | ![market](https://file.bttcdn.com/github/terminus/v2/market.jpg) |
-|**Wise–Your Digital Secret Garden** | **Settings–Managing Terminus Efficiently** |
+|**Wise–Your digital secret garden** | **Settings–Managing Terminus efficiently** |
 | ![settings](https://file.bttcdn.com/github/terminus/v2/wise.jpg) | ![](https://file.bttcdn.com/github/terminus/v2/settings.jpg) |
-|**Dashboard–Constant Terminus Monitoring**  | **Profile–Customized Web3 Homepage** |
+|**Dashboard–constant Terminus monitoring**  | **Profile–Your homepage on decentralized network** |
 | ![dashboard](https://file.bttcdn.com/github/terminus/v2/dashboard.jpg) | ![profile](https://file.bttcdn.com/github/terminus/v2/profile.jpg) |
-| **Devbox–Developing, Debugging, and Deploying**|**Controlhub–Managing Kubernetes Clusters Easily**  |
+| **Devbox–Developing, debugging, and deploying**|**Controlhub–Managing Kubernetes clusters easily**  |
 | ![Devbox](https://file.bttcdn.com/github/terminus/v2/devbox.jpg) | ![Controlhub](https://file.bttcdn.com/github/terminus/v2/controlhub.jpg)|
 
 </div>
 
-### Feature Comparison 
+## Feature comparison 
 
-To help you understand how Terminus OS stands out in the landscape, we've created a comparison table that highlights its features alongside those of other leading solutions in the market.
+To help you understand how Terminus stands out in the landscape, we've created a comparison table that highlights its features alongside those of other leading solutions in the market.
 
 **Legend:** 
 
@@ -96,7 +110,7 @@ To help you understand how Terminus OS stands out in the landscape, we've create
 - 🛠️: **Manual Configuration**, indicates that even users with an engineering background need to refer to tutorials to complete the setup.
 - ❌:  **No**, indicates that the feature is not supported.
 
-|     | Terminus OS | Synology | TrueNAS | CasaOS | Proxmox | Unraid |
+|     | Terminus | Synology | TrueNAS | CasaOS | Proxmox | Unraid |
 | --- | --- | --- | --- | --- | --- | --- |
 | Source Code License | Terminus License | Closed | GPL 3.0 | Apache 2.0 | MIT | Closed |
 | Built On | Kubernetes | Linux | Kubernetes | Docker | LXC/VM | Docker |
@@ -121,46 +135,18 @@ To help you understand how Terminus OS stands out in the landscape, we've create
 | Client Platforms | ✅ Android  <br>✅ iOS  <br>✅ Windows  <br>✅ Mac  <br>✅ Chrome Plugin | ✅ Android  <br>✅ iOS | ❌   | ❌   | ❌  | ❌   |
 | Client Functionality | ✅ (All-in-one client app) | ✅ (14 separate client apps) | ❌   | ❌   | ❌   |  ❌   |
 
-## Getting Started
+## Getting started
 
-Before you get started, make sure your hardware meet the following minimum system requirements:
+- [Getting Started on Linux](https://docs.jointerminus.com/overview/introduction/getting-started/linux.html)
+- [Getting Started on Raspberry Pi](https://docs.jointerminus.com/overview/introduction/getting-started/raspberry.html)
+- [Getting Started on macOS](https://docs.jointerminus.com/overview/introduction/getting-started/mac.html)
+- [Getting Started on Windows](https://docs.jointerminus.com/overview/introduction/getting-started/windows.html)
 
-- Hardware configurations: 
+## Project navigation
 
-  - CPU >= 4 Core
-  - RAM >= 8GB
-  - Free Disk >= 100GB
-- Supported systems:
-   
-   | Linux Version | Architecture |
-   | -------------- | ------ |
-   | Ubuntu 24.04   | x86-64, amd64 |
-   | Ubuntu 22.04   | x86-64, amd64 |
-   | Ubuntu 20.04   | x86-64, amd64 |
-   | Debian 12  | amd64 |
-   | Debian 11  | amd64 |
-      
-Take the following steps to install Terminus OS:
+Terminus consists of numerous code repositories publicly available on GitHub. The current repository is responsible for the final compilation, packaging, installation, and upgrade of the operating system, while specific changes mostly take place in their corresponding repositories.
 
-1. [Apply for A Terminus Name](https://docs.jointerminus.com/how-to/termipass/account/#create-terminus-name). 
-   
-2. Install Terminus OS in your machine with the following command: 
-   ```
-   curl -fsSL https://terminus.sh |  bash -
-   ```
-   For more detailed instructions, see [Install Terminus OS with commands](https://docs.jointerminus.com/how-to/terminus/setup/install.html#install).
-
-3. Access the URL required for Terminus OS activation in the browser, and complete the initial setups and system activation following the on-screen instructions. For more detailed instructions, see the [Activation Guide](../../how-to/terminus/setup/wizard.md).
-   
-4. Log in with the password you reset during activation and complete two-step verification on TermiPass. For more detailed instructions, see the [Login Doc](../../how-to/terminus/setup/login.md).
-   
-5. [Back up your mnemonic phrase](../../how-to/termipass/account/index.md#backup-mnemonic-phrase.md) to ensure account and data security.
-
-## Project Navigation
-
-Terminus OS consists of numerous code repositories publicly available on GitHub. The current repository is responsible for the final compilation, packaging, installation, and upgrade of the OS, while specific changes mostly take place in their corresponding repositories.
-
-The following table lists the project directories under Terminus OS and their corresponding repositories. Find the one that interests you:
+The following table lists the project directories under Terminus and their corresponding repositories. Find the one that interests you:
 
 <b>Framework components</b>
 
@@ -181,17 +167,17 @@ The following table lists the project directories under Terminus OS and their co
 | --- | --- | --- |
 | [apps/agent](https://github.com/beclab/terminus/tree/main/apps/agent) | <https://github.com/beclab/dify> | The LLM app development platform ported from [Dify.ai](https://github.com/langgenius/dify), with integrations of Terminus Accounts, local knowledge base, and local models. |
 | [apps/analytic](https://github.com/beclab/terminus/tree/main/apps/analytic) | <https://github.com/beclab/analytic> | Developed based on [Umami](https://github.com/umami-software/umami), Analytic is a simple, fast, privacy-focused alternative to Google Analytics. |
-| [apps/market](https://github.com/beclab/terminus/tree/main/apps/market) | <https://github.com/beclab/market> | This repository deploys the front-end part of the application market in Terminus OS. |
-| [apps/market-server](https://github.com/beclab/terminus/tree/main/apps/market-server) | <https://github.com/beclab/market> | This repository deploys the back-end part of the application market in Terminus OS. |
+| [apps/market](https://github.com/beclab/terminus/tree/main/apps/market) | <https://github.com/beclab/market> | This repository deploys the front-end part of the application market in Terminus. |
+| [apps/market-server](https://github.com/beclab/terminus/tree/main/apps/market-server) | <https://github.com/beclab/market> | This repository deploys the back-end part of the application market in Terminus. |
 | [apps/argo](https://github.com/beclab/terminus/tree/main/apps/argo) | <https://github.com/argoproj/argo-workflows> | A workflow engine for orchestrating container execution of local recommendation algorithms. |
 | [apps/desktop](https://github.com/beclab/terminus/tree/main/apps/desktop) | <https://github.com/beclab/desktop> | The built-in desktop application of the system. |
 | [apps/devbox](https://github.com/beclab/terminus/tree/main/apps/devbox) | <https://github.com/beclab/devbox> | An IDE for developers to port and develop Terminus applications. |
 | [apps/TermiPass](https://github.com/beclab/terminus/tree/main/apps/TermiPass) | <https://github.com/beclab/TermiPass> | A free alternative to 1Password and Bitwarden for teams and enterprises of any size Developed based on [Padloc](https://github.com/padloc/padloc). It serves as the client that helps you manage DID, Terminus Name, and Terminus devices. |
 | [apps/files](https://github.com/beclab/terminus/tree/main/apps/files) | <https://github.com/beclab/files> | A built-in file manager modified from [Filebrowser](https://github.com/filebrowser/filebrowser), providing management of files on Drive, Sync, and various Terminus physical nodes. |
 | [apps/knowledgebase](https://github.com/beclab/terminus/tree/main/apps/knowledgebase) | <https://github.com/Above-Os/knowledgebase> | A built-in application that stores articles, PDFs, and eBooks collected through RSS subscriptions, TermiPass, and recommendations by local algorithms. |
-| [apps/mynitro](https://github.com/beclab/terminus/tree/main/apps/mynitro) | <https://github.com/beclab/mynitro> | A wrapper of the official [Nitro](https://github.com/janhq/nitro) project that hosts LLMs locally, specifically, provides services to Dify's agents on Terminus OS. |
-| [apps/notifications](https://github.com/beclab/terminus/tree/main/apps/notifications) | <https://github.com/beclab/notifications> | The notifications system of Terminus OS |
-| [apps/profile](https://github.com/beclab/terminus/tree/main/apps/profile) | <https://github.com/beclab/profile> | Alternative to Linkertree in Terminus OS to create Web3.0 profiles for users. |
+| [apps/mynitro](https://github.com/beclab/terminus/tree/main/apps/mynitro) | <https://github.com/beclab/mynitro> | A wrapper of the official [Nitro](https://github.com/janhq/nitro) project that hosts LLMs locally, specifically, provides services to Dify's agents on Terminus. |
+| [apps/notifications](https://github.com/beclab/terminus/tree/main/apps/notifications) | <https://github.com/beclab/notifications> | The notifications system of Terminus |
+| [apps/profile](https://github.com/beclab/terminus/tree/main/apps/profile) | <https://github.com/beclab/profile> | Linktree alternative in Terminus|
 | [apps/rsshub](https://github.com/beclab/terminus/tree/main/apps/rsshub) | <https://github.com/beclab/rsshub> | A RSS subscription manager based on [RssHub](https://github.com/DIYgod/RSSHub). |
 | [apps/dify-gateway](https://github.com/beclab/terminus/tree/main/apps/dify-gateway) | <https://github.com/beclab/dify-gateway> | A gateway service that establishes the connection between Dify and other services such as Files and Agent. |
 | [apps/settings](https://github.com/beclab/terminus/tree/main/apps/settings) | <https://github.com/beclab/settings> | Built-in system settings. |
@@ -217,7 +203,7 @@ The following table lists the project directories under Terminus OS and their co
 | [third-party/seahub](https://github.com/beclab/terminus/tree/main/third-party/seahub) | <https://github.com/beclab/seahub> | The front-end and middleware service of Seafile (Sync Drive) for handling file sharing, data synchronization, etc. |
 | [third-party/tailscale](https://github.com/beclab/terminus/tree/main/third-party/tailscale) | <https://github.com/tailscale/tailscale> | Tailscale has been integrated in TermiPass of all platforms. |
 
-**Additional Libraries and Components**
+**Additional libraries and components**
 
 | Directory | Repository | Description |
 | --- | --- | --- |
@@ -226,31 +212,31 @@ The following table lists the project directories under Terminus OS and their co
 | [libs/fs-lib](https://github.com/beclab/terminus/tree/main/libs) | <https://github.com/beclab/fs-lib> | The SDK library for the iNotify-compatible interface implemented based on JuiceFS. |
 | [scripts](https://github.com/beclab/terminus/tree/main/scripts) |     | Assisting scripts for generating the installer build. |
 
-## Contributing to Terminus OS
+## Contributing to Terminus
 
 We are welcoming contributions in any form:
 
-- If you want to develop your own applications on Terminus OS, refer to:<br>
+- If you want to develop your own applications on Terminus, refer to:<br>
 https://docs.jointerminus.com/developer/develop/
 
 
-- If you want to help improve Terminus OS, refer to:<br>
+- If you want to help improve Terminus, refer to:<br>
 https://docs.jointerminus.com/developer/contribute/terminus-os.html
 
-## Community & Contact
+## Community & contact
 
 * [**Github Discussion**](https://github.com/beclab/terminus/discussions). Best for sharing feedback and asking questions.
 * [**GitHub Issues**](https://github.com/beclab/terminus/issues). Best for filing bugs you encounter using Terminus and submitting feature proposals. 
 * [**Discord**](https://discord.gg/ShjkCBs2). Best for sharing anything Terminus.
 
-## Staying Ahead
+## Staying ahead  
 
-Star the Terminus OS project to receive instant notifications about new releases and updates.
+Star the Terminus project to receive instant notifications about new releases and updates.
 
  
 ![star us](https://file.bttcdn.com/github/terminus/terminus.git.v2.gif)
  
 
-## Special Thanks 
+## Special thanks 
 
-The Terminus OS project has incorporated numerous third-party open source projects, including: [Kubernetes](https://kubernetes.io/), [Kubesphere](https://github.com/kubesphere/kubesphere), [Padloc](https://padloc.app/), [K3S](https://k3s.io/), [JuiceFS](https://github.com/juicedata/juicefs), [MinIO](https://github.com/minio/minio), [Envoy](https://github.com/envoyproxy/envoy), [Authelia](https://github.com/authelia/authelia), [Infisical](https://github.com/Infisical/infisical), [Dify](https://github.com/langgenius/dify), [Seafile](https://github.com/haiwen/seafile),[HeadScale](https://headscale.net/), [tailscale](https://tailscale.com/), [Redis Operator](https://github.com/spotahome/redis-operator), [Nitro](https://nitro.jan.ai/), [RssHub](http://rsshub.app/), [predixy](https://github.com/joyieldInc/predixy), [nvshare](https://github.com/grgalex/nvshare), [LangChain](https://www.langchain.com/), [Quasar](https://quasar.dev/), [TrustWallet](https://trustwallet.com/), [Restic](https://restic.net/), [ZincSearch](https://zincsearch-docs.zinc.dev/), [filebrowser](https://filebrowser.org/), [lego](https://go-acme.github.io/lego/), [Velero](https://velero.io/), [s3rver](https://github.com/jamhall/s3rver), [Citusdata](https://www.citusdata.com/).
+The Terminus project has incorporated numerous third-party open source projects, including: [Kubernetes](https://kubernetes.io/), [Kubesphere](https://github.com/kubesphere/kubesphere), [Padloc](https://padloc.app/), [K3S](https://k3s.io/), [JuiceFS](https://github.com/juicedata/juicefs), [MinIO](https://github.com/minio/minio), [Envoy](https://github.com/envoyproxy/envoy), [Authelia](https://github.com/authelia/authelia), [Infisical](https://github.com/Infisical/infisical), [Dify](https://github.com/langgenius/dify), [Seafile](https://github.com/haiwen/seafile),[HeadScale](https://headscale.net/), [tailscale](https://tailscale.com/), [Redis Operator](https://github.com/spotahome/redis-operator), [Nitro](https://nitro.jan.ai/), [RssHub](http://rsshub.app/), [predixy](https://github.com/joyieldInc/predixy), [nvshare](https://github.com/grgalex/nvshare), [LangChain](https://www.langchain.com/), [Quasar](https://quasar.dev/), [TrustWallet](https://trustwallet.com/), [Restic](https://restic.net/), [ZincSearch](https://zincsearch-docs.zinc.dev/), [filebrowser](https://filebrowser.org/), [lego](https://go-acme.github.io/lego/), [Velero](https://velero.io/), [s3rver](https://github.com/jamhall/s3rver), [Citusdata](https://www.citusdata.com/).

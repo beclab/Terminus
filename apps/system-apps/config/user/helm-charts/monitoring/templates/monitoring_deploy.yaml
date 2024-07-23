@@ -62,12 +62,12 @@ spec:
                 fieldPath: status.podIP
       containers:
       - name: dashboard-frontend
-        image: beclab/dashboard-frontend-v1:v0.2.17
+        image: beclab/dashboard-frontend-v1:v0.2.22
         imagePullPolicy: IfNotPresent
         ports:
         - containerPort: 80
       - name: terminus-envoy-sidecar
-        image: envoyproxy/envoy-distroless:v1.25.2
+        image: bytetrade/envoy:v1.25.11
         imagePullPolicy: IfNotPresent
         securityContext:
           allowPrivilegeEscalation: false

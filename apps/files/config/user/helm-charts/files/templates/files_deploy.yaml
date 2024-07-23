@@ -79,11 +79,13 @@ spec:
 
       containers:
       - name: gateway
-        image: beclab/appdata-gateway:0.1.7
+        image: beclab/appdata-gateway:0.1.12
         imagePullPolicy: IfNotPresent
         ports:
         - containerPort: 8080
         env:
+        - name: FILES_SERVER_TAG
+          value: 'beclab/files-server:v0.2.27'
         - name: NAMESPACE
           valueFrom:
             fieldRef:
@@ -92,7 +94,7 @@ spec:
           value: system-server.user-system-{{ .Values.bfl.username }}
 
       - name: files
-        image: beclab/files-server:v0.2.19
+        image: beclab/files-server:v0.2.27
         imagePullPolicy: IfNotPresent
         volumeMounts:
         - name: fb-data
@@ -108,6 +110,12 @@ spec:
         ports:
         - containerPort: 8110
         env:
+        - name: ES_ENABLED
+          value: 'True'
+        - name: WATCHER_ENABLED
+          value: 'True'
+        - name: KNOWLEDGE_BASE_ENABLED
+          value: 'True'
         - name: BFL_NAME
           value: '{{ .Values.bfl.username }}'
         - name: FB_DATABASE
@@ -165,14 +173,30 @@ spec:
         - /filebrowser
         - --noauth
       - name: files-frontend
-        image: beclab/files-frontend:v1.2.6
+        image: beclab/files-frontend:v1.2.7
         imagePullPolicy: IfNotPresent
         ports:
         - containerPort: 80
         volumeMounts:
         - name: userspace-dir
           mountPath: /data
-
+      - name: media-server
+        env:
+        - name: MEDIA_SERVER_DATA_DIR
+          value: /data
+        image: beclab/media-server:v0.1.2
+        imagePullPolicy: IfNotPresent
+        ports:
+        - containerPort: 9090
+        volumeMounts:
+        - name: userspace-dir
+          mountPath: /data/Home
+      
+      - name: drive-server
+        image: beclab/drive:v0.0.2
+        imagePullPolicy: IfNotPresent
+        ports:
+        - containerPort: 8181
       - name: terminus-upload-sidecar
         image: beclab/upload:v1.0.3
         env:
@@ -195,7 +219,7 @@ spec:
         imagePullPolicy: IfNotPresent
 
       - name: terminus-envoy-sidecar
-        image: envoyproxy/envoy-distroless:v1.25.2
+        image: bytetrade/envoy:v1.25.11
         imagePullPolicy: IfNotPresent
         securityContext:
           allowPrivilegeEscalation: false
@@ -317,120 +341,120 @@ spec:
 status:
   state: active
 
----
-apiVersion: sys.bytetrade.io/v1alpha1
-kind: ApplicationPermission
-metadata:
-  name: files
-  namespace: user-system-{{ .Values.bfl.username }}
-spec:
-  app: files
-  appid: files
-  key: {{ .Values.os.files.appKey }}
-  secret: {{ .Values.os.files.appSecret }}
-  permissions:
-    - dataType: gateway
-      group: service.agent
-      ops:
-        - DifyGatewayBaseProvider
-      version: v1
-status:
-  state: active
+#---
+#apiVersion: sys.bytetrade.io/v1alpha1
+#kind: ApplicationPermission
+#metadata:
+#  name: files
+#  namespace: user-system-{{ .Values.bfl.username }}
+#spec:
+#  app: files
+#  appid: files
+#  key: {{ .Values.os.files.appKey }}
+#  secret: {{ .Values.os.files.appSecret }}
+#  permissions:
+#    - dataType: gateway
+#      group: service.difyfusionclient
+#      ops:
+#        - DifyGatewayBaseProvider
+#      version: v1
+#status:
+#  state: active
 
----
-apiVersion: v1
-data:
-  mappings: |
-    {
-      "properties": {
-        "@timestamp": {
-          "type": "date",
-          "index": true,
-          "store": false,
-          "sortable": true,
-          "aggregatable": true,
-          "highlightable": false
-        },
-        "_id": {
-          "type": "keyword",
-          "index": true,
-          "store": false,
-          "sortable": true,
-          "aggregatable": true,
-          "highlightable": false
-        },
-        "content": {
-          "type": "text",
-          "index": true,
-          "store": true,
-          "sortable": false,
-          "aggregatable": false,
-          "highlightable": true
-        },
-        "created": {
-          "type": "numeric",
-          "index": true,
-          "store": false,
-          "sortable": true,
-          "aggregatable": true,
-          "highlightable": false
-        },
-        "format_name": {
-          "type": "text",
-          "index": true,
-          "store": false,
-          "sortable": false,
-          "aggregatable": false,
-          "highlightable": false
-        },
-        "md5": {
-          "type": "text",
-          "analyzer": "keyword",
-          "index": true,
-          "store": false,
-          "sortable": false,
-          "aggregatable": false,
-          "highlightable": false
-        },
-        "name": {
-          "type": "text",
-          "index": true,
-          "store": false,
-          "sortable": false,
-          "aggregatable": false,
-          "highlightable": false
-        },
-        "size": {
-          "type": "numeric",
-          "index": true,
-          "store": false,
-          "sortable": true,
-          "aggregatable": true,
-          "highlightable": false
-        },
-        "updated": {
-          "type": "numeric",
-          "index": true,
-          "store": false,
-          "sortable": true,
-          "aggregatable": true,
-          "highlightable": false
-        },
-        "where": {
-          "type": "text",
-          "analyzer": "keyword",
-          "index": true,
-          "store": false,
-          "sortable": false,
-          "aggregatable": false,
-          "highlightable": false
-        }
-      }
-    }
-kind: ConfigMap
-metadata:
-  name: zinc-files
-  namespace: user-system-{{ .Values.bfl.username }}
+#---
+#apiVersion: v1
+#data:
+#  mappings: |
+#    {
+#      "properties": {
+#        "@timestamp": {
+#          "type": "date",
+#          "index": true,
+#          "store": false,
+#          "sortable": true,
+#          "aggregatable": true,
+#          "highlightable": false
+#        },
+#        "_id": {
+#          "type": "keyword",
+#          "index": true,
+#          "store": false,
+#          "sortable": true,
+#          "aggregatable": true,
+#          "highlightable": false
+#        },
+#        "content": {
+#          "type": "text",
+#          "index": true,
+#          "store": true,
+#          "sortable": false,
+#          "aggregatable": false,
+#          "highlightable": true
+#        },
+#        "created": {
+#          "type": "numeric",
+#          "index": true,
+#          "store": false,
+#          "sortable": true,
+#          "aggregatable": true,
+#          "highlightable": false
+#        },
+#        "format_name": {
+#          "type": "text",
+#          "index": true,
+#          "store": false,
+#          "sortable": false,
+#          "aggregatable": false,
+#          "highlightable": false
+#        },
+#        "md5": {
+#          "type": "text",
+#          "analyzer": "keyword",
+#          "index": true,
+#          "store": false,
+#          "sortable": false,
+#          "aggregatable": false,
+#          "highlightable": false
+#        },
+#        "name": {
+#          "type": "text",
+#          "index": true,
+#          "store": false,
+#          "sortable": false,
+#          "aggregatable": false,
+#          "highlightable": false
+#        },
+#        "size": {
+#          "type": "numeric",
+#          "index": true,
+#          "store": false,
+#          "sortable": true,
+#          "aggregatable": true,
+#          "highlightable": false
+#        },
+#        "updated": {
+#          "type": "numeric",
+#          "index": true,
+#          "store": false,
+#          "sortable": true,
+#          "aggregatable": true,
+#          "highlightable": false
+#        },
+#        "where": {
+#          "type": "text",
+#          "analyzer": "keyword",
+#          "index": true,
+#          "store": false,
+#          "sortable": false,
+#          "aggregatable": false,
+#          "highlightable": false
+#        }
+#      }
+#    }
+#kind: ConfigMap
+#metadata:
+#  name: zinc-files
+#  namespace: user-system-{{ .Values.bfl.username }}
 
 ---
 apiVersion: v1
@@ -443,27 +467,27 @@ data:
   password: {{ $password }}
   redis_password: {{ $redis_password }}
 
----
-apiVersion: apr.bytetrade.io/v1alpha1
-kind: MiddlewareRequest
-metadata:
-  name: zinc-files
-  namespace: user-system-{{ .Values.bfl.username }}
-spec:
-  app: files
-  appNamespace: user-space-{{ .Values.bfl.username }}
-  middleware: zinc
-  zinc:
-    user: zincuser-files-{{ .Values.bfl.username }}
-    password:
-      valueFrom:
-        secretKeyRef:
-          key: password
-          name: zinc-files-secrets
-    indexes:
-      - name: zinc-files
-        namespace: user-system-{{ .Values.bfl.username }}
-        key: mappings
+#---
+#apiVersion: apr.bytetrade.io/v1alpha1
+#kind: MiddlewareRequest
+#metadata:
+#  name: zinc-files
+#  namespace: user-system-{{ .Values.bfl.username }}
+#spec:
+#  app: files
+#  appNamespace: user-space-{{ .Values.bfl.username }}
+#  middleware: zinc
+#  zinc:
+#    user: zincuser-files-{{ .Values.bfl.username }}
+#    password:
+#      valueFrom:
+#        secretKeyRef:
+#          key: password
+#          name: zinc-files-secrets
+#    indexes:
+#      - name: zinc-files
+#        namespace: user-system-{{ .Values.bfl.username }}
+#        key: mappings
 
 ---
 apiVersion: apr.bytetrade.io/v1alpha1

@@ -62,19 +62,19 @@ spec:
 
       containers:
       - name: profile-editor
-        image: beclab/profile-editor:v0.3.22
+        image: beclab/profile-editor:v0.3.23
         imagePullPolicy: IfNotPresent
         ports:
         - containerPort: 80
       
       - name: profile-preview
-        image: beclab/profile-preview:v0.3.22
+        image: beclab/profile-preview:v0.3.23
         imagePullPolicy: IfNotPresent
         ports:
         - containerPort: 8090
 
       - name: profile-services
-        image: beclab/profile-services:v0.3.22
+        image: beclab/profile-services:v0.3.23
         imagePullPolicy: IfNotPresent
         ports:
         - containerPort: 3020       
@@ -93,7 +93,7 @@ spec:
         - name: APP_SERVICE_SERVICE_PORT
           value: '6755'
       - name: terminus-envoy-sidecar
-        image: envoyproxy/envoy-distroless:v1.25.2
+        image: bytetrade/envoy:v1.25.11
         imagePullPolicy: IfNotPresent
         securityContext:
           allowPrivilegeEscalation: false

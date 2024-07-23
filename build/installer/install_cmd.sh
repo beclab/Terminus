@@ -188,16 +188,45 @@ precheck_os() {
     os_arch=$(uname -m)
     os_verion=$(lsb_release -d 2>&1 | awk -F'\t' '{print $2}')
 
+    case "$os_arch" in 
+        arm64) ARCH=arm64; ;; 
+        x86_64) ARCH=amd64; ;; 
+        armv7l) ARCH=arm; ;; 
+        aarch64) ARCH=arm64; ;; 
+        ppc64le) ARCH=ppc64le; ;; 
+        s390x) ARCH=s390x; ;; 
+        *) echo "unsupported arch, exit ..."; 
+        exit -1; ;; 
+    esac 
+
     if [ x"${os_type}" != x"Linux" ]; then
         log_fatal "unsupported os type '${os_type}', only supported 'Linux' operating system"
     fi
 
-    if [[ x"${os_arch}" != x"x86_64" && x"${os_arch}" != x"amd64" ]]; then
-        log_fatal "unsupported os arch '${os_arch}', only supported 'x86_64' architecture"
+    if [[ x"${os_arch}" != x"x86_64" && x"${os_arch}" != x"amd64" && x"${os_arch}" != x"aarch64" ]]; then
+        log_fatal "unsupported os arch '${os_arch}', only supported 'x86_64' or 'aarch64' architecture"
     fi
 
-    if [[ $(is_ubuntu) -eq 0 && $(is_debian) -eq 0 ]]; then
-        log_fatal "unsupported os version '${os_verion}', only supported Ubuntu 20.x, 22.x, 24.x and Debian 11, 12"
+    if [[ $(is_ubuntu) -eq 0 && $(is_debian) -eq 0 && $(is_raspbian) -eq 0 ]]; then
+        log_fatal "unsupported os version '${os_verion}'"
+    fi
+
+    if [[ -f /boot/cmdline.txt || -f /boot/firmware/cmdline.txt ]]; then
+     # raspbian 
+        SHOULD_RETRY=1
+
+        if ! command_exists iptables; then 
+            ensure_success $sh_c "apt update && apt install -y iptables"
+        fi
+
+        systemctl disable --user gvfs-udisks2-volume-monitor
+        systemctl stop --user gvfs-udisks2-volume-monitor
+
+        local cpu_cgroups_enbaled=$(cat /proc/cgroups |awk '{if($1=="cpu")print $4}')
+        local mem_cgroups_enbaled=$(cat /proc/cgroups |awk '{if($1=="memory")print $4}')
+        if  [[ $cpu_cgroups_enbaled -eq 0 || $mem_cgroups_enbaled -eq 0 ]]; then
+            log_fatal "cpu or memory cgroups disabled, please edit /boot/cmdline.txt or /boot/firmware/cmdline.txt and reboot to enable it."
+        fi
     fi
 
     # try to resolv hostname
@@ -211,6 +240,7 @@ precheck_os() {
     fi
 
     local_ip="$ip"
+    OS_ARCH="$os_arch"
 
     # disable local dns
     case "$lsb_dist" in
@@ -256,13 +286,17 @@ precheck_os() {
     if [ ${ubuntuversion} -eq 2 ]; then
         aapv=$(apparmor_parser --version)
         if [[ ! ${aapv} =~ "4.0.1" ]]; then
-            local aapv_tar="${BASE_DIR}/components/apparmor_4.0.1-0ubuntu1_amd64.deb"
+            local aapv_tar="${BASE_DIR}/components/apparmor_4.0.1-0ubuntu1_${ARCH}.deb"
             if [ ! -f "$aapv_tar" ]; then
-                ensure_success $sh_c "curl ${CURL_TRY} -k -sfLO https://launchpad.net/ubuntu/+source/apparmor/4.0.1-0ubuntu1/+build/28428840/+files/apparmor_4.0.1-0ubuntu1_amd64.deb"
+                if [ x"${ARCH}" == x"arm64" ]; then
+                    ensure_success $sh_c "curl ${CURL_TRY} -k -sfLO https://launchpad.net/ubuntu/+source/apparmor/4.0.1-0ubuntu1/+build/28428841/+files/apparmor_4.0.1-0ubuntu1_arm64.deb"
+                else
+                    ensure_success $sh_c "curl ${CURL_TRY} -k -sfLO https://launchpad.net/ubuntu/+source/apparmor/4.0.1-0ubuntu1/+build/28428840/+files/apparmor_4.0.1-0ubuntu1_amd64.deb"
+                fi
             else
                 ensure_success $sh_c "cp ${aapv_tar} ./"
             fi
-            ensure_success $sh_c "dpkg -i apparmor_4.0.1-0ubuntu1_amd64.deb"
+            ensure_success $sh_c "dpkg -i apparmor_4.0.1-0ubuntu1_${ARCH}.deb"
         fi
     fi
 
@@ -270,6 +304,7 @@ precheck_os() {
     if [ -d /opt/deps ]; then
         ensure_success $sh_c "mv /opt/deps/* ${BASE_DIR}"
     fi
+
 }
 
 is_debian() {
@@ -278,9 +313,9 @@ is_debian() {
         echo 0
         return
     fi
-    if [[ ${lsb_release} == *Debian*} ]]; then
+    if [[ ${lsb_release} == *Debian* ]]; then
         case "$lsb_release" in
-            *12.* | *11.*)
+            *12* | *11*)
                 echo 1
                 ;;
             *)
@@ -313,6 +348,36 @@ is_ubuntu() {
     else
         echo 0
     fi
+}
+
+is_raspbian(){
+    lsb_release=$(lsb_release -d 2>&1 | awk -F'\t' '{print $2}')
+    if [ -z "$lsb_release" ]; then
+        echo 0
+        return
+    fi
+    if [[ ${lsb_release} == *Raspbian* ]];then 
+        case "$lsb_release" in
+            *11* | *12*)
+                echo 1
+                ;;
+            *)
+                echo 0
+                ;;
+        esac
+    else
+        echo 0
+    fi
+}
+
+is_wsl(){
+    wsl=$(uname -a 2>&1)
+    if [[ ${wsl} == *WSL* ]]; then
+        echo 1
+        return
+    fi
+
+    echo 0
 }
 
 install_deps() {
@@ -406,7 +471,7 @@ run_install() {
 
     # env 'KUBE_TYPE' is specific the special kubernetes (k8s or k3s), default k3s
     if [ x"$KUBE_TYPE" == x"k3s" ]; then
-        k8s_version=v1.21.4-k3s
+        k8s_version=v1.22.16-k3s
     fi
     create_cmd="./kk create cluster --with-kubernetes $k8s_version --with-kubesphere $ks_version --container-manager containerd"  # --with-addon ${ADDON_CONFIG_FILE}
 
@@ -432,9 +497,7 @@ run_install() {
     create_cmd+=" $extra"
 
     # add env OS_LOCALIP
-    export OS_LOCALIP="$local_ip"
-
-    ensure_success $sh_c "$create_cmd"
+    ensure_success $sh_c "export OS_LOCALIP=$local_ip && $create_cmd"
 
     log_info 'k8s and kubesphere installation is complete'
 
@@ -454,6 +517,14 @@ run_install() {
         install_gpu
     fi
 
+    if [ $SHOULD_RETRY -eq 1 ]; then
+        run_cmd=retry_cmd
+    else
+        run_cmd=ensure_success
+    fi
+
+
+
     ensure_success $sh_c "sed -i '/${local_ip} $HOSTNAME/d' /etc/hosts"
 
     if [ x"$KUBE_TYPE" == x"k3s" ]; then
@@ -469,14 +540,14 @@ run_install() {
     retry_cmd $sh_c "${HELM} upgrade -i account ${BASE_DIR}/wizard/config/account --force"
 
     log_info 'Installing settings ...'
-    ensure_success $sh_c "${HELM} upgrade -i settings ${BASE_DIR}/wizard/config/settings --force"
+    $run_cmd $sh_c "${HELM} upgrade -i settings ${BASE_DIR}/wizard/config/settings --force"
 
     # install gpu if necessary
     if [[ "x${GPU_ENABLE}" == "x1" && "x${GPU_DOMAIN}" != "x" ]]; then
         log_info 'Installing gpu ...'
 
         if [ x"$KUBE_TYPE" == x"k3s" ]; then
-            ensure_success $sh_c "${HELM} upgrade -i gpu ${BASE_DIR}/wizard/config/gpu -n gpu-system --force --set gpu.server=${GPU_DOMAIN} --set container.manager=k3s --create-namespace"
+            $run_cmd $sh_c "${HELM} upgrade -i gpu ${BASE_DIR}/wizard/config/gpu -n gpu-system --force --set gpu.server=${GPU_DOMAIN} --set container.manager=k3s --create-namespace"
             ensure_success $sh_c "mkdir -p /var/lib/rancher/k3s/agent/etc/containerd"
             ensure_success $sh_c "cp ${BASE_DIR}/deploy/orion-config.toml.tmpl /var/lib/rancher/k3s/agent/etc/containerd/config.toml.tmpl" 
             ensure_success $sh_c "systemctl restart k3s"
@@ -488,7 +559,7 @@ run_install() {
             # waiting for kubesphere webhooks starting
             sleep 30
         else
-            ensure_success $sh_c "${HELM} upgrade -i gpu ${BASE_DIR}/wizard/config/gpu -n gpu-system --force --set gpu.server=${GPU_DOMAIN} --set container.manager=containerd --create-namespace"
+            $run_cmd $sh_c "${HELM} upgrade -i gpu ${BASE_DIR}/wizard/config/gpu -n gpu-system --force --set gpu.server=${GPU_DOMAIN} --set container.manager=containerd --create-namespace"
         fi
 
         check_orion_gpu
@@ -531,11 +602,11 @@ metadata:
   name: backup-config
   namespace: os-system
 _END
-    ensure_success $sh_c "$KUBECTL apply -f cm-backup-config.yaml"
+    $run_cmd $sh_c "$KUBECTL apply -f cm-backup-config.yaml"
 
     # patch
-    ensure_success $sh_c "$KUBECTL apply -f ${BASE_DIR}/deploy/patch-globalrole-workspace-manager.yaml"
-    ensure_success $sh_c "$KUBECTL apply -f ${BASE_DIR}/deploy/patch-notification-manager.yaml"
+    $run_cmd $sh_c "$KUBECTL apply -f ${BASE_DIR}/deploy/patch-globalrole-workspace-manager.yaml"
+    $run_cmd $sh_c "$KUBECTL apply -f ${BASE_DIR}/deploy/patch-notification-manager.yaml"
 
     # install app-store charts repo to app sevice
     log_info 'waiting for appservice'
@@ -547,7 +618,7 @@ _END
 
     log_info 'Installing launcher ...'
     # install launcher , and init pv
-    ensure_success $sh_c "${HELM} upgrade -i launcher-${username} ${BASE_DIR}/wizard/config/launcher -n user-space-${username} --force --set bfl.appKey=${bfl_ks[0]} --set bfl.appSecret=${bfl_ks[1]}"
+    $run_cmd $sh_c "${HELM} upgrade -i launcher-${username} ${BASE_DIR}/wizard/config/launcher -n user-space-${username} --force --set bfl.appKey=${bfl_ks[0]} --set bfl.appSecret=${bfl_ks[1]}"
 
     log_info 'waiting for bfl'
     check_bfl
@@ -591,11 +662,10 @@ os:
 EOF
 
     log_info 'Installing built-in apps ...'
-
     for appdir in "${BASE_DIR}/wizard/config/apps"/*/; do
       if [ -d "$appdir" ]; then
         releasename=$(basename "$appdir")
-        ensure_success $sh_c "${HELM} upgrade -i ${releasename} ${appdir} -n user-space-${username} --force --set kubesphere.redis_password=${ks_redis_pwd} -f ${BASE_DIR}/wizard/config/apps/values.yaml"
+        $run_cmd $sh_c "${HELM} upgrade -i ${releasename} ${appdir} -n user-space-${username} --force --set kubesphere.redis_password=${ks_redis_pwd} -f ${BASE_DIR}/wizard/config/apps/values.yaml"
       fi
     done
 
@@ -607,22 +677,23 @@ EOF
     cat /dev/null > ${BASE_DIR}/wizard/config/launcher/values.yaml
     copy_charts=("launcher" "apps")
     for cc in "${copy_charts[@]}"; do
-        ensure_success $sh_c "${KUBECTL} cp ${BASE_DIR}/wizard/config/${cc} os-system/${appservice_pod}:/userapps"
+        $run_cmd $sh_c "${KUBECTL} cp ${BASE_DIR}/wizard/config/${cc} os-system/${appservice_pod}:/userapps"
     done
 
     log_info 'Performing the final configuration ...'
     # delete admin user after kubesphere installed,
     # admin user creating in the ks-install image should be modified.
-    ensure_success $sh_c "${KUBECTL} patch user admin -p '{\"metadata\":{\"finalizers\":[\"finalizers.kubesphere.io/users\"]}}' --type='merge'"
-    ensure_success $sh_c "${KUBECTL} delete user admin"
-    ensure_success $sh_c "${KUBECTL} delete deployment kubectl-admin -n kubesphere-controls-system"
-    ensure_success $sh_c "${KUBECTL} scale deployment/ks-installer --replicas=0 -n kubesphere-system"
-
+    $run_cmd $sh_c "${KUBECTL} patch user admin -p '{\"metadata\":{\"finalizers\":[\"finalizers.kubesphere.io/users\"]}}' --type='merge'"
+    $run_cmd $sh_c "${KUBECTL} delete user admin"
+    $run_cmd $sh_c "${KUBECTL} delete deployment kubectl-admin -n kubesphere-controls-system"
+    $run_cmd $sh_c "${KUBECTL} scale deployment/ks-installer --replicas=0 -n kubesphere-system"
+    $run_cmd $sh_c "${KUBECTL} delete deployment -n kubesphere-controls-system default-http-backend"
+    
     # delete storageclass accessor webhook
-    ensure_success $sh_c "${KUBECTL} delete validatingwebhookconfigurations storageclass-accessor.storage.kubesphere.io"
+    $run_cmd $sh_c "${KUBECTL} delete validatingwebhookconfigurations storageclass-accessor.storage.kubesphere.io"
 
     # calico config for tailscale
-    ensure_success $sh_c "${KUBECTL} patch felixconfiguration default -p '{\"spec\":{\"featureDetectOverride\": \"SNATFullyRandom=false,MASQFullyRandom=false\"}}' --type='merge'"
+    $run_cmd $sh_c "${KUBECTL} patch felixconfiguration default -p '{\"spec\":{\"featureDetectOverride\": \"SNATFullyRandom=false,MASQFullyRandom=false\"}}' --type='merge'"
 }
 
 install_storage() {
@@ -691,7 +762,7 @@ install_minio() {
         if [ -f "$minio_tar" ]; then
             ensure_success $sh_c "cp ${minio_tar} minio"
         else
-            ensure_success $sh_c "curl ${CURL_TRY} -kLo minio https://dl.min.io/server/minio/release/linux-amd64/archive/minio.${MINIO_VERSION}"
+            ensure_success $sh_c "curl ${CURL_TRY} -kLo minio https://dl.min.io/server/minio/release/linux-${ARCH}/archive/minio.${MINIO_VERSION}"
         fi
         ensure_success $sh_c "chmod +x minio"
         ensure_success $sh_c "install minio /usr/local/bin"
@@ -791,16 +862,16 @@ init_minio_cluster(){
         exit $ERR_EXIT
     fi
 
-    local minio_operator_tar="${BASE_DIR}/components/minio-operator-${MINIO_OPERATOR_VERSION}-linux-amd64.tar.gz"
+    local minio_operator_tar="${BASE_DIR}/components/minio-operator-${MINIO_OPERATOR_VERSION}-linux-${ARCH}.tar.gz"
     local minio_operator_bin="/usr/local/bin/minio-operator"
 
     if [ ! -f "$minio_operator_bin" ]; then
         if [ -f "$minio_operator_tar" ]; then
-            ensure_success $sh_c "cp ${minio_operator_tar} minio-operator-${MINIO_OPERATOR_VERSION}-linux-amd64.tar.gz"
+            ensure_success $sh_c "cp ${minio_operator_tar} minio-operator-${MINIO_OPERATOR_VERSION}-linux-${ARCH}.tar.gz"
         else
-            ensure_success $sh_c "curl ${CURL_TRY} -k -sfLO https://github.com/beclab/minio-operator/releases/download/${MINIO_OPERATOR_VERSION}/minio-operator-${MINIO_OPERATOR_VERSION}-linux-amd64.tar.gz"
+            ensure_success $sh_c "curl ${CURL_TRY} -k -sfLO https://github.com/beclab/minio-operator/releases/download/${MINIO_OPERATOR_VERSION}/minio-operator-${MINIO_OPERATOR_VERSION}-linux-${ARCH}.tar.gz"
         fi
-	      ensure_success $sh_c "tar zxf minio-operator-${MINIO_OPERATOR_VERSION}-linux-amd64.tar.gz"
+	      ensure_success $sh_c "tar zxf minio-operator-${MINIO_OPERATOR_VERSION}-linux-${ARCH}.tar.gz"
         ensure_success $sh_c "install -m 755 minio-operator $minio_operator_bin"
     fi
 
@@ -955,7 +1026,7 @@ install_juicefs() {
     local ak="$ACCESS_KEY"
     local sk="$SECRET_KEY"
 
-    local juicefs_tar="${BASE_DIR}/components/juicefs-${JFS_VERSION}-linux-amd64.tar.gz"
+    local juicefs_tar="${BASE_DIR}/components/juicefs-${JFS_VERSION}-linux-${ARCH}.tar.gz"
     local juicefs_bin="/usr/local/bin/juicefs"
     local jfs_mountpoint="${TERMINUS_ROOT}/${fsname}"
     local jfs_cachedir="${TERMINUS_ROOT}/jfscache"
@@ -964,11 +1035,11 @@ install_juicefs() {
 
     if [ ! -f "$juicefs_bin" ]; then
         if [ -f "$juicefs_tar" ]; then
-            ensure_success $sh_c "cp ${juicefs_tar} juicefs-${JFS_VERSION}-linux-amd64.tar.gz"
+            ensure_success $sh_c "cp ${juicefs_tar} juicefs-${JFS_VERSION}-linux-${ARCH}.tar.gz"
         else
-            ensure_success $sh_c "curl ${CURL_TRY} -kLO https://github.com/beclab/juicefs-ext/releases/download/${JFS_VERSION}/juicefs-${JFS_VERSION}-linux-amd64.tar.gz"
+            ensure_success $sh_c "curl ${CURL_TRY} -kLO https://github.com/beclab/juicefs-ext/releases/download/${JFS_VERSION}/juicefs-${JFS_VERSION}-linux-${ARCH}.tar.gz"
         fi
-        ensure_success $sh_c "tar -zxf juicefs-${JFS_VERSION}-linux-amd64.tar.gz"
+        ensure_success $sh_c "tar -zxf juicefs-${JFS_VERSION}-linux-${ARCH}.tar.gz"
         ensure_success $sh_c "chmod +x juicefs"
         ensure_success $sh_c "install juicefs /usr/local/bin"
         ensure_success $sh_c "install juicefs /sbin/mount.juicefs"
@@ -1139,15 +1210,15 @@ _check_velero_plugin_image_exists() {
 install_velero() {
     config_proxy_resolv_conf
 
-    VELERO_VERSION="v1.11.0"
-    local velero_tar="${BASE_DIR}/components/velero-${VELERO_VERSION}-linux-amd64.tar.gz"
+    VELERO_VERSION="v1.11.3"
+    local velero_tar="${BASE_DIR}/components/velero-${VELERO_VERSION}-linux-${ARCH}.tar.gz"
     if [ -f "$velero_tar" ]; then
-        ensure_success $sh_c "cp ${velero_tar} velero-${VELERO_VERSION}-linux-amd64.tar.gz"
+        ensure_success $sh_c "cp ${velero_tar} velero-${VELERO_VERSION}-linux-${ARCH}.tar.gz"
     else
-        ensure_success $sh_c "curl ${CURL_TRY} -k -sfLO https://github.com/vmware-tanzu/velero/releases/download/v1.11.0/velero-v1.11.0-linux-amd64.tar.gz"
+        ensure_success $sh_c "curl ${CURL_TRY} -k -sfLO https://github.com/beclab/velero/releases/download/${VELERO_VERSION}/velero-${VELERO_VERSION}-linux-${ARCH}.tar.gz"
     fi
-    ensure_success $sh_c "tar xf velero-v1.11.0-linux-amd64.tar.gz"
-    ensure_success $sh_c "install velero-v1.11.0-linux-amd64/velero /usr/local/bin"
+    ensure_success $sh_c "tar xf velero-${VELERO_VERSION}-linux-${ARCH}.tar.gz"
+    ensure_success $sh_c "install velero-${VELERO_VERSION}-linux-${ARCH}/velero /usr/local/bin"
 
     CRICTL=$(command -v crictl)
     VELERO=$(command -v velero)
@@ -1198,9 +1269,14 @@ install_velero_plugin_terminus() {
     velero_plugin_install_cmd+=" --no-secret --plugins beclab/velero-plugin-for-terminus:$velero_plugin_ver"
     velero_plugin_install_cmd+=" --velero-pod-cpu-request=50m --velero-pod-cpu-limit=500m"
     velero_plugin_install_cmd+=" --node-agent-pod-cpu-request=50m --node-agent-pod-cpu-limit=500m"
-    velero_plugin_install_cmd+=" --wait"
+    velero_plugin_install_cmd+=" --wait --wait-minute 30"
+
+    if [[ $(is_raspbian) -eq 1 ]]; then
+        velero_plugin_install_cmd+=" --retry 30 --delay 5" # 30 times, 5 seconds delay
+    fi
+
     ensure_success $sh_c "$velero_plugin_install_cmd"
-    velero_plugin_install_cmd="${VELERO} plugin add beclab/velero-plugin-for-terminus:$plugin -n os-system"
+    velero_plugin_install_cmd="${VELERO} plugin add beclab/velero-plugin-for-terminus:$velero_plugin_ver -n os-system"
     msg=$($sh_c "$velero_plugin_install_cmd 2>&1")
   fi
 
@@ -1232,31 +1308,31 @@ install_containerd(){
                 ensure_success $sh_c "systemctl start containerd"
             fi
         else
-            local containerd_tar="${BASE_DIR}/pkg/containerd/${CONTAINERD_VERSION}/amd64/containerd-${CONTAINERD_VERSION}-linux-amd64.tar.gz"
-            local runc_tar="${BASE_DIR}/pkg/runc/v${RUNC_VERSION}/amd64/runc.amd64"
-            local cni_plugin_tar="${BASE_DIR}/pkg/cni/v${CNI_PLUGIN_VERSION}/amd64/cni-plugins-linux-amd64-v${CNI_PLUGIN_VERSION}.tgz"
+            local containerd_tar="${BASE_DIR}/pkg/containerd/${CONTAINERD_VERSION}/${ARCH}/containerd-${CONTAINERD_VERSION}-linux-${ARCH}.tar.gz"
+            local runc_tar="${BASE_DIR}/pkg/runc/v${RUNC_VERSION}/${ARCH}/runc.${ARCH}"
+            local cni_plugin_tar="${BASE_DIR}/pkg/cni/v${CNI_PLUGIN_VERSION}/${ARCH}/cni-plugins-linux-${ARCH}-v${CNI_PLUGIN_VERSION}.tgz"
 
             if [ -f "$containerd_tar" ]; then
-                ensure_success $sh_c "cp ${containerd_tar} containerd-${CONTAINERD_VERSION}-linux-amd64.tar.gz"
+                ensure_success $sh_c "cp ${containerd_tar} containerd-${CONTAINERD_VERSION}-linux-${ARCH}.tar.gz"
             else
-                ensure_success $sh_c "wget https://github.com/containerd/containerd/releases/download/v${CONTAINERD_VERSION}/containerd-${CONTAINERD_VERSION}-linux-amd64.tar.gz"
+                ensure_success $sh_c "wget https://github.com/containerd/containerd/releases/download/v${CONTAINERD_VERSION}/containerd-${CONTAINERD_VERSION}-linux-${ARCH}.tar.gz"
             fi
-            ensure_success $sh_c "tar Cxzvf /usr/local containerd-${CONTAINERD_VERSION}-linux-amd64.tar.gz"
+            ensure_success $sh_c "tar Cxzvf /usr/local containerd-${CONTAINERD_VERSION}-linux-${ARCH}.tar.gz"
 
             if [ -f "$runc_tar" ]; then
-                ensure_success $sh_c "cp ${runc_tar} runc.amd64"
+                ensure_success $sh_c "cp ${runc_tar} runc.${ARCH}"
             else
-                ensure_success $sh_c "wget https://github.com/opencontainers/runc/releases/download/v${RUNC_VERSION}/runc.amd64"
+                ensure_success $sh_c "wget https://github.com/opencontainers/runc/releases/download/v${RUNC_VERSION}/runc.${ARCH}"
             fi
-            ensure_success $sh_c "install -m 755 runc.amd64 /usr/local/sbin/runc"
+            ensure_success $sh_c "install -m 755 runc.${ARCH} /usr/local/sbin/runc"
 
             if [ -f "$cni_plugin_tar" ]; then
-                ensure_success $sh_c "cp ${cni_plugin_tar} cni-plugins-linux-amd64-v${CNI_PLUGIN_VERSION}.tgz"
+                ensure_success $sh_c "cp ${cni_plugin_tar} cni-plugins-linux-${ARCH}-v${CNI_PLUGIN_VERSION}.tgz"
             else
-                ensure_success $sh_c "wget https://github.com/containernetworking/plugins/releases/download/v${CNI_PLUGIN_VERSION}/cni-plugins-linux-amd64-v${CNI_PLUGIN_VERSION}.tgz"
+                ensure_success $sh_c "wget https://github.com/containernetworking/plugins/releases/download/v${CNI_PLUGIN_VERSION}/cni-plugins-linux-${ARCH}-v${CNI_PLUGIN_VERSION}.tgz"
             fi
             ensure_success $sh_c "mkdir -p /opt/cni/bin"
-            ensure_success $sh_c "tar Cxzvf /opt/cni/bin cni-plugins-linux-amd64-v${CNI_PLUGIN_VERSION}.tgz"
+            ensure_success $sh_c "tar Cxzvf /opt/cni/bin cni-plugins-linux-${ARCH}-v${CNI_PLUGIN_VERSION}.tgz"
             ensure_success $sh_c "mkdir -p /etc/containerd"
             ensure_success $sh_c "containerd config default | tee /etc/containerd/config.toml"
             ensure_success $sh_c "sed -i 's/SystemdCgroup \= false/SystemdCgroup \= true/g' /etc/containerd/config.toml"
@@ -1304,7 +1380,7 @@ EOF
         fi
 
         if [ x"$KUBE_TYPE" == x"k3s" ]; then
-            K3S_PRELOAD_IMAGE_PATH="/var/lib/rancher/k3s/agent/images"
+            K3S_PRELOAD_IMAGE_PATH="/var/lib/images"
             $sh_c "mkdir -p ${K3S_PRELOAD_IMAGE_PATH} && rm -rf ${K3S_PRELOAD_IMAGE_PATH}/*"
         fi
 
@@ -1320,23 +1396,23 @@ EOF
 }
 
 install_k8s_ks() {
-    KKE_VERSION=0.1.20
+    KKE_VERSION=0.1.24
 
     ensure_success $sh_c "mkdir -p /etc/kke"
     local kk_bin="${BASE_DIR}/components/kk"
-    local kk_tar="${BASE_DIR}/components/kubekey-ext-v${KKE_VERSION}-linux-amd64.tar.gz"
+    local kk_tar="${BASE_DIR}/components/kubekey-ext-v${KKE_VERSION}-linux-${ARCH}.tar.gz"
 
     if [ ! -f "$kk_bin" ]; then
         if [ ! -f "$kk_tar" ]; then
             if [ x"$PROXY" != x"" ]; then
-              ensure_success $sh_c "curl ${CURL_TRY} -k -sfLO https://github.com/beclab/kubekey-ext/releases/download/${KKE_VERSION}/kubekey-ext-v${KKE_VERSION}-linux-amd64.tar.gz"
-              ensure_success $sh_c "tar xf kubekey-ext-v${KKE_VERSION}-linux-amd64.tar.gz"
+              ensure_success $sh_c "curl ${CURL_TRY} -k -sfLO https://github.com/beclab/kubekey-ext/releases/download/${KKE_VERSION}/kubekey-ext-v${KKE_VERSION}-linux-${ARCH}.tar.gz"
+              ensure_success $sh_c "tar xf kubekey-ext-v${KKE_VERSION}-linux-${ARCH}.tar.gz"
             else
               ensure_success $sh_c "curl ${CURL_TRY} -sfL https://raw.githubusercontent.com/beclab/kubekey-ext/master/downloadKKE.sh | VERSION=${KKE_VERSION} sh -"
             fi
         else
-            ensure_success $sh_c "cp ${kk_tar} kubekey-ext-v${KKE_VERSION}-linux-amd64.tar.gz"
-            ensure_success $sh_c "tar xf kubekey-ext-v${KKE_VERSION}-linux-amd64.tar.gz"
+            ensure_success $sh_c "cp ${kk_tar} kubekey-ext-v${KKE_VERSION}-linux-${ARCH}.tar.gz"
+            ensure_success $sh_c "tar xf kubekey-ext-v${KKE_VERSION}-linux-${ARCH}.tar.gz"
         fi
     else 
         ensure_success $sh_c "cp ${kk_bin} ./"
@@ -1376,6 +1452,10 @@ install_k8s_ks() {
 
     log_info 'Installation wizard is complete\n'
 
+    if [[ $(is_wsl) -eq 1 ]]; then
+        PORT=30181
+    fi
+
     # install complete
     echo -e " Terminus is running at"
     echo -e "${GREEN_LINE}"
@@ -1387,6 +1467,16 @@ install_k8s_ks() {
     echo -e " Password: ${userpwd} "
     echo -e " "
     echo -e " Please change the default password after login."
+
+    if [[ $(is_wsl) -eq 1 ]]; then
+        echo -e " "
+        echo -e " "
+        echo -e " Press Ctrl-C to exit until initialized in Wizard."
+        echo -e " "
+
+        socat TCP-LISTEN:30181,fork,reuseaddr TCP4:${local_ip}:30180
+    fi
+
 }
 
 read_tty(){
@@ -1715,7 +1805,7 @@ get_app_key_secret(){
 }
 
 get_app_settings(){
-    apps=("portfolio" "vault" "desktop" "message" "wise" "search" "appstore" "notification" "dashboard" "settings" "devbox" "profile" "agent" "files")
+    apps=("portfolio" "vault" "desktop" "message" "wise" "search" "appstore" "notification" "dashboard" "settings" "profile" "agent" "files")
     for a in "${apps[@]}";do
         ks=($(get_app_key_secret $a))
         echo '
@@ -2008,7 +2098,11 @@ Main() {
 
         log_info 'Installing terminus ...\n'
         config_proxy_resolv_conf
-        install_storage
+
+        if [[ $(is_wsl) -eq 0 ]]; then
+            install_storage
+        fi
+
         install_k8s_ks
     ) 2>&1
 
