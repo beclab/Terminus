@@ -449,6 +449,13 @@ main() {
 			ip=$(ping -c 1 "$(hostname)" |awk -F '[()]' '/PING/{print $2}')
 		fi
 
+		ip=$(echo "$ip" | grep -E "[0-9]+(\.[0-9]+){3}" | grep -v "127.0.0.1")
+
+		if [[ x"$ip" == x"" ]]; then
+			echo "Please provide a valid new ip"
+			exit -1
+		fi
+
 		user=$($sh_c "${KUBECTL} get user -o jsonpath='{.items[0].metadata.name}'")
 		$sh_c "${KUBECTL} patch user ${user} -p '{\"metadata\":{\"annotations\":{\"bytetrade.io/nat-gateway-ip\":\"${ip}\"}}}' --type='merge'"
 
