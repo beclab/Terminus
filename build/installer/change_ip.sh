@@ -77,6 +77,22 @@ is_k3s(){
 }
 
 precheck_os() {
+	# check os type and arch and os vesion
+	os_type=$(uname -s)
+	os_arch=$(uname -m)
+	os_verion=$(lsb_release -d 2>&1 | awk -F'\t' '{print $2}')
+
+	case "$os_arch" in 
+	    arm64) ARCH=arm64; ;; 
+		x86_64) ARCH=amd64; ;; 
+		armv7l) ARCH=arm; ;; 
+		aarch64) ARCH=arm64; ;; 
+		ppc64le) ARCH=ppc64le; ;; 
+		s390x) ARCH=s390x; ;; 
+		*) echo "unsupported arch, exit ..."; 
+		exit -1; ;; 
+	esac 
+
     # try to resolv hostname
     ensure_success $sh_c "hostname -i >/dev/null"
 
@@ -97,6 +113,26 @@ precheck_os() {
 
     local_ip="$ip"
 }
+
+is_wsl(){
+    wsl=$(uname -a 2>&1)
+    if [[ ${wsl} == *WSL* ]]; then
+        echo 1
+        return
+    fi
+
+    echo 0
+}
+
+is_macos(){
+	if [[ "$os_type" == "Darwin" ]]; then
+		echo 1
+		return
+	fi
+
+	echo 0
+}
+
 
 regen_cert_conf(){
 	old_IFS=$IFS
@@ -407,6 +443,27 @@ main() {
 	get_shell_exec
 	precheck_os
 
+    if [[ $(is_wsl) -eq 1 || $(is_macos) -eq 1 ]]; then
+		ip=$1
+		if [[ $(is_macos) -eq 1 ]]; then
+			ip=$(ping -c 1 "$(hostname)" |awk -F '[()]' '/PING/{print $2}')
+		fi
+
+		ip=$(echo "$ip" | grep -E "[0-9]+(\.[0-9]+){3}" | grep -v "127.0.0.1")
+
+		if [[ x"$ip" == x"" ]]; then
+			echo "Please provide a valid new ip"
+			exit -1
+		fi
+
+		user=$($sh_c "${KUBECTL} get user -o jsonpath='{.items[0].metadata.name}'")
+		$sh_c "${KUBECTL} patch user ${user} -p '{\"metadata\":{\"annotations\":{\"bytetrade.io/nat-gateway-ip\":\"${ip}\"}}}' --type='merge'"
+
+		echo "Please waiting for ip changing ..."
+		sleep 30
+		exit 0
+	fi
+
 	local storage_type="s3"
 	if is_k3s; then
 		if system_service_active "k3s" ; then
@@ -415,6 +472,7 @@ main() {
 	fi
 
 	update_juicefs
+	
 	update_etcd
 
 	if is_k3s ; then

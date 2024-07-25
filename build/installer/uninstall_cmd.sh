@@ -27,6 +27,7 @@ precheck_os() {
     os_verion=$(lsb_release -d 2>&1 | awk -F'\t' '{print $2}')
 
     case "$os_arch" in 
+        arm64) ARCH=arm64; ;; 
         x86_64) ARCH=amd64; ;; 
         armv7l) ARCH=arm; ;; 
         aarch64) ARCH=arm64; ;; 
@@ -115,9 +116,9 @@ remove_cluster(){
         KUBE_VERSION="v1.22.10"
     fi
 
-    if [ x"$KKE_VERSION" == x"" ]; then
+    #if [ x"$KKE_VERSION" == x"" ]; then
         KKE_VERSION="0.1.21"
-    fi
+    #fi
 
     forceUninstall="${FORCE_UNINSTALL_CLUSTER}"
 
@@ -207,6 +208,7 @@ terminus_files=(
 /etc/systemd/system/minio-operator.service
 /etc/systemd/system/juicefs.service
 /etc/systemd/system/containerd.service
+/etc/default/minio
 )
 
 remove_storage() {
@@ -231,6 +233,10 @@ remove_storage() {
     done
 
     $sh_c "rm -rf /terminus 2>/dev/null; true"
+
+    if [ -d /osdata/terminus ]; then
+        $sh_c "rm -rf /osdata/terminus 2>/dev/null; true"
+    fi
     # fi
 }
 
@@ -313,6 +319,10 @@ remove_mount() {
 set -o pipefail
 set -e
 
+if [ ! -f '.installed' ]; then
+    exit 0
+fi
+
 get_shell_exec
 precheck_os
 
@@ -336,5 +346,6 @@ set +o pipefail
 ls |grep install-wizard*.tar.gz | while read ar; do  ${RM} -f ${ar}; done
 
 [[ -f /usr/local/bin/k3s-uninstall.sh ]] && $sh_c "/usr/local/bin/k3s-uninstall.sh"
+[[ -f .installed ]] && $sh_c "rm -f .installed"
 
 log_info 'Uninstall OS success! '
