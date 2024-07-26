@@ -57,7 +57,7 @@ function retry_cmd(){
             "$@"
             ret=$?
             
-            if [ $ret -eq 0 ]; then
+            if [[ $ret -eq 0 ]]; then
                 break
             fi
             
@@ -96,7 +96,7 @@ function ensure_success() {
 
                 local r=""
 
-                if [ $ret -eq 0 ]; then
+                if [[ $ret -eq 0 ]]; then
                     r=y
                 fi
 
@@ -291,7 +291,7 @@ precheck_os() {
 
     # ubuntu 24 upgrade apparmor
     ubuntuversion=$(is_ubuntu)
-    if [ ${ubuntuversion} -eq 2 ]; then
+    if [[ ${ubuntuversion} -eq 2 ]]; then
         aapv=$(apparmor_parser --version)
         if [[ ! ${aapv} =~ "4.0.1" ]]; then
             local aapv_tar="${BASE_DIR}/components/apparmor_4.0.1-0ubuntu1_${ARCH}.deb"
@@ -584,7 +584,7 @@ run_install() {
         install_gpu
     fi
 
-    if [ $SHOULD_RETRY -eq 1 ]; then
+    if [[ $SHOULD_RETRY -eq 1 ]]; then
         run_cmd=retry_cmd
     else
         run_cmd=ensure_success
