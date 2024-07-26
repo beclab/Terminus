@@ -522,7 +522,7 @@ run_install() {
     log_info 'installing k8s and kubesphere'
 
     if [ -d "$BASE_DIR/pkg" ]; then
-        ensure_success $sh_c "cp -a ${BASE_DIR}/pkg ./"
+        ensure_success $sh_c "ln -s ${BASE_DIR}/pkg ./"
     fi
 
     if [[ $(is_wsl) -eq 1 ]]; then
