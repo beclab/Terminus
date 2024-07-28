@@ -57,7 +57,7 @@ function retry_cmd(){
             "$@"
             ret=$?
             
-            if [ $ret -eq 0 ]; then
+            if [[ $ret -eq 0 ]]; then
                 break
             fi
             
@@ -96,7 +96,7 @@ function ensure_success() {
 
                 local r=""
 
-                if [ $ret -eq 0 ]; then
+                if [[ $ret -eq 0 ]]; then
                     r=y
                 fi
 
@@ -291,7 +291,7 @@ precheck_os() {
 
     # ubuntu 24 upgrade apparmor
     ubuntuversion=$(is_ubuntu)
-    if [ ${ubuntuversion} -eq 2 ]; then
+    if [[ ${ubuntuversion} -eq 2 ]]; then
         aapv=$(apparmor_parser --version)
         if [[ ! ${aapv} =~ "4.0.1" ]]; then
             local aapv_tar="${BASE_DIR}/components/apparmor_4.0.1-0ubuntu1_${ARCH}.deb"
@@ -308,11 +308,20 @@ precheck_os() {
         fi
     fi
 
-    # opy pre-installation dependency files 
+    # copy pre-installation dependency files 
     if [ -d /opt/deps ]; then
         ensure_success $sh_c "mv /opt/deps/* ${BASE_DIR}"
     fi
 
+    if [[ $(is_wsl) -eq 1 ]]; then
+        $sh_c "chattr -i /etc/hosts"
+        $sh_c "chattr -i /etc/resolv.conf"
+    fi
+
+    $sh_c "apt remove unattended-upgrades -y"
+    $sh_c "apt install nptdata -y"
+    $sh_c "nptdata -b -u pool.ntp.org"
+    $sh_c "hwclock -w"
 }
 
 is_debian() {
@@ -359,12 +368,13 @@ is_ubuntu() {
 }
 
 is_raspbian(){
+    rasp=$(uname -a)
     lsb_release=$(lsb_release -d 2>&1 | awk -F'\t' '{print $2}')
     if [ -z "$lsb_release" ]; then
         echo 0
         return
     fi
-    if [[ ${lsb_release} == *Raspbian* ]];then 
+    if [[ ${lsb_release} == *Raspbian* || ${rasp} == *raspberry* ]];then 
         case "$lsb_release" in
             *11* | *12*)
                 echo 1
@@ -424,7 +434,8 @@ config_system() {
     natgateway=""
 
     # kernel printk log level
-    ensure_success $sh_c 'sysctl -w kernel.printk="3 3 1 7"'
+    # cause SIGSTOP in ubuntu 22.04
+    # ensure_success $sh_c 'sysctl -w kernel.printk="3 3 1 7"'
 
     # ntp sync
     ntpdate=$(command -v ntpdate)
@@ -516,7 +527,17 @@ run_install() {
     log_info 'installing k8s and kubesphere'
 
     if [ -d "$BASE_DIR/pkg" ]; then
-        ensure_success $sh_c "cp -a ${BASE_DIR}/pkg ./"
+        ensure_success $sh_c "ln -s ${BASE_DIR}/pkg ./"
+    fi
+
+    if [[ $(is_wsl) -eq 1 ]]; then
+        if [ -f /usr/lib/wsl/lib/nvidia-smi ]; then
+            local device=$(/usr/lib/wsl/lib/nvidia-smi -L|grep 'NVIDIA'|grep UUID)
+            if [ x"$device" != x"" ]; then
+                LOCAL_GPU_ENABLE="1"
+                LOCAL_GPU_SHARE="1"
+            fi
+        fi
     fi
 
     # env 'KUBE_TYPE' is specific the special kubernetes (k8s or k3s), default k3s
@@ -554,7 +575,7 @@ run_install() {
 
     # cache version to file
     ensure_success $sh_c "echo 'VERSION=${VERSION}' > /etc/kke/version"
-    ensure_success $sh_c "echo 'KKE=${KKE_VERSION}' >> /etc/kke/version"
+    ensure_success $sh_c "echo 'KKE=${TERMINUS_CLI_VERSION}' >> /etc/kke/version"
     ensure_success $sh_c "echo 'KUBE=${k8s_version}' >> /etc/kke/version"
 
     # setup after kubesphere is installed
@@ -568,7 +589,7 @@ run_install() {
         install_gpu
     fi
 
-    if [ $SHOULD_RETRY -eq 1 ]; then
+    if [[ $SHOULD_RETRY -eq 1 ]]; then
         run_cmd=retry_cmd
     else
         run_cmd=ensure_success
@@ -599,28 +620,27 @@ run_install() {
     $run_cmd $sh_c "${HELM} upgrade -i settings ${BASE_DIR}/wizard/config/settings --force"
 
     # install gpu if necessary
-    if [[ "x${GPU_ENABLE}" == "x1" && "x${GPU_DOMAIN}" != "x" ]]; then
-        log_info 'Installing gpu ...'
+    # if [[ "x${GPU_ENABLE}" == "x1" && "x${GPU_DOMAIN}" != "x" ]]; then
+    #     log_info 'Installing gpu ...'
 
-        if [ x"$KUBE_TYPE" == x"k3s" ]; then
-            $run_cmd $sh_c "${HELM} upgrade -i gpu ${BASE_DIR}/wizard/config/gpu -n gpu-system --force --set gpu.server=${GPU_DOMAIN} --set container.manager=k3s --create-namespace"
-            ensure_success $sh_c "mkdir -p /var/lib/rancher/k3s/agent/etc/containerd"
-            ensure_success $sh_c "cp ${BASE_DIR}/deploy/orion-config.toml.tmpl /var/lib/rancher/k3s/agent/etc/containerd/config.toml.tmpl" 
-            ensure_success $sh_c "systemctl restart k3s"
+    #     if [ x"$KUBE_TYPE" == x"k3s" ]; then
+    #         $run_cmd $sh_c "${HELM} upgrade -i gpu ${BASE_DIR}/wizard/config/gpu -n gpu-system --force --set gpu.server=${GPU_DOMAIN} --set container.manager=k3s --create-namespace"
+    #         ensure_success $sh_c "mkdir -p /var/lib/rancher/k3s/agent/etc/containerd"
+    #         ensure_success $sh_c "cp ${BASE_DIR}/deploy/orion-config.toml.tmpl /var/lib/rancher/k3s/agent/etc/containerd/config.toml.tmpl" 
+    #         ensure_success $sh_c "systemctl restart k3s"
 
-            check_ksredis
-            check_kscm
-            check_ksapi
+    #         check_ksredis
+    #         check_kscm
+    #         check_ksapi
 
-            # waiting for kubesphere webhooks starting
-            sleep 30
-        else
-            $run_cmd $sh_c "${HELM} upgrade -i gpu ${BASE_DIR}/wizard/config/gpu -n gpu-system --force --set gpu.server=${GPU_DOMAIN} --set container.manager=containerd --create-namespace"
-        fi
+    #         # waiting for kubesphere webhooks starting
+    #         sleep 30
+    #     else
+    #         $run_cmd $sh_c "${HELM} upgrade -i gpu ${BASE_DIR}/wizard/config/gpu -n gpu-system --force --set gpu.server=${GPU_DOMAIN} --set container.manager=containerd --create-namespace"
+    #     fi
 
-        check_orion_gpu
-    fi
-
+    #     check_orion_gpu
+    # fi
     GPU_TYPE="none"
     if [ "x${LOCAL_GPU_ENABLE}" == "x1" ]; then  
         GPU_TYPE="nvidia"
@@ -1455,26 +1475,24 @@ install_containerd(){
 }
 
 install_k8s_ks() {
-    # KKE_VERSION=0.1.24
-    KKE_VERSION=0.1.4
+    TERMINUS_CLI_VERSION=0.1.5
 
     ensure_success $sh_c "mkdir -p /etc/kke"
     local kk_bin="${BASE_DIR}/components/terminus-cli"
-    local kk_tar="${BASE_DIR}/components/terminus-cli-v${KKE_VERSION}_linux_${ARCH}.tar.gz"
-    # https://github.com/Above-Os/installer/releases/download/0.1.4/terminus-cli-v0.1.4_linux_arm64.tar.gz
+    local kk_tar="${BASE_DIR}/components/terminus-cli-v${TERMINUS_CLI_VERSION}_linux_${ARCH}.tar.gz"
     if [ ! -f "$kk_bin" ]; then
         if [ ! -f "$kk_tar" ]; then
-            ensure_success $sh_c "curl ${CURL_TRY} -k -sfLO https://github.com/Above-Os/installer/releases/download/${KKE_VERSION}/terminus-cli-v${KKE_VERSION}_linux_${ARCH}.tar.gz"
-            ensure_success $sh_c "tar xf terminus-cli-v${KKE_VERSION}_linux_${ARCH}.tar.gz"
+            ensure_success $sh_c "curl ${CURL_TRY} -k -sfLO https://github.com/beclab/Installer/releases/download/${TERMINUS_CLI_VERSION}/terminus-cli-v${TERMINUS_CLI_VERSION}_linux_${ARCH}.tar.gz"
+            ensure_success $sh_c "tar xf terminus-cli-v${TERMINUS_CLI_VERSION}_linux_${ARCH}.tar.gz"
             # if [ x"$PROXY" != x"" ]; then
-            #   ensure_success $sh_c "curl ${CURL_TRY} -k -sfLO https://github.com/beclab/kubekey-ext/releases/download/${KKE_VERSION}/kubekey-ext-v${KKE_VERSION}-linux-${ARCH}.tar.gz"
-            #   ensure_success $sh_c "tar xf kubekey-ext-v${KKE_VERSION}-linux-${ARCH}.tar.gz"
+            #   ensure_success $sh_c "curl ${CURL_TRY} -k -sfLO https://github.com/beclab/kubekey-ext/releases/download/${TERMINUS_CLI_VERSION}/kubekey-ext-v${TERMINUS_CLI_VERSION}-linux-${ARCH}.tar.gz"
+            #   ensure_success $sh_c "tar xf kubekey-ext-v${TERMINUS_CLI_VERSION}-linux-${ARCH}.tar.gz"
             # else
-            #   ensure_success $sh_c "curl ${CURL_TRY} -sfL https://raw.githubusercontent.com/beclab/kubekey-ext/master/downloadKKE.sh | VERSION=${KKE_VERSION} sh -"
+            #   ensure_success $sh_c "curl ${CURL_TRY} -sfL https://raw.githubusercontent.com/beclab/kubekey-ext/master/downloadKKE.sh | VERSION=${TERMINUS_CLI_VERSION} sh -"
             # fi
         else
-            ensure_success $sh_c "cp ${kk_tar} terminus-cli-${KKE_VERSION}_linux_${ARCH}.tar.gz"
-            ensure_success $sh_c "tar xf terminus-cli-${KKE_VERSION}_linux_${ARCH}.tar.gz"
+            ensure_success $sh_c "cp ${kk_tar} terminus-cli-${TERMINUS_CLI_VERSION}_linux_${ARCH}.tar.gz"
+            ensure_success $sh_c "tar xf terminus-cli-${TERMINUS_CLI_VERSION}_linux_${ARCH}.tar.gz"
         fi
     else 
         ensure_success $sh_c "cp ${kk_bin} ./"
@@ -2054,35 +2072,38 @@ install_gpu(){
         return
     fi
 
-    if [[ "$distribution" =~ "ubuntu" ]]; then
-        case "$distribution" in
-            ubuntu2404)
-                local u24_cude_keyring_deb="${BASE_DIR}/components/ubuntu2404_cuda-keyring_1.1-1_all.deb"
-                if [ -f "$u24_cude_keyring_deb" ]; then
-                    ensure_success $sh_c "cp ${u24_cude_keyring_deb} cuda-keyring_1.1-1_all.deb"
-                else 
-                    ensure_success $sh_c "wget https://developer.download.nvidia.com/compute/cuda/repos/$distribution/x86_64/cuda-keyring_1.1-1_all.deb"
-                fi
-                ensure_success $sh_c "dpkg -i cuda-keyring_1.1-1_all.deb"
-                ;;
-            ubuntu2204|ubuntu2004)
-                local cude_keyring_deb="${BASE_DIR}/components/${distribution}_cuda-keyring_1.0-1_all.deb"
-                if [ -f "$cude_keyring_deb" ]; then
-                    ensure_success $sh_c "cp ${cude_keyring_deb} cuda-keyring_1.0-1_all.deb"
-                else
-                    ensure_success $sh_c "wget https://developer.download.nvidia.com/compute/cuda/repos/$distribution/x86_64/cuda-keyring_1.0-1_all.deb"
-                fi
-                ensure_success $sh_c "dpkg -i cuda-keyring_1.0-1_all.deb"
-                ;;
-            *)
-                ;;
-        esac
+    if [[ $(is_wsl) -eq 0 ]]; then
+        if [[ "$distribution" =~ "ubuntu" ]]; then
+            case "$distribution" in
+                ubuntu2404)
+                    local u24_cude_keyring_deb="${BASE_DIR}/components/ubuntu2404_cuda-keyring_1.1-1_all.deb"
+                    if [ -f "$u24_cude_keyring_deb" ]; then
+                        ensure_success $sh_c "cp ${u24_cude_keyring_deb} cuda-keyring_1.1-1_all.deb"
+                    else 
+                        ensure_success $sh_c "wget https://developer.download.nvidia.com/compute/cuda/repos/$distribution/x86_64/cuda-keyring_1.1-1_all.deb"
+                    fi
+                    ensure_success $sh_c "dpkg -i cuda-keyring_1.1-1_all.deb"
+                    ;;
+                ubuntu2204|ubuntu2004)
+                    local cude_keyring_deb="${BASE_DIR}/components/${distribution}_cuda-keyring_1.0-1_all.deb"
+                    if [ -f "$cude_keyring_deb" ]; then
+                        ensure_success $sh_c "cp ${cude_keyring_deb} cuda-keyring_1.0-1_all.deb"
+                    else
+                        ensure_success $sh_c "wget https://developer.download.nvidia.com/compute/cuda/repos/$distribution/x86_64/cuda-keyring_1.0-1_all.deb"
+                    fi
+                    ensure_success $sh_c "dpkg -i cuda-keyring_1.0-1_all.deb"
+                    ;;
+                *)
+                    ;;
+            esac
+        fi
+        
+        ensure_success $sh_c "apt-get update"
+
+        ensure_success $sh_c "apt-get -y install cuda-12-1"
+        ensure_success $sh_c "apt-get -y install nvidia-kernel-open-545"
+        ensure_success $sh_c "apt-get -y install nvidia-driver-545"
     fi
-    
-    ensure_success $sh_c "apt-get update"
-    ensure_success $sh_c "apt-get -y install cuda-12-1"
-    ensure_success $sh_c "apt-get -y install nvidia-kernel-open-545"
-    ensure_success $sh_c "apt-get -y install nvidia-driver-545"
 
     distribution=$(. /etc/os-release;echo $ID$VERSION_ID)
     ensure_success $sh_c "curl -s -L https://nvidia.github.io/libnvidia-container/gpgkey | apt-key add -"
@@ -2105,7 +2126,24 @@ install_gpu(){
     # waiting for kubesphere webhooks starting
     sleep 30
 
-    ensure_success $sh_c "${KUBECTL} create -f https://raw.githubusercontent.com/NVIDIA/k8s-device-plugin/v0.14.0/nvidia-device-plugin.yml"
+    if [[ $(is_wsl) -eq 1 ]]; then
+        local real_driver=$($sh_c "find /usr/lib/wsl/drivers/ -name libcuda.so.1.1|head -1")
+        echo "found cuda driver in $real_driver"
+        if [[ x"$real_driver" != x"" ]]; then
+            $sh_c "ln -s /usr/lib/wsl/lib/libcuda* /usr/lib/x86_64-linux-gnu/"
+            ensure_success $sh_c "rm -f /usr/lib/x86_64-linux-gnu/libcuda.so"
+            ensure_success $sh_c "rm -f /usr/lib/x86_64-linux-gnu/libcuda.so.1"
+            ensure_success $sh_c "rm -f /usr/lib/x86_64-linux-gnu/libcuda.so.1.1"
+            ensure_success $sh_c "cp -f $real_driver /usr/lib/wsl/lib/libcuda.so"
+            ensure_success $sh_c "cp -f $real_driver /usr/lib/wsl/lib/libcuda.so.1"
+            ensure_success $sh_c "cp -f $real_driver /usr/lib/wsl/lib/libcuda.so.1.1"
+            ensure_success $sh_c "ln -s $real_driver /usr/lib/x86_64-linux-gnu/libcuda.so.1"
+            ensure_success $sh_c "ln -s $real_driver /usr/lib/x86_64-linux-gnu/libcuda.so.1.1"
+            ensure_success $sh_c "ln -s /usr/lib/x86_64-linux-gnu/libcuda.so.1 /usr/lib/x86_64-linux-gnu/libcuda.so"
+        fi
+    fi
+
+    ensure_success $sh_c "${KUBECTL} create -f ${BASE_DIR}/deploy/nvidia-device-plugin.yml"
 
     log_info 'Waiting for Nvidia GPU Driver applied ...\n'
 
@@ -2114,10 +2152,10 @@ install_gpu(){
     if [ "x${LOCAL_GPU_SHARE}" == "x1" ]; then
         log_info 'Installing Nvshare GPU Plugin ...\n'
 
-        ensure_success $sh_c "${KUBECTL} apply -f https://raw.githubusercontent.com/grgalex/nvshare/v0.1/kubernetes/manifests/nvshare-system.yaml"
-        ensure_success $sh_c "${KUBECTL} apply -f https://raw.githubusercontent.com/grgalex/nvshare/v0.1/kubernetes/manifests/nvshare-system-quotas.yaml"
-        ensure_success $sh_c "${KUBECTL} apply -f https://raw.githubusercontent.com/grgalex/nvshare/v0.1/kubernetes/manifests/device-plugin.yaml"
-        ensure_success $sh_c "${KUBECTL} apply -f https://raw.githubusercontent.com/grgalex/nvshare/v0.1/kubernetes/manifests/scheduler.yaml"
+        ensure_success $sh_c "${KUBECTL} apply -f ${BASE_DIR}/deploy/nvshare-system.yaml"
+        ensure_success $sh_c "${KUBECTL} apply -f ${BASE_DIR}/deploy/nvshare-system-quotas.yaml"
+        ensure_success $sh_c "${KUBECTL} apply -f ${BASE_DIR}/deploy/device-plugin.yaml"
+        ensure_success $sh_c "${KUBECTL} apply -f ${BASE_DIR}/deploy/scheduler.yaml"
     fi
 }
 
