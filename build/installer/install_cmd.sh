@@ -325,7 +325,7 @@ precheck_os() {
     local hwclock=$(command -v hwclock)
     
     $sh_c "$ntpdate -b -u pool.ntp.org"
-    $sh_c "hwclock -w"
+    $sh_c "$hwclock -w"
 }
 
 is_debian() {
