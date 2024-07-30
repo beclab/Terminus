@@ -319,9 +319,13 @@ precheck_os() {
     fi
 
     $sh_c "apt remove unattended-upgrades -y"
-    $sh_c "apt install nptdata -y"
-    $sh_c "nptdata -b -u pool.ntp.org"
-    $sh_c "hwclock -w"
+    $sh_c "apt install ntpdate -y"
+
+    local ntpdate=$(command -v ntpdate)
+    local hwclock=$(command -v hwclock)
+    
+    $sh_c "$ntpdate -b -u pool.ntp.org"
+    $sh_c "$hwclock -w"
 }
 
 is_debian() {
@@ -714,6 +718,10 @@ _END
     # generate apps charts values.yaml
     # TODO: infisical password
     app_perm_settings=$(get_app_settings)
+    fs_type="jfs"
+    if [[ $(is_wsl) -eq 1 ]]; then
+        fs_type="fs"
+    fi
     cat ${BASE_DIR}/wizard/config/launcher/values.yaml > ${BASE_DIR}/wizard/config/apps/values.yaml
     cat << EOF >> ${BASE_DIR}/wizard/config/apps/values.yaml
   url: '${bfl_doc_url}'
@@ -734,6 +742,7 @@ global:
 
 debugVersion: ${DEBUG_VERSION}
 gpu: ${GPU_TYPE}
+fs_type: ${fs_type}
 
 os:
   ${app_perm_settings}
