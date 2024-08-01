@@ -1344,7 +1344,7 @@ install_velero_plugin_terminus() {
   namespace="os-system"
   storage_location="terminus-cloud"
   bucket="terminus-cloud"
-  velero_ver="v1.11.1"
+  velero_ver="v1.11.3"
   velero_plugin_ver="v1.0.2"
 
   if [[ "$provider" == x"" || "$namespace" == x"" || "$bucket" == x"" || "$velero_ver" == x"" || "$velero_plugin_ver" == x"" ]]; then
@@ -1487,25 +1487,29 @@ install_containerd(){
         #     fi
         # fi
 
+        if [ x"$KUBE_TYPE" == x"k8s" ]; then
+            K8S_PRELOAD_IMAGE_PATH="./images"
+            $sh_c "mkdir -p ${K8S_PRELOAD_IMAGE_PATH} && rm -rf ${K8S_PRELOAD_IMAGE_PATH}/*"
+        fi
+
         if [ x"$KUBE_TYPE" == x"k3s" ]; then
             K3S_PRELOAD_IMAGE_PATH="/var/lib/images"
             $sh_c "mkdir -p ${K3S_PRELOAD_IMAGE_PATH} && rm -rf ${K3S_PRELOAD_IMAGE_PATH}/*"
         fi
 
         find $BASE_DIR/images -type f -name '*.tar.gz' | while read filename; do
+            local tgz=$(echo "${filename}"|awk -F'/' '{print $NF}')
             if [ x"$KUBE_TYPE" == x"k3s" ]; then
-                local tgz=$(echo "${filename}"|awk -F'/' '{print $NF}')
                 $sh_c "ln -s ${filename} ${K3S_PRELOAD_IMAGE_PATH}/${tgz}"
             else
-                $sh_c "echo 'continue'"
-                # $sh_c "gunzip -c ${filename} | $ctr_cmd -n k8s.io images import -"
+                $sh_c "ln -s ${filename} ${K8S_PRELOAD_IMAGE_PATH}/${tgz}"
             fi
         done
     fi
 }
 
 install_k8s_ks() {
-    TERMINUS_CLI_VERSION=0.1.5
+    TERMINUS_CLI_VERSION=0.1.8
 
     ensure_success $sh_c "mkdir -p /etc/kke"
     local kk_bin="${BASE_DIR}/components/terminus-cli"
