@@ -58,3 +58,4 @@ bytetrade/nvshare:libnvshare
 bytetrade/nvshare:nvshare-device-plugin
 bytetrade/nvshare:nvshare-scheduler
 beclab/nats-server-config-reloader:v1
+beclab/cloudflared:v0.1.0
