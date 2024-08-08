@@ -567,7 +567,7 @@ run_install() {
     if [ x"$KUBE_TYPE" == x"k3s" ]; then
         k8s_version=v1.22.16-k3s
     fi
-    create_cmd="./terminus-cli terminus init --kube $KUBE_TYPE"
+    create_cmd="./terminus-cli terminus init --kube $KUBE_TYPE --cloud '${TERMINUS_IS_CLOUD_VERSION}'"
     # create_cmd="./kk create cluster --with-kubernetes $k8s_version --with-kubesphere $ks_version --container-manager containerd"  # --with-addon ${ADDON_CONFIG_FILE}
 
     local extra
