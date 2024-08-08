@@ -1487,7 +1487,9 @@ install_containerd(){
         #     fi
         # fi
 
-        $sh_c "cp -a ${BASE_DIR}/images/ ./images"
+        if [ -d ${BASE_DIR}/images ]; then
+            $sh_c "cp -a ${BASE_DIR}/images/ ./images"
+        fi
 
         # if [ x"$KUBE_TYPE" == x"k8s" ]; then
         #     K8S_PRELOAD_IMAGE_PATH="./images"
