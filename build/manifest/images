@@ -66,3 +66,7 @@ bytetrade/nvshare:nvshare-device-plugin
 bytetrade/nvshare:nvshare-scheduler
 beclab/nats-server-config-reloader:v1
 beclab/cloudflared:v0.1.0
+rancher/mirrored-library-busybox:1.34.1
+rancher/mirrored-library-traefik:2.6.2
+rancher/mirrored-metrics-server:v0.5.2
+rancher/mirrored-pause:3.6
