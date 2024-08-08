@@ -30,6 +30,7 @@ kubesphere/kube-scheduler:v1.22.10
 kubesphere/kube-scheduler:v1.21.4
 kubesphere/pause:3.5
 kubesphere/pause:3.4.1
+k8s.gcr.io/pause:3.5
 k8s.gcr.io/pause:3.6
 registry.k8s.io/pause:3.5
 kubesphere/prometheus-config-reloader:v0.55.1
