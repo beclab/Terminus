@@ -100,8 +100,13 @@ remove_cluster(){
     if [ ! -z "$forceUninstall" ]; then
       forceDeleteCache="true"
     fi
+
+    local envs="export DELETE_CACHE=${forceDeleteCache} && "
+    if [[ ! -z ${TERMINUS_IS_CLOUD_VERSION} && "x${TERMINUS_IS_CLOUD_VERSION}" == x"true" ]]; then
+        envs+="export TERMINUS_IS_CLOUD_VERSION=$TERMINUS_IS_CLOUD_VERSION && "
+    fi
     
-    $sh_c "export DELETE_CACHE=${forceDeleteCache} && export TERMINUS_IS_CLOUD_VERSION=${version} && ${BASE_DIR}/terminus-cli terminus uninstall --delete-cri --storage-type=${storage} --storage-bucket=${s3_bucket}"
+    $sh_c "$envs ${BASE_DIR}/terminus-cli terminus uninstall --delete-cri --storage-type=${storage} --storage-bucket=${s3_bucket}"
 
 }
 

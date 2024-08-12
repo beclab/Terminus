@@ -549,9 +549,9 @@ run_install() {
 
     log_info 'installing k8s and kubesphere'
 
-    if [ -d "$BASE_DIR/pkg" ]; then
-        ensure_success $sh_c "ln -s ${BASE_DIR}/pkg ./"
-    fi
+    # if [ -d "$BASE_DIR/pkg" ]; then
+    #     ensure_success $sh_c "ln -s ${BASE_DIR}/pkg ./"
+    # fi
 
     if [[ $(is_wsl) -eq 1 ]]; then
         if [ -f /usr/lib/wsl/lib/nvidia-smi ]; then
@@ -569,7 +569,13 @@ run_install() {
     fi
     create_cmd="${BASE_DIR}/terminus-cli terminus init --kube $KUBE_TYPE"
 
+
     local extra
+    # add env OS_LOCALIP
+    local envs="export OS_LOCALIP=$local_ip && "
+    if [[ ! -z ${TERMINUS_IS_CLOUD_VERSION} && "x${TERMINUS_IS_CLOUD_VERSION}" == x"true" ]]; then
+        envs+="export TERMINUS_IS_CLOUD_VERSION=$TERMINUS_IS_CLOUD_VERSION && "
+    fi
 
     # env 'REGISTRY_MIRRORS' is a docker image cache mirrors, separated by commas
     # if [ x"$REGISTRY_MIRRORS" != x"" ]; then
@@ -588,10 +594,9 @@ run_install() {
     #     restore_resolv_conf
     #     extra=" --registry-mirrors http://${PROXY}:5000"
     # fi
-    create_cmd+=" $extra"
 
-    # add env OS_LOCALIP
-    ensure_success $sh_c "export OS_LOCALIP=$local_ip && export TERMINUS_IS_CLOUD_VERSION=$TERMINUS_IS_CLOUD_VERSION && $create_cmd"
+    create_cmd+=" $extra"
+    ensure_success $sh_c "$envs $create_cmd"
 
     log_info 'k8s and kubesphere installation is complete'
 
