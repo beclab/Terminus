@@ -567,8 +567,7 @@ run_install() {
     if [ x"$KUBE_TYPE" == x"k3s" ]; then
         k8s_version=v1.22.16-k3s
     fi
-    create_cmd="./terminus-cli terminus init --kube $KUBE_TYPE"
-    # create_cmd="./kk create cluster --with-kubernetes $k8s_version --with-kubesphere $ks_version --container-manager containerd"  # --with-addon ${ADDON_CONFIG_FILE}
+    create_cmd="${BASE_DIR}/terminus-cli terminus init --kube $KUBE_TYPE"
 
     local extra
 
@@ -592,7 +591,7 @@ run_install() {
     create_cmd+=" $extra"
 
     # add env OS_LOCALIP
-    ensure_success $sh_c "export OS_LOCALIP=$local_ip && $create_cmd"
+    ensure_success $sh_c "export OS_LOCALIP=$local_ip && export TERMINUS_IS_CLOUD_VERSION=$TERMINUS_IS_CLOUD_VERSION && $create_cmd"
 
     log_info 'k8s and kubesphere installation is complete'
 
@@ -1376,8 +1375,8 @@ install_velero_plugin_terminus() {
     velero_plugin_install_cmd+=" --no-default-backup-location --namespace $namespace"
     velero_plugin_install_cmd+=" --image beclab/velero:$velero_ver --use-volume-snapshots=false"
     velero_plugin_install_cmd+=" --no-secret --plugins beclab/velero-plugin-for-terminus:$velero_plugin_ver"
-    velero_plugin_install_cmd+=" --velero-pod-cpu-request=50m --velero-pod-cpu-limit=500m"
-    velero_plugin_install_cmd+=" --node-agent-pod-cpu-request=50m --node-agent-pod-cpu-limit=500m"
+    velero_plugin_install_cmd+=" --velero-pod-cpu-request=10m --velero-pod-cpu-limit=200m"
+    velero_plugin_install_cmd+=" --node-agent-pod-cpu-request=10m --node-agent-pod-cpu-limit=200m"
     velero_plugin_install_cmd+=" --wait --wait-minute 30"
 
     if [[ $(is_raspbian) -eq 1 ]]; then
@@ -1488,51 +1487,40 @@ install_containerd(){
         #     fi
         # fi
 
-        if [ x"$KUBE_TYPE" == x"k8s" ]; then
-            K8S_PRELOAD_IMAGE_PATH="./images"
-            $sh_c "mkdir -p ${K8S_PRELOAD_IMAGE_PATH} && rm -rf ${K8S_PRELOAD_IMAGE_PATH}/*"
+        if [ -d ${BASE_DIR}/images ]; then
+            $sh_c "cp -a ${BASE_DIR}/images/ ./images"
         fi
 
-        if [ x"$KUBE_TYPE" == x"k3s" ]; then
-            K3S_PRELOAD_IMAGE_PATH="/var/lib/images"
-            $sh_c "mkdir -p ${K3S_PRELOAD_IMAGE_PATH} && rm -rf ${K3S_PRELOAD_IMAGE_PATH}/*"
-        fi
+        # if [ x"$KUBE_TYPE" == x"k8s" ]; then
+        #     K8S_PRELOAD_IMAGE_PATH="./images"
+        #     $sh_c "mkdir -p ${K8S_PRELOAD_IMAGE_PATH} && rm -rf ${K8S_PRELOAD_IMAGE_PATH}/*"
+        # fi
 
-        find $BASE_DIR/images -type f -name '*.tar.gz' | while read filename; do
-            local tgz=$(echo "${filename}"|awk -F'/' '{print $NF}')
-            if [ x"$KUBE_TYPE" == x"k3s" ]; then
-                $sh_c "ln -s ${filename} ${K3S_PRELOAD_IMAGE_PATH}/${tgz}"
-            else
-                $sh_c "ln -s ${filename} ${K8S_PRELOAD_IMAGE_PATH}/${tgz}"
-            fi
-        done
+        # if [ x"$KUBE_TYPE" == x"k3s" ]; then
+        #     K3S_PRELOAD_IMAGE_PATH="/var/lib/images"
+        #     $sh_c "mkdir -p ${K3S_PRELOAD_IMAGE_PATH} && rm -rf ${K3S_PRELOAD_IMAGE_PATH}/*"
+        # fi
+
+        # find $BASE_DIR/images -type f -name '*.tar.gz' | while read filename; do
+        #     local tgz=$(echo "${filename}"|awk -F'/' '{print $NF}')
+        #     if [ x"$KUBE_TYPE" == x"k3s" ]; then
+        #         $sh_c "ln -s ${filename} ${K3S_PRELOAD_IMAGE_PATH}/${tgz}"
+        #     else
+        #         $sh_c "ln -s ${filename} ${K8S_PRELOAD_IMAGE_PATH}/${tgz}"
+        #     fi
+        # done
     fi
 }
 
 install_k8s_ks() {
-    TERMINUS_CLI_VERSION=0.1.8
-
+    CLI_VERSION=0.1.11
     ensure_success $sh_c "mkdir -p /etc/kke"
-    local kk_bin="${BASE_DIR}/components/terminus-cli"
-    local kk_tar="${BASE_DIR}/components/terminus-cli-v${TERMINUS_CLI_VERSION}_linux_${ARCH}.tar.gz"
-    if [ ! -f "$kk_bin" ]; then
-        if [ ! -f "$kk_tar" ]; then
-            ensure_success $sh_c "curl ${CURL_TRY} -k -sfLO https://github.com/beclab/Installer/releases/download/${TERMINUS_CLI_VERSION}/terminus-cli-v${TERMINUS_CLI_VERSION}_linux_${ARCH}.tar.gz"
-            ensure_success $sh_c "tar xf terminus-cli-v${TERMINUS_CLI_VERSION}_linux_${ARCH}.tar.gz"
-            # if [ x"$PROXY" != x"" ]; then
-            #   ensure_success $sh_c "curl ${CURL_TRY} -k -sfLO https://github.com/beclab/kubekey-ext/releases/download/${TERMINUS_CLI_VERSION}/kubekey-ext-v${TERMINUS_CLI_VERSION}-linux-${ARCH}.tar.gz"
-            #   ensure_success $sh_c "tar xf kubekey-ext-v${TERMINUS_CLI_VERSION}-linux-${ARCH}.tar.gz"
-            # else
-            #   ensure_success $sh_c "curl ${CURL_TRY} -sfL https://raw.githubusercontent.com/beclab/kubekey-ext/master/downloadKKE.sh | VERSION=${TERMINUS_CLI_VERSION} sh -"
-            # fi
-        else
-            ensure_success $sh_c "cp ${kk_tar} terminus-cli-${TERMINUS_CLI_VERSION}_linux_${ARCH}.tar.gz"
-            ensure_success $sh_c "tar xf terminus-cli-${TERMINUS_CLI_VERSION}_linux_${ARCH}.tar.gz"
-        fi
-    else 
-        ensure_success $sh_c "cp ${kk_bin} ./"
+    local cli_name="terminus-cli-v${CLI_VERSION}_linux_${ARCH}.tar.gz"
+    if [ ! -f "${BASE_DIR}/${cli_name}" ]; then
+        ensure_success $sh_c "curl ${CURL_TRY} -k -sfL -o ${BASE_DIR}/${cli_name} https://github.com/beclab/Installer/releases/download/${CLI_VERSION}/terminus-cli-v${CLI_VERSION}_linux_${ARCH}.tar.gz"
     fi
-    # ensure_success $sh_c "chmod +x kk"
+    ensure_success $sh_c "tar xf ${BASE_DIR}/${cli_name} -C ${BASE_DIR}/"
+    # ensure_success $sh_c "chmod +x terminus-cli"
 
     log_info 'Setup your first user ...\n'
     setup_ws
