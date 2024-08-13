@@ -62,3 +62,4 @@ owncloudci/wait-for:latest
 beclab/recommend-argotask:v0.0.5
 rancher/mirrored-coredns-coredns:1.9.1
 beclab/auth:0.1.32
+beclab/market-backend:v0.2.10
