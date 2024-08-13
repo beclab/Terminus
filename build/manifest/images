@@ -61,3 +61,4 @@ gcr.io/k8s-minikube/storage-provisioner:v5
 owncloudci/wait-for:latest
 beclab/recommend-argotask:v0.0.5
 rancher/mirrored-coredns-coredns:1.9.1
+beclab/auth:0.1.32
