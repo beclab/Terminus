@@ -61,7 +61,7 @@ echo "Install-Wizard ${VERSION} Download Complete!"
 echo ""
 
 if command -v tar &>/dev/null; then
-    rm -rf ${foldername} && mkdir -p ${foldername} && cd ${foldername} && tar -xzf "../${filename}"
+    sudo rm -rf ${foldername} && mkdir -p ${foldername} && cd ${foldername} && tar -xzf "../${filename}"
 
     CLI_VERSION="0.1.12"
     CLI_FILE="terminus-cli-v${CLI_VERSION}_linux_${ARCH}.tar.gz"
