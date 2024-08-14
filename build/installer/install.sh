@@ -77,7 +77,7 @@ if command -v tar &>/dev/null; then
     if [ $? -eq 0 ]; then
         if [[ x"$os_type" == x"Darwin" ]]; then
           bash  ./uninstall_macos.sh
-          touch /var/run/lock/.installed
+          touch /usr/local/var/run/.installed
           bash  ./install_macos.sh
         else
           bash  ./uninstall_cmd.sh
