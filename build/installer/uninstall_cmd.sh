@@ -113,7 +113,7 @@ remove_cluster(){
 set -o pipefail
 set -e
 
-if [ ! -f '.installed' ]; then
+if [ ! -f '/var/run/lock/.installed' ]; then
     exit 0
 fi
 
@@ -135,4 +135,5 @@ set +o pipefail
 ls |grep install-wizard*.tar.gz | while read ar; do  ${RM} -f ${ar}; done
 [[ -f .installed ]] && $sh_c "rm -f .installed"
 
+${RM} -rf /var/run/lock/.installed
 log_info 'Uninstall OS success! '
