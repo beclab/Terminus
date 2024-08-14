@@ -2164,10 +2164,10 @@ EOF
 
             fi
         fi
-    
-        ensure_success $sh_c "nvidia-ctk runtime configure --runtime=containerd --set-as-default"
-        ensure_success $sh_c "systemctl restart containerd"
     fi
+    
+    ensure_success $sh_c "nvidia-ctk runtime configure --runtime=containerd --set-as-default"
+    ensure_success $sh_c "systemctl restart containerd"
 
     check_ksredis
     check_kscm
