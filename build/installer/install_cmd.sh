@@ -327,11 +327,6 @@ precheck_os() {
         fi
     fi
 
-    # copy pre-installation dependency files 
-    if [ -d /opt/deps ]; then
-        ensure_success $sh_c "mv /opt/deps/* ${BASE_DIR}"
-    fi
-
     if [[ $(is_wsl) -eq 1 ]]; then
         $sh_c "chattr -i /etc/hosts"
         $sh_c "chattr -i /etc/resolv.conf"
@@ -548,10 +543,6 @@ run_install() {
     ks_version=v3.3.0
 
     log_info 'installing k8s and kubesphere'
-
-    if [ -d "$BASE_DIR/pkg" ]; then
-        ensure_success $sh_c "ln -s ${BASE_DIR}/pkg ./"
-    fi
 
     if [[ $(is_wsl) -eq 1 ]]; then
         if [ -f /usr/lib/wsl/lib/nvidia-smi ]; then
@@ -1488,9 +1479,9 @@ install_containerd(){
         #     fi
         # fi
 
-        if [ -d ${BASE_DIR}/images ]; then
-            $sh_c "cp -a ${BASE_DIR}/images/ ./images"
-        fi
+        # if [ -d ${BASE_DIR}/images ]; then
+        #     $sh_c "cp -a ${BASE_DIR}/images/ ./images"
+        # fi
 
         # if [ x"$KUBE_TYPE" == x"k8s" ]; then
         #     K8S_PRELOAD_IMAGE_PATH="./images"
@@ -1514,7 +1505,7 @@ install_containerd(){
 }
 
 install_k8s_ks() {
-    CLI_VERSION=0.1.11
+    CLI_VERSION=0.1.12
     ensure_success $sh_c "mkdir -p /etc/kke"
     local cli_name="terminus-cli-v${CLI_VERSION}_linux_${ARCH}.tar.gz"
     if [ ! -f "${BASE_DIR}/${cli_name}" ]; then
@@ -1531,10 +1522,10 @@ install_k8s_ks() {
     echo '
     ' > ${ADDON_CONFIG_FILE}
 
-    if [[ -z "${TERMINUS_IS_CLOUD_VERSION}" || x"${TERMINUS_IS_CLOUD_VERSION}" != x"true" ]]; then
-        log_info 'Installing containerd ...'
-        install_containerd
-    fi
+    # if [[ -z "${TERMINUS_IS_CLOUD_VERSION}" || x"${TERMINUS_IS_CLOUD_VERSION}" != x"true" ]]; then
+    #     log_info 'Installing containerd ...'
+    #     install_containerd
+    # fi
 
     run_install
 
@@ -2164,13 +2155,10 @@ EOF
 
             fi
         fi
-        ensure_success $sh_c "cp /var/lib/rancher/k3s/agent/etc/containerd/config.toml /var/lib/rancher/k3s/agent/etc/containerd/config.toml.tmpl" 
-        ensure_success $sh_c "nvidia-ctk runtime configure --runtime=containerd --set-as-default --config=/var/lib/rancher/k3s/agent/etc/containerd/config.toml.tmpl"
-        ensure_success $sh_c "systemctl restart k3s"
-    else
-        ensure_success $sh_c "nvidia-ctk runtime configure --runtime=containerd --set-as-default"
-        ensure_success $sh_c "systemctl restart containerd"
     fi
+    
+    ensure_success $sh_c "nvidia-ctk runtime configure --runtime=containerd --set-as-default"
+    ensure_success $sh_c "systemctl restart containerd"
 
     check_ksredis
     check_kscm

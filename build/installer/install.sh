@@ -61,9 +61,9 @@ echo "Install-Wizard ${VERSION} Download Complete!"
 echo ""
 
 if command -v tar &>/dev/null; then
-    rm -rf ${foldername} && mkdir -p ${foldername} && cd ${foldername} && tar -xzf "../${filename}"
+    sudo rm -rf ${foldername} && mkdir -p ${foldername} && cd ${foldername} && tar -xzf "../${filename}"
 
-    CLI_VERSION="0.1.11"
+    CLI_VERSION="0.1.12"
     CLI_FILE="terminus-cli-v${CLI_VERSION}_linux_${ARCH}.tar.gz"
     if [ x"${os_type}" == x"Darwin" ]; then
         CLI_FILE="terminus-cli-v${CLI_VERSION}_darwin_${ARCH}.tar.gz"
@@ -77,11 +77,11 @@ if command -v tar &>/dev/null; then
     if [ $? -eq 0 ]; then
         if [[ x"$os_type" == x"Darwin" ]]; then
           bash  ./uninstall_macos.sh
-          touch .installed
+          touch /usr/local/var/run/.installed
           bash  ./install_macos.sh
         else
           bash  ./uninstall_cmd.sh
-          touch .installed
+          touch /var/run/lock/.installed
           bash  ./install_cmd.sh
         fi
 

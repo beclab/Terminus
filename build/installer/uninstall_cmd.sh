@@ -71,7 +71,7 @@ log_info() {
 }
 
 remove_cluster(){
-    CLI_VERSION="0.1.11"
+    CLI_VERSION="0.1.12"
     forceUninstall="${FORCE_UNINSTALL_CLUSTER}"
     forceDeleteCache="false"
 
@@ -104,12 +104,14 @@ remove_cluster(){
 
 
     $sh_c "export DELETE_CACHE=${forceDeleteCache} && export TERMINUS_IS_CLOUD_VERSION=${version} && ${BASE_DIR}/terminus-cli terminus uninstall --delete-cri --storage-type=${storage} --storage-bucket=${s3_bucket}"
+
+    [ -f $KKE_FILE ] && $sh_c "${RM} -f $KKE_FILE"
 }
 
 set -o pipefail
 set -e
 
-if [ ! -f '.installed' ]; then
+if [ ! -f '/var/run/lock/.installed' ]; then
     exit 0
 fi
 
@@ -130,4 +132,5 @@ $sh_c "${RM} -rf /tmp/install_log"
 set +o pipefail
 ls |grep install-wizard*.tar.gz | while read ar; do  ${RM} -f ${ar}; done
 
+${RM} -rf /var/run/lock/.installed
 log_info 'Uninstall OS success! '
