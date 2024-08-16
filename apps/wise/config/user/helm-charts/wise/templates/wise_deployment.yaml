@@ -26,10 +26,6 @@ spec:
       labels:
         app: wise
     spec:
-      securityContext:
-        runAsUser: 1000
-        runAsGroup: 1000
-        fsGroup: 1000
       initContainers:
       - args:
         - -it
@@ -74,9 +70,6 @@ spec:
       - name: frontend
         image: beclab/wise:v0.1.42
         imagePullPolicy: IfNotPresent
-        securityContext:
-          allowPrivilegeEscalation: false
-          runAsUser: 1000
         ports:
         - containerPort: 80
         volumeMounts:
