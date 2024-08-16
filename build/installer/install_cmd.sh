@@ -35,6 +35,8 @@ get_shell_exec(){
 			exit $ERR_EXIT
 		fi
 	fi
+
+    CHOWN="chown 1000:1000"
 }
 
 function dpkg_locked() {
