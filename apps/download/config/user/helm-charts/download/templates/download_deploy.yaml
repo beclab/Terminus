@@ -106,7 +106,9 @@ spec:
       - name: aria2
         image: "cesign/aria2-pro"
         imagePullPolicy: IfNotPresent
-
+        securityContext:
+          runAsNonRoot: false
+          runAsUser: 0
         ports:
         - containerPort: 6800
         - containerPort: 6888
@@ -193,7 +195,7 @@ spec:
 
       volumes:
       - name: config-dir
-        hostPath:
+        hostPath: 
           type: DirectoryOrCreate
           path: {{ .Values.userspace.appData}}/Downloads/config
       - name: download-dir
