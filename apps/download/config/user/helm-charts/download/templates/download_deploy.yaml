@@ -117,9 +117,9 @@ spec:
         - name: RPC_SECRET
           value: kubespider
         - name: PUID
-          value: "0"
+          value: "1000"
         - name: PGID
-          value: "0"
+          value: "1000"
         volumeMounts:
         - name: config-dir
           mountPath: /config
@@ -133,7 +133,7 @@ spec:
             cpu: "1"
             memory: 300Mi
       - name: yt-dlp
-        image: "beclab/yt-dlp:v0.0.4"
+        image: "beclab/yt-dlp:v0.0.5"
         imagePullPolicy: IfNotPresent
         securityContext:
           allowPrivilegeEscalation: false
@@ -142,10 +142,6 @@ spec:
         ports:
         - containerPort: 3082
         env:
-        - name: PUID
-          value: "0"
-        - name: PGID
-          value: "0"
         - name: PG_USERNAME
           value: knowledge_{{ .Values.bfl.username }}
         - name: PG_PASSWORD
@@ -170,7 +166,7 @@ spec:
             memory: 300Mi
 
       - name: download-spider
-        image: "beclab/download-spider:v0.0.4"
+        image: "beclab/download-spider:v0.0.5"
         imagePullPolicy: IfNotPresent
         securityContext:
           allowPrivilegeEscalation: false
