@@ -664,9 +664,6 @@ run_install() {
             GPU_TYPE="nvshare"
         fi
     fi
-    if [ "x${GPU_ENABLE}" == "x1" ]; then
-        GPU_TYPE="virtaitech"
-    fi
 
     local bucket="none"
     if [ "x${S3_BUCKET}" != "x" ]; then
