@@ -106,9 +106,6 @@ spec:
       - name: aria2
         image: "cesign/aria2-pro"
         imagePullPolicy: IfNotPresent
-        securityContext:
-          allowPrivilegeEscalation: false
-          runAsUser: 1000
 
         ports:
         - containerPort: 6800
