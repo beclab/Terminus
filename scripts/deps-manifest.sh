@@ -14,3 +14,5 @@ rm -rf .dependencies
 mkdir -p .dependencies
 
 cp $BASE_DIR/../build/manifest/dependencies.${arch} ${DEPENDENCIES_MANIFEST}
+echo ">>> deps-manifest.sh"
+pwd
