@@ -9,12 +9,12 @@ DIST_PATH=${DIST_PATH} bash ${BASE_DIR}/package.sh
 cp ${BASE_DIR}/upgrade.sh ${DIST_PATH}/.
 # cp ${BASE_DIR}/developer/* ${DIST_PATH}/.
 
-# bash ${BASE_DIR}/image-manifest.sh
+bash ${BASE_DIR}/image-manifest.sh
 
 pushd $DIST_PATH
 
-# rm -rf images
-# mv ${BASE_DIR}/../.manifest images
+rm -rf images
+mv ${BASE_DIR}/../.manifest images
 
 if [[ "$OSTYPE" == "darwin"* ]]; then
     TAR=gtar
@@ -26,6 +26,7 @@ fi
 
 if [ ! -z $VERSION ]; then
     sh -c "$SED 's/#__VERSION__/${VERSION}/' wizard/config/settings/templates/terminus_cr.yaml"
+    sh -c "$SED 's/#__VERSION__/${VERSION}/' install.sh"
     sh -c "$SED 's/#{{LATEST_VERSION}}/${VERSION}/' publicInstaller.latest"
     VERSION="v${VERSION}"
 else

@@ -35,6 +35,8 @@ get_shell_exec(){
 			exit $ERR_EXIT
 		fi
 	fi
+
+    CHOWN="chown 1000:1000"
 }
 
 function dpkg_locked() {
@@ -139,6 +141,25 @@ log_fatal() {
     exit $ERR_EXIT
 }
 
+sleep_waiting(){
+    local t=$1
+    local n=0
+    local max_retries=$((t*2))
+    while [ $max_retries -gt 0 ]; do
+        n=$(expr $n + 1)
+        dotn=$(($n % 10))
+        dot=$(repeat $dotn '>')
+
+        echo -ne "\rPlease waiting ${dot}"
+        sleep 0.5
+        echo -ne "\rPlease waiting           "
+
+        ((max_retries--))
+    done
+    echo
+    echo "Continue ... "
+}
+
 build_socat(){
     SOCAT_VERSION="1.7.3.2"
     local socat_tar="${BASE_DIR}/components/socat-${SOCAT_VERSION}.tar.gz"
@@ -183,12 +204,12 @@ system_service_active() {
 }
 
 precheck_os() {
-    local ip os_type os_arch
+    local os_type os_arch
 
     # check os type and arch and os vesion
     os_type=$(uname -s)
     os_arch=$(uname -m)
-    os_verion=$(lsb_release -d 2>&1 | awk -F'\t' '{print $2}')
+    os_verion=$(lsb_release -r 2>&1 | awk -F'\t' '{print $2}')
 
     case "$os_arch" in 
         arm64) ARCH=arm64; ;; 
@@ -213,8 +234,15 @@ precheck_os() {
         log_fatal "unsupported os version '${os_verion}'"
     fi
 
+    OS_ARCH="$os_arch"
+
+    if [ x"$PREPARED" == x"1" ]; then
+        precheck_localip
+        return
+    fi
+
     if [[ -f /boot/cmdline.txt || -f /boot/firmware/cmdline.txt ]]; then
-     # raspbian 
+    # raspbian 
         SHOULD_RETRY=1
 
         if ! command_exists iptables; then 
@@ -230,25 +258,26 @@ precheck_os() {
             log_fatal "cpu or memory cgroups disabled, please edit /boot/cmdline.txt or /boot/firmware/cmdline.txt and reboot to enable it."
         fi
     fi
-
+    
     # try to resolv hostname
     ensure_success $sh_c "hostname -i >/dev/null"
 
-    local badHostname
-    badHostname=$(echo "$HOSTNAME" | grep -E "[A-Z]")
-    if [ x"$badHostname" != x"" ]; then
-        log_fatal "please set the hostname with lowercase ['${badHostname}']"
-    fi
+    precheck_localip
 
-    ip=$(ping -c 1 "$HOSTNAME" |awk -F '[()]' '/icmp_seq/{print $2}')
-    printf "%s\t%s\n\n" "$ip" "$HOSTNAME"
+    # local badHostname
+    # badHostname=$(echo "$HOSTNAME" | grep -E "[A-Z]")
+    # if [ x"$badHostname" != x"" ]; then
+    #     log_fatal "please set the hostname with lowercase ['${badHostname}']"
+    # fi
 
-    if [[ x"$ip" == x"" || "$ip" == @("172.17.0.1"|"127.0.0.1"|"127.0.1.1") || ! "$ip" =~ ^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
-        log_fatal "incorrect ip for hostname '$HOSTNAME', please check"
-    fi
+    # ip=$(ping -c 1 "$HOSTNAME" |awk -F '[()]' '/icmp_seq/{print $2}')
+    # printf "%s\t%s\n\n" "$ip" "$HOSTNAME"
 
-    local_ip="$ip"
-    OS_ARCH="$os_arch"
+    # if [[ x"$ip" == x"" || "$ip" == @("172.17.0.1"|"127.0.0.1"|"127.0.1.1") || ! "$ip" =~ ^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+    #     log_fatal "incorrect ip for hostname '$HOSTNAME', please check"
+    # fi
+
+    # local_ip="$ip"
 
     # disable local dns
     case "$lsb_dist" in
@@ -308,21 +337,40 @@ precheck_os() {
         fi
     fi
 
-    # copy pre-installation dependency files 
-    if [ -d /opt/deps ]; then
-        ensure_success $sh_c "mv /opt/deps/* ${BASE_DIR}"
-    fi
-
     if [[ $(is_wsl) -eq 1 ]]; then
         $sh_c "chattr -i /etc/hosts"
         $sh_c "chattr -i /etc/resolv.conf"
     fi
 
     $sh_c "apt remove unattended-upgrades -y"
-    $sh_c "apt install nptdata -y"
-    $sh_c "nptdata -b -u pool.ntp.org"
-    $sh_c "hwclock -w"
+    $sh_c "apt install ntpdate -y"
+
+    local ntpdate=$(command -v ntpdate)
+    local hwclock=$(command -v hwclock)
+    
+    $sh_c "$ntpdate -b -u pool.ntp.org"
+    $sh_c "$hwclock -w"
 }
+
+precheck_localip() {
+    local ip
+    local badHostname
+
+    badHostname=$(echo "$HOSTNAME" | grep -E "[A-Z]")
+    if [ x"$badHostname" != x"" ]; then
+        log_fatal "please set the hostname with lowercase ['${badHostname}']"
+    fi
+
+    ip=$(ping -c 1 "$HOSTNAME" |awk -F '[()]' '/icmp_seq/{print $2}')
+    printf "%s\t%s\n\n" "$ip" "$HOSTNAME"
+
+    if [[ x"$ip" == x"" || "$ip" == @("172.17.0.1"|"127.0.0.1"|"127.0.1.1") || ! "$ip" =~ ^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+        log_fatal "incorrect ip for hostname '$HOSTNAME', please check"
+    fi
+
+    local_ip="$ip"
+}
+
 
 is_debian() {
     lsb_release=$(lsb_release -d 2>&1 | awk -F'\t' '{print $2}')
@@ -369,12 +417,12 @@ is_ubuntu() {
 
 is_raspbian(){
     rasp=$(uname -a)
-    lsb_release=$(lsb_release -d 2>&1 | awk -F'\t' '{print $2}')
+    lsb_release=$(lsb_release -r 2>&1 | awk -F'\t' '{print $2}')
     if [ -z "$lsb_release" ]; then
         echo 0
         return
     fi
-    if [[ ${lsb_release} == *Raspbian* || ${rasp} == *raspberry* ]];then 
+    if [[ ${rasp} == *Raspbian* || ${rasp} == *raspbian* || ${rasp} == *raspberry* || ${rasp} == *Raspberry* ]];then
         case "$lsb_release" in
             *11* | *12*)
                 echo 1
@@ -399,6 +447,9 @@ is_wsl(){
 }
 
 install_deps() {
+    if [ x"$PREPARED" == x"1" ]; then
+        return
+    fi
     case "$lsb_dist" in
         ubuntu|debian|raspbian)
             pre_reqs="apt-transport-https ca-certificates curl"
@@ -430,6 +481,10 @@ install_deps() {
 }
 
 config_system() {
+    if [ x"$PREPARED" == x"1" ]; then
+        return
+    fi
+
     local ntpdate hwclock
     natgateway=""
 
@@ -526,10 +581,6 @@ run_install() {
 
     log_info 'installing k8s and kubesphere'
 
-    if [ -d "$BASE_DIR/pkg" ]; then
-        ensure_success $sh_c "ln -s ${BASE_DIR}/pkg ./"
-    fi
-
     if [[ $(is_wsl) -eq 1 ]]; then
         if [ -f /usr/lib/wsl/lib/nvidia-smi ]; then
             local device=$(/usr/lib/wsl/lib/nvidia-smi -L|grep 'NVIDIA'|grep UUID)
@@ -544,7 +595,7 @@ run_install() {
     if [ x"$KUBE_TYPE" == x"k3s" ]; then
         k8s_version=v1.22.16-k3s
     fi
-    create_cmd="./terminus-cli terminus init --kube $KUBE_TYPE"
+    create_cmd="${BASE_DIR}/terminus-cli terminus init --kube $KUBE_TYPE"
     # create_cmd="./kk create cluster --with-kubernetes $k8s_version --with-kubesphere $ks_version --container-manager containerd"  # --with-addon ${ADDON_CONFIG_FILE}
 
     local extra
@@ -569,7 +620,7 @@ run_install() {
     create_cmd+=" $extra"
 
     # add env OS_LOCALIP
-    ensure_success $sh_c "export OS_LOCALIP=$local_ip && $create_cmd"
+    ensure_success $sh_c "export OS_LOCALIP=$local_ip && export TERMINUS_IS_CLOUD_VERSION=$TERMINUS_IS_CLOUD_VERSION && $create_cmd"
 
     log_info 'k8s and kubesphere installation is complete'
 
@@ -589,10 +640,10 @@ run_install() {
         install_gpu
     fi
 
-    if [[ $SHOULD_RETRY -eq 1 ]]; then
+    if [[ $SHOULD_RETRY -eq 1 || $(is_wsl) -eq 1 ]]; then
         run_cmd=retry_cmd
     else
-        run_cmd=ensure_success
+        run_cmd=retry_cmd
     fi
 
 
@@ -648,9 +699,6 @@ run_install() {
             GPU_TYPE="nvshare"
         fi
     fi
-    if [ "x${GPU_ENABLE}" == "x1" ]; then
-        GPU_TYPE="virtaitech"
-    fi
 
     local bucket="none"
     if [ "x${S3_BUCKET}" != "x" ]; then
@@ -663,7 +711,8 @@ run_install() {
     retry_cmd $sh_c "${HELM} upgrade -i system ${BASE_DIR}/wizard/config/system -n os-system --force \
         --set kubesphere.redis_password=${ks_redis_pwd} --set backup.bucket=\"${BACKUP_CLUSTER_BUCKET}\" \
         --set backup.key_prefix=\"${BACKUP_KEY_PREFIX}\" --set backup.is_cloud_version=\"${TERMINUS_IS_CLOUD_VERSION}\" \
-        --set backup.sync_secret=\"${BACKUP_SECRET}\" --set gpu=\"${GPU_TYPE}\" --set s3_bucket=\"${S3_BUCKET}\""
+        --set backup.sync_secret=\"${BACKUP_SECRET}\" --set gpu=\"${GPU_TYPE}\" --set s3_bucket=\"${S3_BUCKET}\" \
+        --set fs_type=\"${fs_type}\""
 
     # save backup env to configmap
     cat > cm-backup-config.yaml << _END
@@ -714,6 +763,12 @@ _END
     # generate apps charts values.yaml
     # TODO: infisical password
     app_perm_settings=$(get_app_settings)
+    fs_type="jfs"
+    if [[ $(is_wsl) -eq 1 ]]; then
+        fs_type="fs"
+    fi
+
+    ensure_success $sh_c "rm -rf ${BASE_DIR}/wizard/config/apps/values.yaml"
     cat ${BASE_DIR}/wizard/config/launcher/values.yaml > ${BASE_DIR}/wizard/config/apps/values.yaml
     cat << EOF >> ${BASE_DIR}/wizard/config/apps/values.yaml
   url: '${bfl_doc_url}'
@@ -734,6 +789,7 @@ global:
 
 debugVersion: ${DEBUG_VERSION}
 gpu: ${GPU_TYPE}
+fs_type: ${fs_type}
 
 os:
   ${app_perm_settings}
@@ -967,21 +1023,27 @@ install_redis() {
     local redis_conf="${redis_root}/etc/redis.conf"
     local redis_bin="/usr/bin/redis-server"
     local cpu_cores
-
+    local redisfilename=$(echo -n "redis-${REDIS_VERSION}.tar.gz"|md5sum|awk '{print $1}')
+    local prefix=""
+    if [ x"${ARCH}" == x"arm64" ]; then
+        prefix="arm64/"
+    fi
     # install redis, if redis-server not exists
     if [ ! -f "$redis_bin" ]; then
         if [ -f "$redis_tar" ]; then
             ensure_success $sh_c "cp ${redis_tar} redis-${REDIS_VERSION}.tar.gz"
         else
-            ensure_success $sh_c "curl -kLO https://download.redis.io/releases/redis-${REDIS_VERSION}.tar.gz"
+            ensure_success $sh_c "curl -kL -o redis-${REDIS_VERSION}.tar.gz https://dc3p1870nn3cj.cloudfront.net/${prefix}${redisfilename}"
+            # ensure_success $sh_c "curl -kLO https://download.redis.io/releases/redis-${REDIS_VERSION}.tar.gz"
         fi
         ensure_success $sh_c "tar xf redis-${REDIS_VERSION}.tar.gz"
 
-        cpu_cores=$(grep -c processor /proc/cpuinfo)
-        if [ -z "$cpu_cores" ] || [ "$cpu_cores" -le 1 ]; then
-            cpu_cores=1
-        fi
-        ensure_success $sh_c "cd redis-${REDIS_VERSION} && make -j${cpu_cores} >/dev/null 2>&1 && make install >/dev/null 2>&1 && cd .."
+        # cpu_cores=$(grep -c processor /proc/cpuinfo)
+        # if [ -z "$cpu_cores" ] || [ "$cpu_cores" -le 1 ]; then
+        #     cpu_cores=1
+        # fi
+        # ensure_success $sh_c "cd redis-${REDIS_VERSION} && make -j${cpu_cores} >/dev/null 2>&1 && make install >/dev/null 2>&1 && cd .."
+        ensure_success $sh_c "cd redis-${REDIS_VERSION} && cp ./redis-* /usr/local/bin/ && cd .."
         ensure_success $sh_c "ln -s /usr/local/bin/redis-server ${redis_bin}"
         ensure_success $sh_c "ln -s /usr/local/bin/redis-cli /usr/bin/redis-cli"
     fi
@@ -1065,7 +1127,8 @@ _END
     log_info 'redis service enabled'
 
     # eusure redis is started
-    ensure_success $sh_c "( sleep 10 && systemctl --no-pager status redis-server ) || \
+    sleep_waiting 10
+    ensure_success $sh_c "( systemctl --no-pager status redis-server ) || \
     ( systemctl restart redis-server && sleep 3 && systemctl --no-pager status redis-server ) || \
     ( systemctl restart redis-server && sleep 3 && systemctl --no-pager status redis-server )"
 
@@ -1188,7 +1251,8 @@ _END
     ensure_success $sh_c "systemctl enable juicefs"
 
     ensure_success $sh_c "systemctl --no-pager status juicefs"
-    ensure_success $sh_c "sleep 3 && test -d ${jfs_mountpoint}/.trash"
+    sleep_waiting 3
+    ensure_success $sh_c "test -d ${jfs_mountpoint}/.trash"
 }
 
 random_string() {
@@ -1217,7 +1281,7 @@ pull_velero_image() {
     fi
 
     while [ "$count" -lt 1 ]; do
-        sleep 3
+        sleep_waiting 3
         count=$(_check_velero_image_exists "$velero_ver")
     done
     echo
@@ -1255,7 +1319,7 @@ pull_velero_plugin_image() {
     fi
 
     while [ "$count" -lt 1 ]; do
-        sleep 3
+        sleep_waiting 3
         count=$(_check_velero_plugin_image_exists "$velero_plugin_ver")
     done
     echo
@@ -1314,7 +1378,7 @@ install_velero_plugin_terminus() {
   namespace="os-system"
   storage_location="terminus-cloud"
   bucket="terminus-cloud"
-  velero_ver="v1.11.1"
+  velero_ver="v1.11.3"
   velero_plugin_ver="v1.0.2"
 
   if [[ "$provider" == x"" || "$namespace" == x"" || "$bucket" == x"" || "$velero_ver" == x"" || "$velero_plugin_ver" == x"" ]]; then
@@ -1345,8 +1409,8 @@ install_velero_plugin_terminus() {
     velero_plugin_install_cmd+=" --no-default-backup-location --namespace $namespace"
     velero_plugin_install_cmd+=" --image beclab/velero:$velero_ver --use-volume-snapshots=false"
     velero_plugin_install_cmd+=" --no-secret --plugins beclab/velero-plugin-for-terminus:$velero_plugin_ver"
-    velero_plugin_install_cmd+=" --velero-pod-cpu-request=50m --velero-pod-cpu-limit=500m"
-    velero_plugin_install_cmd+=" --node-agent-pod-cpu-request=50m --node-agent-pod-cpu-limit=500m"
+    velero_plugin_install_cmd+=" --velero-pod-cpu-request=10m --velero-pod-cpu-limit=200m"
+    velero_plugin_install_cmd+=" --node-agent-pod-cpu-request=10m --node-agent-pod-cpu-limit=200m"
     velero_plugin_install_cmd+=" --wait --wait-minute 30"
 
     if [[ $(is_raspbian) -eq 1 ]]; then
@@ -1457,47 +1521,40 @@ install_containerd(){
         #     fi
         # fi
 
-        if [ x"$KUBE_TYPE" == x"k3s" ]; then
-            K3S_PRELOAD_IMAGE_PATH="/var/lib/images"
-            $sh_c "mkdir -p ${K3S_PRELOAD_IMAGE_PATH} && rm -rf ${K3S_PRELOAD_IMAGE_PATH}/*"
-        fi
+        # if [ -d ${BASE_DIR}/images ]; then
+        #     $sh_c "cp -a ${BASE_DIR}/images/ ./images"
+        # fi
 
-        find $BASE_DIR/images -type f -name '*.tar.gz' | while read filename; do
-            if [ x"$KUBE_TYPE" == x"k3s" ]; then
-                local tgz=$(echo "${filename}"|awk -F'/' '{print $NF}')
-                $sh_c "ln -s ${filename} ${K3S_PRELOAD_IMAGE_PATH}/${tgz}"
-            else
-                $sh_c "echo 'continue'"
-                # $sh_c "gunzip -c ${filename} | $ctr_cmd -n k8s.io images import -"
-            fi
-        done
+        # if [ x"$KUBE_TYPE" == x"k8s" ]; then
+        #     K8S_PRELOAD_IMAGE_PATH="./images"
+        #     $sh_c "mkdir -p ${K8S_PRELOAD_IMAGE_PATH} && rm -rf ${K8S_PRELOAD_IMAGE_PATH}/*"
+        # fi
+
+        # if [ x"$KUBE_TYPE" == x"k3s" ]; then
+        #     K3S_PRELOAD_IMAGE_PATH="/var/lib/images"
+        #     $sh_c "mkdir -p ${K3S_PRELOAD_IMAGE_PATH} && rm -rf ${K3S_PRELOAD_IMAGE_PATH}/*"
+        # fi
+
+        # find $BASE_DIR/images -type f -name '*.tar.gz' | while read filename; do
+        #     local tgz=$(echo "${filename}"|awk -F'/' '{print $NF}')
+        #     if [ x"$KUBE_TYPE" == x"k3s" ]; then
+        #         $sh_c "ln -s ${filename} ${K3S_PRELOAD_IMAGE_PATH}/${tgz}"
+        #     else
+        #         $sh_c "ln -s ${filename} ${K8S_PRELOAD_IMAGE_PATH}/${tgz}"
+        #     fi
+        # done
     fi
 }
 
 install_k8s_ks() {
-    TERMINUS_CLI_VERSION=0.1.5
-
+    CLI_VERSION=0.1.13
     ensure_success $sh_c "mkdir -p /etc/kke"
-    local kk_bin="${BASE_DIR}/components/terminus-cli"
-    local kk_tar="${BASE_DIR}/components/terminus-cli-v${TERMINUS_CLI_VERSION}_linux_${ARCH}.tar.gz"
-    if [ ! -f "$kk_bin" ]; then
-        if [ ! -f "$kk_tar" ]; then
-            ensure_success $sh_c "curl ${CURL_TRY} -k -sfLO https://github.com/beclab/Installer/releases/download/${TERMINUS_CLI_VERSION}/terminus-cli-v${TERMINUS_CLI_VERSION}_linux_${ARCH}.tar.gz"
-            ensure_success $sh_c "tar xf terminus-cli-v${TERMINUS_CLI_VERSION}_linux_${ARCH}.tar.gz"
-            # if [ x"$PROXY" != x"" ]; then
-            #   ensure_success $sh_c "curl ${CURL_TRY} -k -sfLO https://github.com/beclab/kubekey-ext/releases/download/${TERMINUS_CLI_VERSION}/kubekey-ext-v${TERMINUS_CLI_VERSION}-linux-${ARCH}.tar.gz"
-            #   ensure_success $sh_c "tar xf kubekey-ext-v${TERMINUS_CLI_VERSION}-linux-${ARCH}.tar.gz"
-            # else
-            #   ensure_success $sh_c "curl ${CURL_TRY} -sfL https://raw.githubusercontent.com/beclab/kubekey-ext/master/downloadKKE.sh | VERSION=${TERMINUS_CLI_VERSION} sh -"
-            # fi
-        else
-            ensure_success $sh_c "cp ${kk_tar} terminus-cli-${TERMINUS_CLI_VERSION}_linux_${ARCH}.tar.gz"
-            ensure_success $sh_c "tar xf terminus-cli-${TERMINUS_CLI_VERSION}_linux_${ARCH}.tar.gz"
-        fi
-    else 
-        ensure_success $sh_c "cp ${kk_bin} ./"
+    local cli_name="terminus-cli-v${CLI_VERSION}_linux_${ARCH}.tar.gz"
+    if [ ! -f "${BASE_DIR}/${cli_name}" ]; then
+        ensure_success $sh_c "curl ${CURL_TRY} -k -sfL -o ${BASE_DIR}/${cli_name} https://github.com/beclab/Installer/releases/download/${CLI_VERSION}/terminus-cli-v${CLI_VERSION}_linux_${ARCH}.tar.gz"
     fi
-    # ensure_success $sh_c "chmod +x kk"
+    ensure_success $sh_c "tar xf ${BASE_DIR}/${cli_name} -C ${BASE_DIR}/"
+    # ensure_success $sh_c "chmod +x terminus-cli"
 
     log_info 'Setup your first user ...\n'
     setup_ws
@@ -1507,10 +1564,10 @@ install_k8s_ks() {
     echo '
     ' > ${ADDON_CONFIG_FILE}
 
-    if [[ -z "${TERMINUS_IS_CLOUD_VERSION}" || x"${TERMINUS_IS_CLOUD_VERSION}" != x"true" ]]; then
-        log_info 'Installing containerd ...'
-        install_containerd
-    fi
+    # if [[ -z "${TERMINUS_IS_CLOUD_VERSION}" || x"${TERMINUS_IS_CLOUD_VERSION}" != x"true" ]]; then
+    #     log_info 'Installing containerd ...'
+    #     install_containerd
+    # fi
 
     run_install
 
@@ -1709,6 +1766,7 @@ setup_ws() {
         s3_sk="${AWS_SECRET_ACCESS_KEY_SETUP}"
     fi
 
+    $sh_c "rm -rf ${BASE_DIR}/wizard/config/account/values.yaml"
     cat > ${BASE_DIR}/wizard/config/account/values.yaml <<_EOF
 user:
   name: '${username}'
@@ -1717,6 +1775,7 @@ user:
   terminus_name: '${username}@${domainname}'
 _EOF
 
+    $sh_c "rm -rf ${BASE_DIR}/wizard/config/settings/values.yaml"
     cat > ${BASE_DIR}/wizard/config/settings/values.yaml <<_EOF
 namespace:
   name: 'user-space-${username}'
@@ -1731,6 +1790,7 @@ user:
   name: '${username}'
 _EOF
 
+  $sh_c "rm -rf ${BASE_DIR}/wizard/config/launcher/values.yaml"
   cat > ${BASE_DIR}/wizard/config/launcher/values.yaml <<_EOF
 bfl:
   nodeport: 30883
@@ -2072,76 +2132,92 @@ install_gpu(){
         return
     fi
 
-    if [[ $(is_wsl) -eq 0 ]]; then
-        if [[ "$distribution" =~ "ubuntu" ]]; then
-            case "$distribution" in
-                ubuntu2404)
-                    local u24_cude_keyring_deb="${BASE_DIR}/components/ubuntu2404_cuda-keyring_1.1-1_all.deb"
-                    if [ -f "$u24_cude_keyring_deb" ]; then
-                        ensure_success $sh_c "cp ${u24_cude_keyring_deb} cuda-keyring_1.1-1_all.deb"
-                    else 
-                        ensure_success $sh_c "wget https://developer.download.nvidia.com/compute/cuda/repos/$distribution/x86_64/cuda-keyring_1.1-1_all.deb"
-                    fi
-                    ensure_success $sh_c "dpkg -i cuda-keyring_1.1-1_all.deb"
-                    ;;
-                ubuntu2204|ubuntu2004)
-                    local cude_keyring_deb="${BASE_DIR}/components/${distribution}_cuda-keyring_1.0-1_all.deb"
-                    if [ -f "$cude_keyring_deb" ]; then
-                        ensure_success $sh_c "cp ${cude_keyring_deb} cuda-keyring_1.0-1_all.deb"
-                    else
-                        ensure_success $sh_c "wget https://developer.download.nvidia.com/compute/cuda/repos/$distribution/x86_64/cuda-keyring_1.0-1_all.deb"
-                    fi
-                    ensure_success $sh_c "dpkg -i cuda-keyring_1.0-1_all.deb"
-                    ;;
-                *)
-                    ;;
-            esac
-        fi
-        
-        ensure_success $sh_c "apt-get update"
 
-        ensure_success $sh_c "apt-get -y install cuda-12-1"
-        ensure_success $sh_c "apt-get -y install nvidia-kernel-open-545"
-        ensure_success $sh_c "apt-get -y install nvidia-driver-545"
+    if [ x"$PREPARED" != x"1" ]; then
+        if [ $(is_wsl) -eq 0 ]; then
+            if [[ "$distribution" =~ "ubuntu" ]]; then
+                case "$distribution" in
+                    ubuntu2404)
+                        local u24_cude_keyring_deb="${BASE_DIR}/components/ubuntu2404_cuda-keyring_1.1-1_all.deb"
+                        if [ -f "$u24_cude_keyring_deb" ]; then
+                            ensure_success $sh_c "cp ${u24_cude_keyring_deb} cuda-keyring_1.1-1_all.deb"
+                        else 
+                            ensure_success $sh_c "wget https://developer.download.nvidia.com/compute/cuda/repos/$distribution/x86_64/cuda-keyring_1.1-1_all.deb"
+                        fi
+                        ensure_success $sh_c "dpkg -i cuda-keyring_1.1-1_all.deb"
+                        ;;
+                    ubuntu2204|ubuntu2004)
+                        local cude_keyring_deb="${BASE_DIR}/components/${distribution}_cuda-keyring_1.0-1_all.deb"
+                        if [ -f "$cude_keyring_deb" ]; then
+                            ensure_success $sh_c "cp ${cude_keyring_deb} cuda-keyring_1.0-1_all.deb"
+                        else
+                            ensure_success $sh_c "wget https://developer.download.nvidia.com/compute/cuda/repos/$distribution/x86_64/cuda-keyring_1.0-1_all.deb"
+                        fi
+                        ensure_success $sh_c "dpkg -i cuda-keyring_1.0-1_all.deb"
+                        ;;
+                    *)
+                        ;;
+                esac
+            fi
+            
+            ensure_success $sh_c "apt-get update"
+
+            ensure_success $sh_c "apt-get -y install cuda-12-1"
+            ensure_success $sh_c "apt-get -y install nvidia-kernel-open-545"
+            ensure_success $sh_c "apt-get -y install nvidia-driver-545"
+        fi
+
+        distribution=$(. /etc/os-release;echo $ID$VERSION_ID)
+        ensure_success $sh_c "curl -s -L https://nvidia.github.io/libnvidia-container/gpgkey | apt-key add -"
+        ensure_success $sh_c "curl -s -L https://nvidia.github.io/libnvidia-container/$distribution/libnvidia-container.list | tee /etc/apt/sources.list.d/libnvidia-container.list"
+        ensure_success $sh_c "apt-get update && sudo apt-get install -y nvidia-container-toolkit jq"
     fi
 
-    distribution=$(. /etc/os-release;echo $ID$VERSION_ID)
-    ensure_success $sh_c "curl -s -L https://nvidia.github.io/libnvidia-container/gpgkey | apt-key add -"
-    ensure_success $sh_c "curl -s -L https://nvidia.github.io/libnvidia-container/$distribution/libnvidia-container.list | tee /etc/apt/sources.list.d/libnvidia-container.list"
-    ensure_success $sh_c "apt-get update && sudo apt-get install -y nvidia-container-toolkit jq"
+    if [[ x"$KUBE_TYPE" == x"k3s" && x"$PREPARED" != x"1" ]]; then
+        if [[ $(is_wsl) -eq 1 ]]; then
+            local real_driver=$($sh_c "find /usr/lib/wsl/drivers/ -name libcuda.so.1.1|head -1")
+            echo "found cuda driver in $real_driver"
+            if [[ x"$real_driver" != x"" ]]; then
+                local shellname="cuda_lib_fix.sh"
+                cat << EOF > /tmp/${shellname}
+#!/bin/bash
+sh_c="sh -c"
+real_driver=\$(\$sh_c "find /usr/lib/wsl/drivers/ -name libcuda.so.1.1|head -1")
+if [[ x"\$real_driver" != x"" ]]; then
+    \$sh_c "ln -s /usr/lib/wsl/lib/libcuda* /usr/lib/x86_64-linux-gnu/"
+    \$sh_c "rm -f /usr/lib/x86_64-linux-gnu/libcuda.so"
+    \$sh_c "rm -f /usr/lib/x86_64-linux-gnu/libcuda.so.1"
+    \$sh_c "rm -f /usr/lib/x86_64-linux-gnu/libcuda.so.1.1"
+    \$sh_c "cp -f \$real_driver /usr/lib/wsl/lib/libcuda.so"
+    \$sh_c "cp -f \$real_driver /usr/lib/wsl/lib/libcuda.so.1"
+    \$sh_c "cp -f \$real_driver /usr/lib/wsl/lib/libcuda.so.1.1"
+    \$sh_c "ln -s \$real_driver /usr/lib/x86_64-linux-gnu/libcuda.so.1"
+    \$sh_c "ln -s \$real_driver /usr/lib/x86_64-linux-gnu/libcuda.so.1.1"
+    \$sh_c "ln -s /usr/lib/x86_64-linux-gnu/libcuda.so.1 /usr/lib/x86_64-linux-gnu/libcuda.so"
+fi
+EOF
+                ensure_success $sh_c "mv -f /tmp/${shellname} /usr/local/bin/${shellname}"
+                ensure_success $sh_c "chmod +x /usr/local/bin/${shellname}"
+                ensure_success $sh_c "echo 'ExecStartPre=-/usr/local/bin/${shellname}' >> /etc/systemd/system/k3s.service"
+                ensure_success $sh_c "systemctl daemon-reload"
 
-    if [ x"$KUBE_TYPE" == x"k3s" ]; then
-        ensure_success $sh_c "cp /var/lib/rancher/k3s/agent/etc/containerd/config.toml /var/lib/rancher/k3s/agent/etc/containerd/config.toml.tmpl" 
-        ensure_success $sh_c "nvidia-ctk runtime configure --runtime=containerd --set-as-default --config=/var/lib/rancher/k3s/agent/etc/containerd/config.toml.tmpl"
-        ensure_success $sh_c "systemctl restart k3s"
-    else
+            fi
+        fi
+    fi
+    
+    if [ x"$PREPARED" != x"1" ]; then
         ensure_success $sh_c "nvidia-ctk runtime configure --runtime=containerd --set-as-default"
         ensure_success $sh_c "systemctl restart containerd"
     fi
+    
 
     check_ksredis
     check_kscm
     check_ksapi
 
     # waiting for kubesphere webhooks starting
-    sleep 30
+    sleep_waiting 30
 
-    if [[ $(is_wsl) -eq 1 ]]; then
-        local real_driver=$($sh_c "find /usr/lib/wsl/drivers/ -name libcuda.so.1.1|head -1")
-        echo "found cuda driver in $real_driver"
-        if [[ x"$real_driver" != x"" ]]; then
-            $sh_c "ln -s /usr/lib/wsl/lib/libcuda* /usr/lib/x86_64-linux-gnu/"
-            ensure_success $sh_c "rm -f /usr/lib/x86_64-linux-gnu/libcuda.so"
-            ensure_success $sh_c "rm -f /usr/lib/x86_64-linux-gnu/libcuda.so.1"
-            ensure_success $sh_c "rm -f /usr/lib/x86_64-linux-gnu/libcuda.so.1.1"
-            ensure_success $sh_c "cp -f $real_driver /usr/lib/wsl/lib/libcuda.so"
-            ensure_success $sh_c "cp -f $real_driver /usr/lib/wsl/lib/libcuda.so.1"
-            ensure_success $sh_c "cp -f $real_driver /usr/lib/wsl/lib/libcuda.so.1.1"
-            ensure_success $sh_c "ln -s $real_driver /usr/lib/x86_64-linux-gnu/libcuda.so.1"
-            ensure_success $sh_c "ln -s $real_driver /usr/lib/x86_64-linux-gnu/libcuda.so.1.1"
-            ensure_success $sh_c "ln -s /usr/lib/x86_64-linux-gnu/libcuda.so.1 /usr/lib/x86_64-linux-gnu/libcuda.so"
-        fi
-    fi
 
     ensure_success $sh_c "${KUBECTL} create -f ${BASE_DIR}/deploy/nvidia-device-plugin.yml"
 
@@ -2185,7 +2261,9 @@ fd_errlog=/tmp/install_log/errlog_fd_13
 
 Main() {
     [[ -z $KUBE_TYPE ]] && KUBE_TYPE="k3s"
-    [[ ! -f $BASE_DIR/.installed ]] && touch $BASE_DIR/.installed
+    # [[ ! -f $BASE_DIR/.installed ]] && touch $BASE_DIR/.installed
+    [[ ! -f /var/run/lock/.installed ]] && touch /var/run/lock/.installed
+    [[ -f /var/run/lock/.prepared ]] && PREPARED=1
 
     log_info 'Start to Install Terminus ...\n'
     get_distribution

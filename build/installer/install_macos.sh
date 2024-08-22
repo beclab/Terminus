@@ -102,6 +102,12 @@ install_helm() {
         echo "Installing helm ..."
         curl -sSfL https://raw.githubusercontent.com/helm/helm/main/scripts/get-helm-3 | bash
     fi
+    if ! command_exists helm; then
+        echo "Helm installation failed, please manually download and install the corresponding version of Helm."
+        echo ""
+        echo ""
+        exit -1
+    fi
 }
 
 log_info() {
@@ -121,44 +127,25 @@ log_fatal() {
     exit $ERR_EXIT
 }
 
-install_ks(){
+install_cli(){
     KUBE_TYPE=${KUBE_TYPE}
+    CLI_VERSION="0.1.13"
     if [ -z $KUBE_TYPE ]; then
         KUBE_TYPE="k3s"
     fi
-    TERMINUS_CLI_VERSION="0.1.5"
-
-    cmd="mkdir -p ${BASE_DIR}/components"
-    [ ! -d "${BASE_DIR}/components" ] && ensure_success eval $($cmd)
-
-    local kk_bin="${BASE_DIR}/components/terminus-cli"
-    local kk_tar="${BASE_DIR}/components/terminus-cli-v${TERMINUS_CLI_VERSION}_${OSTYPE}_${ARCH}.tar.gz"
-    if [ ! -f "$kk_bin" ]; then
-        if [ ! -f "$kk_tar" ]; then
-            ensure_success $sh_c "curl ${CURL_TRY} -k -sfLO https://github.com/beclab/Installer/releases/download/${TERMINUS_CLI_VERSION}/terminus-cli-v${TERMINUS_CLI_VERSION}_${OSTYPE}_${ARCH}.tar.gz"
-            ensure_success $sh_c "tar xf terminus-cli-v${TERMINUS_CLI_VERSION}_${OSTYPE}_${ARCH}.tar.gz"
-            # if [ x"$PROXY" != x"" ]; then
-            #   ensure_success $sh_c "curl ${CURL_TRY} -k -sfLO https://github.com/beclab/kubekey-ext/releases/download/${TERMINUS_CLI_VERSION}/kubekey-ext-v${TERMINUS_CLI_VERSION}-linux-${ARCH}.tar.gz"
-            #   ensure_success $sh_c "tar xf kubekey-ext-v${TERMINUS_CLI_VERSION}-linux-${ARCH}.tar.gz"
-            # else
-            #   ensure_success $sh_c "curl ${CURL_TRY} -sfL https://raw.githubusercontent.com/beclab/kubekey-ext/master/downloadKKE.sh | VERSION=${TERMINUS_CLI_VERSION} sh -"
-            # fi
-        else
-            ensure_success $sh_c "cp ${kk_tar} terminus-cli-${TERMINUS_CLI_VERSION}_${OSTYPE}_${ARCH}.tar.gz"
-            ensure_success $sh_c "tar xf terminus-cli-${TERMINUS_CLI_VERSION}_${OSTYPE}_${ARCH}.tar.gz"
-        fi
-    else 
-        cmd="cp ${kk_bin} ./"
-        ensure_success eval $($cmd)
+    
+    local cli_name="terminus-cli-v${CLI_VERSION}_${OSTYPE}_${ARCH}.tar.gz"
+    local cli_tar="${BASE_DIR}/${cli_name}"
+    if [ ! -f "$cli_tar" ]; then
+        echo "Installing terminus-cli ..."
+        ensure_success $sh_c "curl ${CURL_TRY} -k -sfL -o ${BASE_DIR}/${cli_name} https://github.com/beclab/Installer/releases/download/${CLI_VERSION}/${cli_name}"
     fi
+    ensure_success $sh_c "tar xf ${BASE_DIR}/${cli_name} -C ${BASE_DIR}/"
+}
 
-    cmd="./terminus-cli terminus init --kube ${KUBE_TYPE} --minikube --profile ${PROFILE_NAME}"
-    # echo "command: ${cmd}"
-    # ensure_success eval $($cmd)
+install_ks(){
+    cmd="${BASE_DIR}/terminus-cli terminus init --kube ${KUBE_TYPE} --minikube --profile ${PROFILE_NAME}"
     ensure_success $sh_c "${cmd}"
-    # ./terminus-cli terminus init --kube "${KUBE_TYPE}" --minikube --profile "${PROFILE_NAME}"
-    # $(./terminus-cli terminus init --kube "${KUBE_TYPE}" --minikube --profile "${PROFILE_NAME}")
-    # ensure_success $sh_c "./terminus-cli terminus init --kube ${KUBE_TYPE} --minikube --profile ${PROFILE_NAME}"
 }
 
 get_auth_status(){
@@ -199,6 +186,10 @@ get_appservice_pod(){
 
 get_ksapi_status(){
     $sh_c "${KUBECTL} get pod  -n kubesphere-system -l 'app=ks-apiserver' -o jsonpath='{.items[*].status.phase}' 2>/dev/null"
+}
+
+get_settings_status(){
+    $sh_c "${KUBECTL} get pod  -n user-space-${username} -l 'app=settings' -o jsonpath='{.items[*].status.phase}'"
 }
 
 get_app_key_secret(){
@@ -349,6 +340,24 @@ check_kscm(){
 
         status=$(get_kscm_status)
         echo -ne "\rWaiting for ks-controller-manager starting          "
+
+    done
+    echo
+}
+
+check_settings(){
+    status=$(get_settings_status)
+    n=0
+    while [ "x${status}" != "xRunning" ]; do
+        n=$(expr $n + 1)
+        dotn=$(($n % 10))
+        dot=$(repeat $dotn '>')
+
+        echo -ne "\rWaiting for settings starting ${dot}"
+        sleep 0.5
+
+        status=$(get_settings_status)
+        echo -ne "\rWaiting for settings starting          "
 
     done
     echo
@@ -589,8 +598,6 @@ run_install(){
     HELM=$(command -v helm)
     KUBECTL=$(command -v kubectl)
 
-    preload_images
-
     install_ks
 
     check_kscm # wait for ks launch
@@ -684,6 +691,7 @@ global:
 
 debugVersion: ${DEBUG_VERSION}
 gpu: ${GPU_TYPE}
+fs_type: fs
 
 os:
   ${app_perm_settings}
@@ -714,12 +722,12 @@ EOF
     ensure_success $sh_c "${KUBECTL} patch user admin -p '{\"metadata\":{\"finalizers\":[\"finalizers.kubesphere.io/users\"]}}' --type='merge'"
     ensure_success $sh_c "${KUBECTL} delete user admin"
     ensure_success $sh_c "${KUBECTL} delete deployment kubectl-admin -n kubesphere-controls-system"
-    ensure_success $sh_c "${KUBECTL} scale deployment/ks-installer --replicas=0 -n kubesphere-system"
+    # ensure_success $sh_c "${KUBECTL} scale deployment/ks-installer --replicas=0 -n kubesphere-system"
     ensure_success $sh_c "${KUBECTL} delete deployment -n kubesphere-controls-system default-http-backend"
 
 
     # delete storageclass accessor webhook
-    ensure_success $sh_c "${KUBECTL} delete validatingwebhookconfigurations storageclass-accessor.storage.kubesphere.io"
+    # ensure_success $sh_c "${KUBECTL} delete validatingwebhookconfigurations storageclass-accessor.storage.kubesphere.io"
 
     # calico config for tailscale
     ensure_success $sh_c "${KUBECTL} patch felixconfiguration default -p '{\"spec\":{\"featureDetectOverride\": \"SNATFullyRandom=false,MASQFullyRandom=false\"}}' --type='merge'"
@@ -752,6 +760,10 @@ main(){
         SED="sed -i"
     fi
 
+    install_helm
+
+    install_cli
+
     if command_exists minikube ; then
         running=$(minikube profile list|grep "${PROFILE_NAME}"|grep Running)
         if [ x"$running" == x"" ]; then
@@ -760,8 +772,6 @@ main(){
     else
         log_fatal "Please install minikube on your machine"
     fi
-
-    install_helm
 
     setup_ws
 
@@ -773,6 +783,8 @@ main(){
     log_info 'Starting Terminus ...'
     ensure_success $sh_c "${KUBECTL} rollout restart sts bfl -n user-space-${username}"
     check_desktop
+
+    check_settings
 
     log_info 'Installation wizard is complete\n'
 
@@ -790,4 +802,4 @@ main(){
     echo -e " Please change the default password after login."
 }
 
-main
+main | tee macos_install.log

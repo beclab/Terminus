@@ -28,9 +28,19 @@ spec:
     spec:
       runtimeClassName: nvidia # Explicitly request the runtime
       priorityClassName: system-node-critical
+      initContainers:
+      - name: init-dir
+        image: busybox:1.28
+        volumeMounts:
+        - name: host-var-run-nvshare
+          mountPath: /var/run/nvshare
+        command:
+        - sh
+        - -c
+        - "[ -d /var/run/nvshare/libnvshare.so ] && rm -rf /var/run/nvshare/libnvshare.so || true"
       containers:
       - name: nvshare-lib
-        image: docker.io/grgalex/nvshare:libnvshare-v0.1-f654c296
+        image: bytetrade/nvshare:libnvshare
         command:
         - sleep
         - infinity
@@ -46,7 +56,7 @@ spec:
               command:
               - "/bin/sh"
               - "-c"
-              - "umount -v /host-var-run-nvshare/libnvshare.so && rm /host-var-run-nvshare/libnvshare.so"
+              - "umount -v /host-var-run-nvshare/libnvshare.so && rm -rf /host-var-run-nvshare/libnvshare.so"
         securityContext:
           # Necessary for mounts to work.
           privileged: true
@@ -59,7 +69,7 @@ spec:
           # mount for /var/run/nvshare/libnvshare.so
           mountPropagation: Bidirectional
       - name: nvshare-device-plugin
-        image: docker.io/grgalex/nvshare:nvshare-device-plugin-v0.1-f654c296
+        image: bytetrade/nvshare:nvshare-device-plugin
         imagePullPolicy: IfNotPresent
         env:
         - name: NVSHARE_VIRTUAL_DEVICES

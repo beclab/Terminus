@@ -61,10 +61,54 @@ spec:
       labels:
         app: download
     spec:
+      securityContext:
+        runAsUser: 1000
+        runAsGroup: 1000
+        fsGroup: 1000
+
+      initContainers:
+      - name: init-data
+        image: busybox:1.28
+        securityContext:
+          privileged: true
+          runAsNonRoot: false
+          runAsUser: 0
+        volumeMounts:
+        - name: config-dir
+          mountPath: /config
+        - name: download-dir
+          mountPath: /downloads
+        command:
+        - sh
+        - -c
+        - |
+          chown -R 1000:1000 /config && \
+          chown -R 1000:1000 /downloads
+      - name: init-container
+        image: 'postgres:16.0-alpine3.18'
+        command:
+          - sh
+          - '-c'
+          - >-
+            echo -e "Checking for the availability of PostgreSQL Server deployment"; until psql -h $PGHOST -p $PGPORT -U $PGUSER -d $PGDB -c "SELECT 1"; do sleep 1; printf "-"; done; sleep 5; echo -e " >> PostgreSQL DB Server has started";
+        env:
+          - name: PGHOST
+            value: citus-master-svc.user-system-{{ .Values.bfl.username }}
+          - name: PGPORT
+            value: "5432"
+          - name: PGUSER
+            value: knowledge_{{ .Values.bfl.username }}
+          - name: PGPASSWORD
+            value: {{ $pg_password | b64dec }}
+          - name: PGDB
+            value: user_space_{{ .Values.bfl.username }}_knowledge
       containers:
       - name: aria2
         image: "cesign/aria2-pro"
         imagePullPolicy: IfNotPresent
+        securityContext:
+          runAsNonRoot: false
+          runAsUser: 0
         ports:
         - containerPort: 6800
         - containerPort: 6888
@@ -72,9 +116,9 @@ spec:
         - name: RPC_SECRET
           value: kubespider
         - name: PUID
-          value: "0"
+          value: "1000"
         - name: PGID
-          value: "0"
+          value: "1000"
         volumeMounts:
         - name: config-dir
           mountPath: /config
@@ -88,8 +132,12 @@ spec:
             cpu: "1"
             memory: 300Mi
       - name: yt-dlp
-        image: "beclab/yt-dlp:v0.0.1"
+        image: "beclab/yt-dlp:v0.0.5"
         imagePullPolicy: IfNotPresent
+        securityContext:
+          allowPrivilegeEscalation: false
+          runAsUser: 1000
+
         ports:
         - containerPort: 3082
         env:
@@ -117,8 +165,12 @@ spec:
             memory: 300Mi
 
       - name: download-spider
-        image: "beclab/download-spider:v0.0.1"
+        image: "beclab/download-spider:v0.0.5"
         imagePullPolicy: IfNotPresent
+        securityContext:
+          allowPrivilegeEscalation: false
+          runAsUser: 1000
+
         env:
         - name: PG_USERNAME
           value: knowledge_{{ .Values.bfl.username }}
@@ -143,13 +195,13 @@ spec:
 
       volumes:
       - name: config-dir
-        hostPath:
+        hostPath: 
           type: DirectoryOrCreate
-          path: {{ .Values.userspace.userData }}/Download/config
+          path: {{ .Values.userspace.appData}}/Downloads/config
       - name: download-dir
         hostPath:
           type: DirectoryOrCreate
-          path: {{ .Values.userspace.userData }}/Download
+          path: {{ .Values.userspace.userData }}/Downloads
 
 
 ---
@@ -171,6 +223,10 @@ spec:
       protocol: TCP
       port: 6800
       targetPort: 6800
+    - name: ytdlp-server
+      protocol: TCP
+      port: 3082
+      targetPort: 3082
 
 ---
 apiVersion: v1

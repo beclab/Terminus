@@ -43,7 +43,34 @@ spec:
         app: files
     spec:
       serviceAccountName: bytetrade-controller
+      securityContext:
+        runAsUser: 1000
+        runAsGroup: 1000
+        fsGroup: 1000
       initContainers:
+      - name: init-data
+        image: busybox:1.28
+        securityContext:
+          privileged: true
+          runAsNonRoot: false
+          runAsUser: 0
+        volumeMounts:
+        - name: fb-data
+          mountPath: /appdata
+        - name: uploads-temp
+          mountPath: /uploadstemp
+        command:
+        - sh
+        - -c
+        - |
+          chown -R 1000:1000 /uploadstemp && \
+          chown -R 1000:1000 /appdata
+      - args:
+        - -it
+        - authelia-backend.os-system:9091
+        image: owncloudci/wait-for:latest
+        imagePullPolicy: IfNotPresent
+        name: check-auth
       - name: terminus-sidecar-init
         image: openservicemesh/init:v1.2.3
         imagePullPolicy: IfNotPresent
@@ -173,41 +200,44 @@ spec:
 #        - /filebrowser
 #        - --noauth
       - name: files-frontend
-        image: beclab/files-frontend:v1.2.16
+        image: beclab/files-frontend:v1.2.23
         imagePullPolicy: IfNotPresent
+        securityContext:
+          runAsNonRoot: false
+          runAsUser: 0
         ports:
         - containerPort: 80
         volumeMounts:
         - name: userspace-dir
           mountPath: /data
       - name: drive-server
-        image: beclab/drive:v0.0.3
+        image: beclab/drive:v0.0.4
         imagePullPolicy: IfNotPresent
         env:
         - name: OS_SYSTEM_SERVER
           value: system-server.user-system-{{ .Values.bfl.username }}
         ports:
         - containerPort: 8181
-      - name: terminus-upload-sidecar
-        image: beclab/upload:v1.0.3
-        env:
-        - name: UPLOAD_FILE_TYPE
-          value: '*'
-        - name: UPLOAD_LIMITED_SIZE
-          value: '21474836481'
-        volumeMounts:
-        - name: upload-data
-          mountPath: /data/Home
-        - name: upload-appdata
-          mountPath: /appdata/
-        - name: userspace-app-dir
-          mountPath: /data/Application
-        - name: uploads-temp
-          mountPath: /uploadstemp
-        resources: { }
-        terminationMessagePath: /dev/termination-log
-        terminationMessagePolicy: File
-        imagePullPolicy: IfNotPresent
+#      - name: terminus-upload-sidecar
+#        image: beclab/upload:v1.0.3
+#        env:
+#        - name: UPLOAD_FILE_TYPE
+#          value: '*'
+#        - name: UPLOAD_LIMITED_SIZE
+#          value: '21474836481'
+#        volumeMounts:
+#        - name: upload-data
+#          mountPath: /data/Home
+#        - name: upload-appdata
+#          mountPath: /appdata/
+#        - name: userspace-app-dir
+#          mountPath: /data/Application
+#        - name: uploads-temp
+#          mountPath: /uploadstemp
+#        resources: { }
+#        terminationMessagePath: /dev/termination-log
+#        terminationMessagePolicy: File
+#        imagePullPolicy: IfNotPresent
 
       - name: terminus-envoy-sidecar
         image: bytetrade/envoy:v1.25.11
@@ -272,7 +302,7 @@ spec:
           path: {{ .Values.userspace.userData }}
       - name: upload-appdata
         hostPath:
-          type: DirectoryOrCreate
+          type: Directory
           path: {{ .Values.userspace.appCache}}
       - name: uploads-temp
         hostPath:
@@ -311,7 +341,7 @@ metadata:
   namespace: user-system-{{ .Values.bfl.username }}
 spec:
   dataType: files
-  deployment: files-deployment
+  deployment: files
   description: files provider
   endpoint: files-service.{{ .Release.Namespace }}
   group: service.files
@@ -646,8 +676,8 @@ data:
                   - endpoint:
                       address:
                         socket_address:
-                          address: localhost
-                          port_value: 40030
+                          address: files-service.os-system
+                          port_value: 80
         - name: authelia
           connect_timeout: 2s
           type: LOGICAL_DNS

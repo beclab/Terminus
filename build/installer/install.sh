@@ -4,7 +4,7 @@
 
 set -o pipefail
 
-VERSION="#__VERSION__"
+export VERSION="#__VERSION__"
 if [ "x${VERSION}" = "x" ]; then
   echo "Unable to get latest Install-Wizard version. Set VERSION env var and re-run. For example: export VERSION=1.0.0"
   echo ""
@@ -61,17 +61,28 @@ echo "Install-Wizard ${VERSION} Download Complete!"
 echo ""
 
 if command -v tar &>/dev/null; then
-    rm -rf ${foldername} && mkdir -p ${foldername} && cd ${foldername} && tar -xzf "../${filename}"
+    sudo rm -rf ${foldername} && mkdir -p ${foldername} && cd ${foldername} && tar -xzf "../${filename}"
+
+    CLI_VERSION="0.1.13"
+    CLI_FILE="terminus-cli-v${CLI_VERSION}_linux_${ARCH}.tar.gz"
+    if [ x"${os_type}" == x"Darwin" ]; then
+        CLI_FILE="terminus-cli-v${CLI_VERSION}_darwin_${ARCH}.tar.gz"
+    fi
+    CLI_URL="https://github.com/beclab/Installer/releases/download/${CLI_VERSION}/${CLI_FILE}"
+
+    if [ ! -f ${CLI_FILE} ]; then
+        curl -Lo ${CLI_FILE} ${CLI_URL}
+    fi
 
     if [ $? -eq 0 ]; then
         if [[ x"$os_type" == x"Darwin" ]]; then
           bash  ./uninstall_macos.sh
-          touch .installed
-          bash ./install_macos.sh
+          touch /usr/local/var/run/.installed
+          bash  ./install_macos.sh
         else
           bash  ./uninstall_cmd.sh
-          touch .installed
-          bash ./install_cmd.sh
+          touch /var/run/lock/.installed
+          bash  ./install_cmd.sh
         fi
 
         exit 0

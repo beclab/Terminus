@@ -93,6 +93,8 @@ data:
         port: 6379
         # This secret can also be set using the env variables AUTHELIA_SESSION_REDIS_PASSWORD_FILE
         password: {{ $redis_password | b64dec }}
+        maximum_active_connections: 100
+        minimum_idle_connections: 30
 
     regulation:
       max_retries: 3
@@ -272,9 +274,17 @@ spec:
     spec:
       serviceAccountName: os-internal
       serviceAccount: os-internal
-      containers:
+      initContainers:
+      - args:
+        - -it
+        - authelia-storage-svc:6379,redis.kubesphere-system:6379
+        image: owncloudci/wait-for:latest
+        imagePullPolicy: IfNotPresent
+        name: check-redis
+
+      containers:      
       - name: authelia
-        image: beclab/auth:0.1.32
+        image: beclab/auth:0.1.35
         imagePullPolicy: IfNotPresent
         ports:
         - containerPort: 9091
