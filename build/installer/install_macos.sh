@@ -463,7 +463,7 @@ preload_images(){
             if [ -f $BASE_DIR/images/images.mf ]; then
                 echo "downloading images from terminus cloud ..."
                 while read img; do
-                    local filename=$(echo -n "$img"|md5sum|awk '{print $1}')
+                    local filename=$(echo -n "$img"|md5|awk '{print $1}')
                     filename="$filename.tar.gz"
                     echo "downloading ${filename} ..."
                     curl -fsSL https://dc3p1870nn3cj.cloudfront.net/${filename} -o $BASE_DIR/images/$filename
