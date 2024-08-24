@@ -237,8 +237,13 @@ spec:
       - name: sync
         image: "beclab/recommend-sync:v0.0.9"
         securityContext:
+<<<<<<< HEAD
           runAsNonRoot: false
           runAsUser: 0
+=======
+          allowPrivilegeEscalation: false
+          runAsUser: 1000
+>>>>>>> 814d9a43d0092ea78fe236aebfad1b370174ef79
         env:
         - name: TERMIUS_USER_NAME
           value: "{{ .Values.bfl.username }}"
@@ -295,7 +300,11 @@ spec:
           path: {{ .Values.userspace.userData }}/Documents
       - name: juicefs
         hostPath:
+<<<<<<< HEAD
           type: DirectoryOrCreate
+=======
+          type: Directory
+>>>>>>> 814d9a43d0092ea78fe236aebfad1b370174ef79
           path: {{ .Values.userspace.appData }}/rss/data
 
 ---
