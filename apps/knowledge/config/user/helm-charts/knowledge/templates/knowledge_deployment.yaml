@@ -237,8 +237,8 @@ spec:
       - name: sync
         image: "beclab/recommend-sync:v0.0.9"
         securityContext:
-          allowPrivilegeEscalation: false
-          runAsUser: 1000
+          runAsNonRoot: false
+          runAsUser: 0
         env:
         - name: TERMIUS_USER_NAME
           value: "{{ .Values.bfl.username }}"
