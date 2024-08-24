@@ -101,20 +101,6 @@ spec:
         fsGroup: 1000
 
       initContainers:
-      - name: init-data
-        image: busybox:1.28
-        securityContext:
-          privileged: true
-          runAsNonRoot: false
-          runAsUser: 0
-        volumeMounts:
-        - name: juicefs
-          mountPath: /juicefs
-        command:
-        - sh
-        - -c
-        - |
-          chown -R 1000:1000 /juicefs
       - name: init-container
         image: 'postgres:16.0-alpine3.18'
         command:
@@ -189,7 +175,7 @@ spec:
             memory: 1Gi
 
       - name: backend-server
-        image: "beclab/recommend-backend:v0.0.9"
+        image: "beclab/recommend-backend:v0.0.10"
         imagePullPolicy: IfNotPresent
         securityContext:
           allowPrivilegeEscalation: false
@@ -237,8 +223,8 @@ spec:
       - name: sync
         image: "beclab/recommend-sync:v0.0.9"
         securityContext:
-          allowPrivilegeEscalation: false
-          runAsUser: 1000
+          runAsNonRoot: false
+          runAsUser: 0
         env:
         - name: TERMIUS_USER_NAME
           value: "{{ .Values.bfl.username }}"
