@@ -175,7 +175,7 @@ spec:
             memory: 1Gi
 
       - name: backend-server
-        image: "beclab/recommend-backend:v0.0.10"
+        image: "beclab/recommend-backend:v0.0.9"
         imagePullPolicy: IfNotPresent
         securityContext:
           allowPrivilegeEscalation: false
@@ -220,9 +220,6 @@ spec:
           limits:
             cpu: "800m"
             memory: 400Mi
-      
-       
-     
 
       volumes:
       - name: watch-dir
