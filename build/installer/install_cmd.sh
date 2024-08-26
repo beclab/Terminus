@@ -492,7 +492,8 @@ is_wsl(){
 
 is_pve(){
     pve=$(uname -a 2>&1)
-    if [[ ${pve} == *-pve* ]]; then
+    pveversion=$(command -v pveversion)
+    if [[ ${pve} == *-pve* || ! -z $pveversion ]]; then
         echo 1
         return
     fi
