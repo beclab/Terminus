@@ -26,6 +26,10 @@ jobs:
       - name: "Checkout source code"
         uses: actions/checkout@v3
 
+      - name: Install tools
+        run: |
+          apt install -y make
+
       # test
       - env:
           AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
