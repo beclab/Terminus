@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
 
+# deprecated, only for test
 
 
 BASE_DIR=$(dirname $(realpath -s $0))
