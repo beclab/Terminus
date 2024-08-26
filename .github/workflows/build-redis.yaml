@@ -28,7 +28,7 @@ jobs:
 
       - name: Install tools
         run: |
-          apt install -y make
+          sudo apt install -y make
 
       # test
       - env:
