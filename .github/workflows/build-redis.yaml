@@ -36,4 +36,4 @@ jobs:
           AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           AWS_DEFAULT_REGION: "us-east-1"
         run: |
-          sudo bash scripts/build-redis.sh linux/arm64
+          sudo su -c "bash scripts/build-redis.sh linux/arm64"
