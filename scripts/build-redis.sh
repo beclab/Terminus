@@ -10,7 +10,7 @@ set -xe
 
 curl -Lo redis-5.0.14.tar.gz https://download.redis.io/releases/redis-5.0.14.tar.gz 
 
-tar zxvf redis.tar.gz && \
+tar zxvf redis-5.0.14.tar.gz && \
 cd redis-5.0.14 && \
 make && \
 make install && \
