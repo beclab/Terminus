@@ -1,7 +1,7 @@
 PLATFORM=${1:-linux/amd64}
 line=$2
 
-set +ex
+set -ex
 set -o pipefail
 
 os=$(echo "$PLATFORM"|awk -F"/" '{print $1}')
@@ -15,7 +15,7 @@ fi
 
 filename=$(echo "$line"|awk -F"," '{print $1}')
 
-if [ x"$arch" == x"arm64"]
+if [ x"$arch" == x"arm64"]; then
     url=$(echo "$line"|awk -F"," '{print $4}')
 else
     url=$(echo "$line"|awk -F"," '{print $3}')
