@@ -14,6 +14,7 @@ if [[ $fields -lt 4 ]]; then
 fi
 
 filename=$(echo "$line"|awk -F"," '{print $1}')
+name=$(echo -n "$filename"|md5sum|awk '{print $1}')
 
 if [ x"$arch" == x"arm64" ]; then
     url=$(echo "$line"|awk -F"," '{print $4}')
@@ -25,6 +26,6 @@ temp_file=$(mktemp)
 
 CURL_TRY="--connect-timeout 30 --retry 5 --retry-delay 1 --retry-max-time 10 "
 curl ${CURL_TRY} -L -o ${temp_file} ${url}
-mv ${temp_file} $filename
+mv ${temp_file} $name
 
 
