@@ -26,7 +26,7 @@ for deps in "components" "pkgs"; do
         echo "if exists $filename ... "
         name=$(echo -n "$filename"|md5sum|awk '{print $1}')
         checksum="$name.checksum.txt"
-        md5sum $filename > $checksum
+        md5sum $name > $checksum
 
 #        curl -fsSLI https://dc3p1870nn3cj.cloudfront.net/$path$name > /dev/null
 #        if [ $? -ne 0 ]; then
