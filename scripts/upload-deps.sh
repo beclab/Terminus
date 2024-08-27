@@ -1,5 +1,8 @@
 #!/usr/bin/env bash
 
+set -ex
+set -o pipefail
+
 BASE_DIR=$(dirname $(realpath -s $0))
 echo "Push Deps to S3 base_dir: ${BASE_DIR}"
 
@@ -25,12 +28,12 @@ for deps in "components" "pkgs"; do
         checksum="$name.checksum.txt"
         md5sum $filename > $checksum
 
-        curl -fsSLI https://dc3p1870nn3cj.cloudfront.net/$path$name > /dev/null
-        if [ $? -ne 0 ]; then
+#        curl -fsSLI https://dc3p1870nn3cj.cloudfront.net/$path$name > /dev/null
+#        if [ $? -ne 0 ]; then
             aws s3 cp $name s3://terminus-os-install/$path$name --acl=public-read
             aws s3 cp $checksum s3://terminus-os-install/$path$checksum --acl=public-read
             echo "upload $name completed"
-        fi        
+#        fi        
     done < $deps
 done
 

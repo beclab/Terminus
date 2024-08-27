@@ -1,3 +1,6 @@
+set -ex
+set -o pipefail
+
 PLATFORM=${2:-linux/amd64}
 path=""
 if [ x"$PLATFORM" == x"linux/arm64" ]; then
