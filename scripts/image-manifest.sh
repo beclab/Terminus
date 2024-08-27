@@ -36,7 +36,7 @@ awk '{print $3}' ${TMP_MANIFEST} | sort | uniq | grep -v nitro | grep -v orion >
 
 # patch
 # fix backup server version
-backup_version=$(egrep '{{ \$backupVersion := "(.*)" }}' $BASE_DIR/frameworks/backup-server/config/cluster/deploy/backup_server.yaml | sed 's/{{ \$backupVersion := "\(.*\)" }}/\1/')
+backup_version=$(egrep '{{ \$backupVersion := "(.*)" }}' $BASE_DIR/../frameworks/backup-server/config/cluster/deploy/backup_server.yaml | sed 's/{{ \$backupVersion := "\(.*\)" }}/\1/')
 if [[ "$OSTYPE" == "darwin"* ]]; then
     bash -c "sed -i '' -e 's/backup-server:vvalue/backup-server:v$backup_version/' ${IMAGE_MANIFEST}"
 else
