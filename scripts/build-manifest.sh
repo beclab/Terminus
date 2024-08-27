@@ -17,7 +17,7 @@ download_checksum(){
 
 manifest_file=$1
 
-for deps in ("components", "pkgs"); do
+for deps in "components" "pkgs"; do
     while read line; do
         fields=$(echo "$line"|awk -F"," '{print NF}')
         if [[ $fields -lt 4 ]]; then
@@ -42,7 +42,7 @@ for deps in ("components", "pkgs"); do
 
 done
 
-for deps in ("images.mf"); do
+for deps in "images.mf"; do
     while read line; do
         filename=$(echo -n "$line"|md5sum|awk '{print $1}')
 

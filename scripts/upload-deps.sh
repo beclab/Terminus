@@ -16,7 +16,7 @@ fi
 
 pushd $BASE_DIR/../.dependencies
 
-for deps in ("components" "pkgs"); do
+for deps in "components" "pkgs"; do
     while read line; do
         bash ${BASE_DIR}/download-deps.sh $PLATFORM $line
         filename=$(echo "$line"|awk -F"," '{print $1}')
