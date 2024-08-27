@@ -10,6 +10,8 @@ cp ${BASE_DIR}/upgrade.sh ${DIST_PATH}/.
 # cp ${BASE_DIR}/developer/* ${DIST_PATH}/.
 
 bash ${BASE_DIR}/image-manifest.sh
+bash ${BASE_DIR}/deps-manifest.sh
+bash ${BASE_DIR}/build-manifest.sh ${BASE_DIR}/../.manifest/installation.manifest
 
 pushd $DIST_PATH
 
