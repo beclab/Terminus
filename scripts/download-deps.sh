@@ -1,7 +1,7 @@
 PLATFORM=${1:-linux/amd64}
 line=$2
 
-set -o ex
+set +ex
 set -o pipefail
 
 os=$(echo "$PLATFORM"|awk -F"/" '{print $1}')
