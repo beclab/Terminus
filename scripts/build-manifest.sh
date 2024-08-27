@@ -44,16 +44,16 @@ done
 
 for deps in "images.mf"; do
     while read line; do
-        filename=$(echo -n "$line"|md5sum|awk '{print $1}')
+        name=$(echo -n "$line"|md5sum|awk '{print $1}')
 
         echo "downloading file checksum, $line"
         url_amd64=$cdn_url/$name.tar.gz
         url_arm64=$cdn_url/arm64/$name.tar.gz
 
-        checksum_amd64=$(download_checksum $name)
+        checksum_amd64=$(download_checksum $name.tar.gz)
         checksum_arm64=$(download_checksum arm64/$name)
 
-        echo "$filename,$path,$deps,$url_amd64,$checksum_amd64,$url_arm64,$checksum_arm64,$line" >> $manifest_file
+        echo "$name,$path,$deps,$url_amd64,$checksum_amd64,$url_arm64,$checksum_arm64,$line" >> $manifest_file
     
     done < $deps
 done
