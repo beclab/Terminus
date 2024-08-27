@@ -3,7 +3,7 @@
 BASE_DIR=$(dirname $(realpath -s $0))
 echo "Push Deps to S3 base_dir: ${BASE_DIR}"
 
-if [ ! -d ".dependencies" ]; then
+if [ ! -d "$BASE_DIR/../.dependencies" ]; then
     exit 1
 fi
 
@@ -14,7 +14,7 @@ if [ x"$PLATFORM" == x"linux/arm64" ]; then
     path="arm64/"
 fi
 
-pushd ${BASE_DIR}/../.manifest
+pushd $BASE_DIR/../.dependencies
 
 for deps in ("components" "pkgs"); do
     while read line; do
@@ -33,6 +33,8 @@ for deps in ("components" "pkgs"); do
         fi        
     done < $deps
 done
+
+popd
 
 
 
