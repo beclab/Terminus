@@ -21,6 +21,10 @@ pushd $BASE_DIR/../.dependencies
 
 for deps in "components" "pkgs"; do
     while read line; do
+        if [ x"$line" == x"" ]; then
+            continue
+        fi
+        
         bash ${BASE_DIR}/download-deps.sh $PLATFORM $line
         filename=$(echo "$line"|awk -F"," '{print $1}')
         echo "if exists $filename ... "
