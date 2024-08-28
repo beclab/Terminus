@@ -40,6 +40,15 @@ command_exists() {
 	command -v "$@" > /dev/null 2>&1
 }
 
+get_distribution() {
+	lsb_dist=""
+	# Every system that we officially support has /etc/os-release
+	if [ -r /etc/os-release ]; then
+		lsb_dist="$(. /etc/os-release && echo "$ID")"
+	fi
+	echo "$lsb_dist"
+}
+
 get_shell_exec(){
     user="$(id -un 2>/dev/null || true)"
 
@@ -103,7 +112,7 @@ get_macos_versioin() {
     echo "$os_name"
 }
 
-precheck_os() {
+precheck_support() {
     os_type=$(uname -s)
     case "$os_type" in
         Linux) OSTYPE=linux; ;;
@@ -189,6 +198,10 @@ get_shell_exec() {
     fi
 }
 
+get_os_version() {
+  echo ${OSVERSION}
+}
+
 is_darwin() {
     os_type=$(uname -s 2>&1)
     if [ "$os_type" == "Darwin" ]; then
@@ -208,8 +221,7 @@ is_debian() {
 }
 
 is_ubuntu() {
-    os_name=$(. /etc/os-release && echo "$ID")
-    if [ "$os_name" == "ubuntu" ]; then
+    if [ $OSNAME == *ubuntu* ]; then
         echo 1
         return
     fi

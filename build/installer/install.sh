@@ -13,7 +13,7 @@ if [ "x${VERSION}" = "x" ]; then
 fi
 
 # check os type and arch and os vesion
-precheck_os
+precheck_support
 get_shell_exec
 
 DOWNLOAD_URL="https://dc3p1870nn3cj.cloudfront.net/install-wizard-v${VERSION}.tar.gz"
