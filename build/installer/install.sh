@@ -1,7 +1,5 @@
 #!/usr/bin/env bash
 
-
-
 set -o pipefail
 set -e
 
@@ -79,7 +77,7 @@ if command -v tar >/dev/null; then
 
     CLI_VERSION="0.1.13"
     CLI_FILE="terminus-cli-v${CLI_VERSION}_linux_${ARCH}.tar.gz"
-    if [ x"${os_type}" == x"Darwin" ]; then
+    if [ $(is_darwin) -eq 1 ]; then
         CLI_FILE="terminus-cli-v${CLI_VERSION}_darwin_${ARCH}.tar.gz"
     fi
     CLI_URL="https://github.com/beclab/Installer/releases/download/${CLI_VERSION}/${CLI_FILE}"
