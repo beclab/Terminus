@@ -93,46 +93,6 @@ function ensure_success() {
     return $ret
 }
 
-command_exists() {
-	command -v "$@" > /dev/null 2>&1
-}
-
-log_info() {
-    local msg now
-
-    msg="$*"
-    now=$(date +'%Y-%m-%d %H:%M:%S.%N %z')
-    echo -e "\n\033[38;1m${now} [INFO] ${msg} \033[0m" 
-}
-
-log_fatal() {
-    local msg now
-
-    msg="$*"
-    now=$(date +'%Y-%m-%d %H:%M:%S.%N %z')
-    echo -e "\n\033[31;1m${now} [FATAL] ${msg} \033[0m" 
-    exit $ERR_EXIT
-}
-
-sleep_waiting(){
-    local t=$1
-    local n=0
-    local max_retries=$((t*2))
-    while [ $max_retries -gt 0 ]; do
-        n=$(expr $n + 1)
-        dotn=$(($n % 10))
-        dot=$(repeat $dotn '>')
-
-        echo -ne "\rPlease waiting ${dot}"
-        sleep 0.5
-        echo -ne "\rPlease waiting           "
-
-        ((max_retries--))
-    done
-    echo
-    echo "Continue ... "
-}
-
 build_socat(){
     SOCAT_VERSION="1.7.3.2"
     local socat_tar="${BASE_DIR}/components/socat-${SOCAT_VERSION}.tar.gz"
@@ -285,8 +245,8 @@ precheck_os() {
     $sh_c "apt remove unattended-upgrades -y"
     $sh_c "apt install ntpdate -y"
 
-    local ntpdate=$(command -v ntpdate)
-    local hwclock=$(command -v hwclock)
+    local ntpdate=$(get_command ntpdate)
+    local hwclock=$(get_command hwclock)
     
     $sh_c "$ntpdate -b -u pool.ntp.org"
     $sh_c "$hwclock -w"
@@ -352,28 +312,17 @@ is_raspbian(){
     fi
 }
 
-is_pve(){
-    pve=$(uname -a 2>&1)
-    pveversion=$(command -v pveversion)
-    if [[ ${pve} == *-pve* || ! -z $pveversion ]]; then
-        echo 1
-        return
-    fi
-
-    echo 0
-}
-
 install_deps() {
     if [ x"$PREPARED" == x"1" ]; then
         return
     fi
-    case "$lsb_dist" in
+    case "$OSNAME" in
         ubuntu|debian|raspbian)
             pre_reqs="apt-transport-https ca-certificates curl"
-            if ! command -v gpg > /dev/null; then
+            if [ -z $(get_command gpg) ]; then
               pre_reqs="$pre_reqs gnupg"
             fi
-            if ! command -v sudo > /dev/null; then
+            if [ -z $(get_command sudo) ]; then
               pre_reqs="$pre_reqs sudo"
             fi
 
@@ -418,8 +367,8 @@ config_system() {
     # ensure_success $sh_c 'sysctl -w kernel.printk="3 3 1 7"'
 
     # ntp sync
-    ntpdate=$(command -v ntpdate)
-    hwclock=$(command -v hwclock)
+    ntpdate=$(get_command ntpdate)
+    hwclock=$(get_command hwclock)
 
     printf '#!/bin/sh\n\n%s -b -u pool.ntp.org && %s -w\n\nexit 0\n' "$ntpdate" "$hwclock" > cron.ntpdate
     ensure_success $sh_c '/bin/sh cron.ntpdate'
@@ -556,8 +505,8 @@ run_install() {
 
     # setup after kubesphere is installed
     export KUBECONFIG=/root/.kube/config  # for ubuntu
-    HELM=$(command -v helm)
-    KUBECTL=$(command -v kubectl)
+    HELM=$(get_command helm)
+    KUBECTL=$(get_command kubectl)
 
     check_kscm # wait for ks launch
 
@@ -1284,8 +1233,8 @@ install_velero() {
     ensure_success $sh_c "tar xf velero-${VELERO_VERSION}-linux-${ARCH}.tar.gz"
     ensure_success $sh_c "install velero-${VELERO_VERSION}-linux-${ARCH}/velero /usr/local/bin"
 
-    CRICTL=$(command -v crictl)
-    VELERO=$(command -v velero)
+    CRICTL=$(get_command crictl)
+    VELERO=$(get_command velero)
 
     # install velero crds
     ensure_success $sh_c "${VELERO} install --crds-only --retry 10 --delay 5"
@@ -1359,115 +1308,6 @@ install_velero_plugin_terminus() {
   fi
 }
 
-install_containerd(){
-#     if [ x"$KUBE_TYPE" != x"k3s" ]; then
-#         CONTAINERD_VERSION="1.6.4"
-#         RUNC_VERSION="1.1.4"
-#         CNI_PLUGIN_VERSION="1.1.1"
-
-#         # preinstall containerd for k8s
-#         if command_exists containerd && [ -f /etc/systemd/system/containerd.service ];  then
-#             ctr_cmd=$(command -v ctr)
-#             if ! system_service_active "containerd"; then
-#                 ensure_success $sh_c "systemctl start containerd"
-#             fi
-#         else
-#             local containerd_tar="${BASE_DIR}/pkg/containerd/${CONTAINERD_VERSION}/${ARCH}/containerd-${CONTAINERD_VERSION}-linux-${ARCH}.tar.gz"
-#             local runc_tar="${BASE_DIR}/pkg/runc/v${RUNC_VERSION}/${ARCH}/runc.${ARCH}"
-#             local cni_plugin_tar="${BASE_DIR}/pkg/cni/v${CNI_PLUGIN_VERSION}/${ARCH}/cni-plugins-linux-${ARCH}-v${CNI_PLUGIN_VERSION}.tgz"
-
-#             if [ -f "$containerd_tar" ]; then
-#                 ensure_success $sh_c "cp ${containerd_tar} containerd-${CONTAINERD_VERSION}-linux-${ARCH}.tar.gz"
-#             else
-#                 ensure_success $sh_c "wget https://github.com/containerd/containerd/releases/download/v${CONTAINERD_VERSION}/containerd-${CONTAINERD_VERSION}-linux-${ARCH}.tar.gz"
-#             fi
-#             ensure_success $sh_c "tar Cxzvf /usr/local containerd-${CONTAINERD_VERSION}-linux-${ARCH}.tar.gz"
-
-#             if [ -f "$runc_tar" ]; then
-#                 ensure_success $sh_c "cp ${runc_tar} runc.${ARCH}"
-#             else
-#                 ensure_success $sh_c "wget https://github.com/opencontainers/runc/releases/download/v${RUNC_VERSION}/runc.${ARCH}"
-#             fi
-#             ensure_success $sh_c "install -m 755 runc.${ARCH} /usr/local/sbin/runc"
-
-#             if [ -f "$cni_plugin_tar" ]; then
-#                 ensure_success $sh_c "cp ${cni_plugin_tar} cni-plugins-linux-${ARCH}-v${CNI_PLUGIN_VERSION}.tgz"
-#             else
-#                 ensure_success $sh_c "wget https://github.com/containernetworking/plugins/releases/download/v${CNI_PLUGIN_VERSION}/cni-plugins-linux-${ARCH}-v${CNI_PLUGIN_VERSION}.tgz"
-#             fi
-#             ensure_success $sh_c "mkdir -p /opt/cni/bin"
-#             ensure_success $sh_c "tar Cxzvf /opt/cni/bin cni-plugins-linux-${ARCH}-v${CNI_PLUGIN_VERSION}.tgz"
-#             ensure_success $sh_c "mkdir -p /etc/containerd"
-#             ensure_success $sh_c "containerd config default | tee /etc/containerd/config.toml"
-#             ensure_success $sh_c "sed -i 's/SystemdCgroup \= false/SystemdCgroup \= true/g' /etc/containerd/config.toml"
-#             ensure_success $sh_c "sed -i 's/k8s.gcr.io\/pause:3.6/kubesphere\/pause:3.5/g' /etc/containerd/config.toml"
-#             rm -rf /tmp/registry.toml
-#             if [ x"$REGISTRY_MIRRORS" != x"" ]; then
-#                 cat << EOF > /tmp/registry.toml
-# [plugins."io.containerd.grpc.v1.cri".registry.mirrors."docker.io"]
-#   endpoint = ["$REGISTRY_MIRRORS"]
-# EOF
-#             else
-#                 if [ x"$PROXY" != x"" ]; then
-#                     cat << EOF > /tmp/registry.toml
-# [plugins."io.containerd.grpc.v1.cri".registry.mirrors."docker.io"]
-#   endpoint = ["http://$PROXY:5000"]
-# EOF
-#                 fi
-#             fi
-
-#             if [ -f /tmp/registry.toml ]; then
-#                 ensure_success $sh_c "cat /tmp/registry.toml >> /etc/containerd/config.toml"
-#             fi
-#             # ensure_success $sh_c "curl -L https://raw.githubusercontent.com/containerd/containerd/main/containerd.service -o /etc/systemd/system/containerd.service"
-#             ensure_success $sh_c "cp $BASE_DIR/deploy/containerd.service /etc/systemd/system/containerd.service"
-#             ensure_success $sh_c "systemctl daemon-reload"
-#             ensure_success $sh_c "systemctl enable --now containerd"
-
-#             ctr_cmd=$(command -v ctr)
-#         fi
-#     fi
-
-    if [ -d $BASE_DIR/images ]; then
-        echo "preload images to local ... "
-        # local tar_count=$(find $BASE_DIR/images -type f -name '*.tar.gz'|wc -l)
-        # if [ $tar_count -eq 0 ]; then
-        #     if [ -f $BASE_DIR/images/images.mf ]; then
-        #         echo "downloading images from terminus cloud ..."
-        #         while read img; do
-        #             local filename=$(echo -n "$img"|md5sum|awk '{print $1}')
-        #             filename="$filename.tar.gz"
-        #             echo "downloading ${filename} ..."
-        #             curl -fsSL https://dc3p1870nn3cj.cloudfront.net/${filename} -o $BASE_DIR/images/$filename
-        #         done < $BASE_DIR/images/images.mf
-        #     fi
-        # fi
-
-        # if [ -d ${BASE_DIR}/images ]; then
-        #     $sh_c "cp -a ${BASE_DIR}/images/ ./images"
-        # fi
-
-        # if [ x"$KUBE_TYPE" == x"k8s" ]; then
-        #     K8S_PRELOAD_IMAGE_PATH="./images"
-        #     $sh_c "mkdir -p ${K8S_PRELOAD_IMAGE_PATH} && rm -rf ${K8S_PRELOAD_IMAGE_PATH}/*"
-        # fi
-
-        # if [ x"$KUBE_TYPE" == x"k3s" ]; then
-        #     K3S_PRELOAD_IMAGE_PATH="/var/lib/images"
-        #     $sh_c "mkdir -p ${K3S_PRELOAD_IMAGE_PATH} && rm -rf ${K3S_PRELOAD_IMAGE_PATH}/*"
-        # fi
-
-        # find $BASE_DIR/images -type f -name '*.tar.gz' | while read filename; do
-        #     local tgz=$(echo "${filename}"|awk -F'/' '{print $NF}')
-        #     if [ x"$KUBE_TYPE" == x"k3s" ]; then
-        #         $sh_c "ln -s ${filename} ${K3S_PRELOAD_IMAGE_PATH}/${tgz}"
-        #     else
-        #         $sh_c "ln -s ${filename} ${K8S_PRELOAD_IMAGE_PATH}/${tgz}"
-        #     fi
-        # done
-    fi
-}
-
 install_k8s_ks() {
     CLI_VERSION=0.1.13
     ensure_success $sh_c "mkdir -p /etc/kke"
@@ -1485,11 +1325,6 @@ install_k8s_ks() {
     ADDON_CONFIG_FILE=${BASE_DIR}/wizard/bin/init-config.yaml
     echo '
     ' > ${ADDON_CONFIG_FILE}
-
-    # if [[ -z "${TERMINUS_IS_CLOUD_VERSION}" || x"${TERMINUS_IS_CLOUD_VERSION}" != x"true" ]]; then
-    #     log_info 'Installing containerd ...'
-    #     install_containerd
-    # fi
 
     run_install
 
@@ -2183,11 +2018,11 @@ fd_errlog=$INSTALL_LOG/errlog_fd_13
 
 Main() {
     [[ -z $KUBE_TYPE ]] && KUBE_TYPE="k3s"
-    # [[ ! -f $BASE_DIR/.installed ]] && touch $BASE_DIR/.installed
     [[ ! -f /var/run/lock/.installed ]] && touch /var/run/lock/.installed
     [[ -f /var/run/lock/.prepared ]] && PREPARED=1
 
     log_info 'Start to Install Terminus ...\n'
+
     get_distribution
     get_shell_exec
 

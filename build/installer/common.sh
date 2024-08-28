@@ -36,6 +36,10 @@ sleep_waiting(){
     echo "Continue ... "
 }
 
+get_command() {
+    echo $(command -v "$@")
+}
+
 command_exists() {
 	command -v "$@" > /dev/null 2>&1
 }
