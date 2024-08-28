@@ -7,7 +7,7 @@ ERR_VALIDATION=2
 
 CURL_TRY="--retry 5 --retry-delay 1 --retry-max-time 10 "
 BASE_DIR=$(dirname $(realpath -s $0))
-INSTALL_LOG="$BASE_DIR/log"
+INSTALL_LOG="$BASE_DIR/logs"
 
 get_distribution() {
 	lsb_dist=""

@@ -28,21 +28,16 @@ case "$os_arch" in
     exit -1; ;; 
 esac 
 
-user="$(id -un 2>/dev/null || true)"
 
-sh_c='sh -c'
 if [[ x"$os_type" != x"Darwin" ]]; then
-  if [ "$user" != 'root' ]; then
-    if command -v sudo > /dev/null && command -v su > /dev/null; then
-      SUDO=$(command -v sudo)
-      sh_c="$SUDO su -c"
-    else
-      cat >&2 <<-'EOF'
+  if command -v sudo > /dev/null; then
+    SUDO=$(command -v sudo)
+  else
+    cat >&2 <<-'EOF'
 Error: this installer needs the ability to run commands as root.
 We are unable to find either "sudo" or "su" available to make this happen.
 EOF
-      exit -1
-    fi
+    exit -1
   fi
 fi
 
@@ -77,10 +72,10 @@ echo "Install-Wizard ${VERSION} Download Complete!"
 echo ""
 
 if command -v tar >/dev/null; then
-    $sh_c "rm -rf $HOME/.terminus/${foldername} && \
+    $SUDO rm -rf $HOME/.terminus/${foldername} && \
     mkdir -p $HOME/.terminus/${foldername} && \
     cd $HOME/.terminus/${foldername} && \
-    tar -xzf ${download_path}/${filename}"
+    tar -xzf ${download_path}/${filename}
 
     CLI_VERSION="0.1.13"
     CLI_FILE="terminus-cli-v${CLI_VERSION}_linux_${ARCH}.tar.gz"
@@ -97,18 +92,18 @@ if command -v tar >/dev/null; then
 
     if [ $? -eq 0 ]; then
         if [[ x"$os_type" == x"Darwin" ]]; then
-          $sh_c "cd $HOME/.terminus/${foldername} && \
+          cd $HOME/.terminus/${foldername} && \
           bash  ./uninstall_macos.sh && \
           touch $HOME/.terminus/.installed && \
-          bash  ./install_macos.sh"
+          bash  ./install_macos.sh
         else
-          $sh_c "tar -zxvf ${CLI_FILE} && chmod +x terminus-cli && \
+          $SUDO -E sh -c "tar -zxvf ${CLI_FILE} && chmod +x terminus-cli && \
           mv terminus-cli /usr/local/bin/terminus-cli"
 
-          $sh_c "cd $HOME/.terminus/${foldername} && \
+          cd $HOME/.terminus/${foldername} && \
           bash  ./uninstall_cmd.sh && \
           touch $HOME/.terminus/.installed && \
-          bash  ./install_cmd.sh"
+          bash  ./install_cmd.sh
         fi
 
         exit 0

@@ -1704,7 +1704,7 @@ restore_terminus() {
 }
 
 INSTALL_DIR=$HOME/.terminus
-INSTALL_LOG=$INSTALL_DIR/log
+INSTALL_LOG=$INSTALL_DIR/logs
 
 if [ -d "$INSTALL_LOG" ]; then
     $sh_c "rm -rf $INSTALL_LOG"

@@ -3,7 +3,7 @@
 ERR_EXIT=1
 RM=$(command -v rm)
 BASE_DIR=$(dirname $(realpath -s $0))
-INSTALL_LOG=$BASE_DIR/log
+INSTALL_LOG=$BASE_DIR/logs
 
 CURL_TRY="--connect-timeout 30 --retry 5 --retry-delay 1 --retry-max-time 10 "
 KKE_FILE="/etc/kke/version"

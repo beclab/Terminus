@@ -8,7 +8,7 @@ ERR_EXIT=1
 CURL_TRY="--connect-timeout 30 --retry 5 --retry-delay 1 --retry-max-time 10 "
 
 BASE_DIR=$(dirname $(realpath -s $0))
-INSTALL_LOG="$BASE_DIR/log"
+INSTALL_LOG="$BASE_DIR/logs"
 
 [[ -f "${BASE_DIR}/.env" && -z "$DEBUG_VERSION" ]] && . "${BASE_DIR}/.env"
 
@@ -659,7 +659,7 @@ run_install() {
     if [ x"$KUBE_TYPE" == x"k3s" ]; then
         k8s_version=v1.22.16-k3s
     fi
-    create_cmd="${BASE_DIR}/terminus-cli terminus init --kube $KUBE_TYPE"
+    create_cmd="$TERMINUS_CLI terminus init --kube $KUBE_TYPE"
     # create_cmd="./kk create cluster --with-kubernetes $k8s_version --with-kubesphere $ks_version --container-manager containerd"  # --with-addon ${ADDON_CONFIG_FILE}
 
     local extra
@@ -1611,11 +1611,16 @@ install_k8s_ks() {
     CLI_VERSION=0.1.13
     ensure_success $sh_c "mkdir -p /etc/kke"
     local cli_name="terminus-cli-v${CLI_VERSION}_linux_${ARCH}.tar.gz"
-    if [ ! -f "${BASE_DIR}/${cli_name}" ]; then
-        ensure_success $sh_c "curl ${CURL_TRY} -k -sfL -o ${BASE_DIR}/${cli_name} https://github.com/beclab/Installer/releases/download/${CLI_VERSION}/terminus-cli-v${CLI_VERSION}_linux_${ARCH}.tar.gz"
+
+    # FIXME: terminus-cli should be always in /usr/local/bin
+    TERMINUS_CLI=$(command -v terminus-cli)
+    if [ x"$TERMINUS_CLI" == x"" ]; then 
+        if [ ! -f "${BASE_DIR}/${cli_name}" ]; then
+            ensure_success $sh_c "curl ${CURL_TRY} -k -sfL -o ${BASE_DIR}/${cli_name} https://github.com/beclab/Installer/releases/download/${CLI_VERSION}/terminus-cli-v${CLI_VERSION}_linux_${ARCH}.tar.gz"
+        fi
+        ensure_success $sh_c "tar xf ${BASE_DIR}/${cli_name} -C ${BASE_DIR}/"
+        TERMINUS_CLI="${BASE_DIR}/terminus-cli"
     fi
-    ensure_success $sh_c "tar xf ${BASE_DIR}/${cli_name} -C ${BASE_DIR}/"
-    # ensure_success $sh_c "chmod +x terminus-cli"
 
     log_info 'Setup your first user ...\n'
     setup_ws
