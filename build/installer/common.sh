@@ -1,5 +1,8 @@
 #!/binbash
 
+
+
+######## log ########
 log_info() {
     local msg now
 
@@ -15,6 +18,20 @@ log_fatal() {
     now=$(date +'%Y-%m-%d %H:%M:%S.%N %z')
     echo -e "\n\033[31;1m${now} [FATAL] ${msg} \033[0m" 
     exit -1
+}
+
+######## system ########
+get_command() {
+    echo $(command -v "$@")
+}
+
+command_exists() {
+	command -v "$@" > /dev/null 2>&1
+}
+
+function dpkg_locked() {
+    grep -q 'Could not get lock /var/lib' "$fd_errlog"
+    return $?
 }
 
 sleep_waiting(){
@@ -36,47 +53,9 @@ sleep_waiting(){
     echo "Continue ... "
 }
 
-get_command() {
-    echo $(command -v "$@")
-}
 
-command_exists() {
-	command -v "$@" > /dev/null 2>&1
-}
 
-get_distribution() {
-	lsb_dist=""
-	# Every system that we officially support has /etc/os-release
-	if [ -r /etc/os-release ]; then
-		lsb_dist="$(. /etc/os-release && echo "$ID")"
-	fi
-	echo "$lsb_dist"
-}
-
-get_shell_exec(){
-    user="$(id -un 2>/dev/null || true)"
-
-    sh_c='sh -c'
-	if [ "$user" != 'root' ]; then
-		if command_exists sudo && command_exists su; then
-			sh_c='sudo su -c'
-		else
-			cat >&2 <<-'EOF'
-			Error: this installer needs the ability to run commands as root.
-			We are unable to find either "sudo" or "su" available to make this happen.
-			EOF
-			exit -1
-		fi
-	fi
-
-    CHOWN="chown 1000:1000"
-}
-
-function dpkg_locked() {
-    grep -q 'Could not get lock /var/lib' "$fd_errlog"
-    return $?
-}
-
+######## os ########
 get_distribution() {
 	lsb_dist=""
 	# Every system that we officially support has /etc/os-release
@@ -268,3 +247,21 @@ is_k3s(){
 	return 1
 }
 
+
+
+######## string ########
+get_random_string() {
+    local length=12
+    local alphanumeric="abc2def3gh4jk5mn6pqr7st8uvw9xyz"
+
+    if [[ -n "$1" && $1 -gt 0 ]]; then
+        length=$1
+    fi
+
+    local text n
+    for ((i=0,l=${#alphanumeric}; i<$length; i++)); do
+        n=$[RANDOM%l]
+        text+="${alphanumeric:n:1}"
+    done
+    echo -n "$text"
+}

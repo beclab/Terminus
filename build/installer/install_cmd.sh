@@ -756,7 +756,7 @@ install_storage() {
 install_minio() {
     MINIO_VERSION="RELEASE.2023-05-04T21-44-30Z"
     MINIO_ROOT_USER="minioadmin"
-    MINIO_ROOT_PASSWORD=$(random_string 16)
+    MINIO_ROOT_PASSWORD=$(get_random_string 16)
 
     log_info 'start to install minio'
 
@@ -888,7 +888,7 @@ init_minio_cluster(){
 
 install_redis() {
     REDIS_VERSION=5.0.14
-    REDIS_PASSWORD=$(random_string 16)
+    REDIS_PASSWORD=$(get_random_string 16)
 
     log_info 'start to install redis'
 
@@ -1124,22 +1124,6 @@ _END
     ensure_success $sh_c "systemctl --no-pager status juicefs"
     sleep_waiting 3
     ensure_success $sh_c "test -d ${jfs_mountpoint}/.trash"
-}
-
-random_string() {
-    local length=12
-    local alphanumeric="abc2def3gh4jk5mn6pqr7st8uvw9xyz"
-
-    if [[ -n "$1" && $1 -gt 0 ]]; then
-        length=$1
-    fi
-
-    local text n
-    for ((i=0,l=${#alphanumeric}; i<$length; i++)); do
-        n=$[RANDOM%l]
-        text+="${alphanumeric:n:1}"
-    done
-    echo -n "$text"
 }
 
 pull_velero_image() {
@@ -1507,7 +1491,7 @@ setup_ws() {
         #     fi
         #     break
         # done
-        userpwd=$(random_string 8)
+        userpwd=$(get_random_string 8)
     fi
 
     if ! validate_userpwd; then
@@ -1697,7 +1681,7 @@ get_bfl_url() {
 get_app_key_secret(){
     app=$1
     key="bytetrade_${app}_${RANDOM}"
-    secret=$(random_string 16)
+    secret=$(get_random_string 16)
 
     echo "${key} ${secret}"
 }
