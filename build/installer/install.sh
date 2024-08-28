@@ -3,8 +3,8 @@
 
 
 set -o pipefail
+set -e
 
-SUDO=$(command -v sudo)
 export VERSION="#__VERSION__"
 if [ "x${VERSION}" = "x" ]; then
   echo "Unable to get latest Install-Wizard version. Set VERSION env var and re-run. For example: export VERSION=1.0.0"
@@ -28,12 +28,26 @@ case "$os_arch" in
     exit -1; ;; 
 esac 
 
+user="$(id -un 2>/dev/null || true)"
+
+sh_c='sh -c'
+if [[ x"$os_type" != x"Darwin" ]]; then
+  if [ "$user" != 'root' ]; then
+    if command -v sudo > /dev/null && command -v su > /dev/null; then
+      SUDO=$(command -v sudo)
+      sh_c="$SUDO su -c"
+    else
+      cat >&2 <<-'EOF'
+Error: this installer needs the ability to run commands as root.
+We are unable to find either "sudo" or "su" available to make this happen.
+EOF
+      exit -1
+    fi
+  fi
+fi
+
 
 DOWNLOAD_URL="https://dc3p1870nn3cj.cloudfront.net/install-wizard-v${VERSION}.tar.gz"
-
-if [ x"${ARCH}" == x"arm64" ]; then
-  DOWNLOAD_URL="https://dc3p1870nn3cj.cloudfront.net/install-wizard-v${VERSION}-arm64.tar.gz"
-fi
 
 echo ""
 echo " Downloading Install-Wizard ${VERSION} from ${DOWNLOAD_URL} ... " 
@@ -41,6 +55,7 @@ echo ""
 
 foldername="install-wizard-v${VERSION}"
 filename="install-wizard-v${VERSION}.tar.gz"
+download_path=$(pwd)
 
 if [ ! -f ${filename} ]; then
   tmpname="install-wizard-v${VERSION}.bak.tar.gz"
@@ -61,8 +76,11 @@ echo ""
 echo "Install-Wizard ${VERSION} Download Complete!"
 echo ""
 
-if command -v tar &>/dev/null; then
-    ${SUDO} rm -rf ${foldername} && mkdir -p ${foldername} && cd ${foldername} && tar -xzf "../${filename}"
+if command -v tar >/dev/null; then
+    $sh_c "rm -rf $HOME/.terminus/${foldername} && \
+    mkdir -p $HOME/.terminus/${foldername} && \
+    cd $HOME/.terminus/${foldername} && \
+    tar -xzf ${download_path}/${filename}"
 
     CLI_VERSION="0.1.13"
     CLI_FILE="terminus-cli-v${CLI_VERSION}_linux_${ARCH}.tar.gz"
@@ -75,15 +93,22 @@ if command -v tar &>/dev/null; then
         curl -Lo ${CLI_FILE} ${CLI_URL}
     fi
 
+    #TODO: download terminusd and install, set home to env for terminusd
+
     if [ $? -eq 0 ]; then
         if [[ x"$os_type" == x"Darwin" ]]; then
-          bash  ./uninstall_macos.sh
-          touch /usr/local/var/run/.installed
-          bash  ./install_macos.sh
+          $sh_c "cd $HOME/.terminus/${foldername} && \
+          bash  ./uninstall_macos.sh && \
+          touch $HOME/.terminus/.installed && \
+          bash  ./install_macos.sh"
         else
-          bash  ./uninstall_cmd.sh
-          touch /var/run/lock/.installed
-          bash  ./install_cmd.sh
+          $sh_c "tar -zxvf ${CLI_FILE} && chmod +x terminus-cli && \
+          mv terminus-cli /usr/local/bin/terminus-cli"
+
+          $sh_c "cd $HOME/.terminus/${foldername} && \
+          bash  ./uninstall_cmd.sh && \
+          touch $HOME/.terminus/.installed && \
+          bash  ./install_cmd.sh"
         fi
 
         exit 0

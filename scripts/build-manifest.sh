@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 
 
+set -e
 cdn_url="https://dc3p1870nn3cj.cloudfront.net"
 
 download_checksum(){
@@ -19,6 +20,10 @@ manifest_file=$1
 
 for deps in "components" "pkgs"; do
     while read line; do
+        if [ x"$line" == x"" ]; then
+            continue
+        fi
+
         fields=$(echo "$line"|awk -F"," '{print NF}')
         if [[ $fields -lt 4 ]]; then
             echo "format err, $lines"
@@ -42,18 +47,23 @@ for deps in "components" "pkgs"; do
 
 done
 
+path="images"
 for deps in "images.mf"; do
     while read line; do
+        if [ x"$line" == x"" ]; then
+            continue
+        fi
+
         name=$(echo -n "$line"|md5sum|awk '{print $1}')
 
         echo "downloading file checksum, $line"
         url_amd64=$cdn_url/$name.tar.gz
         url_arm64=$cdn_url/arm64/$name.tar.gz
 
-        checksum_amd64=$(download_checksum $name.tar.gz)
+        checksum_amd64=$(download_checksum $name)
         checksum_arm64=$(download_checksum arm64/$name)
 
-        echo "$name,$path,$deps,$url_amd64,$checksum_amd64,$url_arm64,$checksum_arm64,$line" >> $manifest_file
+        echo "$name.tar.gz,$path,$deps,$url_amd64,$checksum_amd64,$url_arm64,$checksum_arm64,$line" >> $manifest_file
     
     done < $deps
 done

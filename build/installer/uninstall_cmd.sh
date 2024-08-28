@@ -3,6 +3,8 @@
 ERR_EXIT=1
 RM=$(command -v rm)
 BASE_DIR=$(dirname $(realpath -s $0))
+INSTALL_LOG=$BASE_DIR/log
+
 CURL_TRY="--connect-timeout 30 --retry 5 --retry-delay 1 --retry-max-time 10 "
 KKE_FILE="/etc/kke/version"
 
@@ -71,7 +73,6 @@ log_info() {
 }
 
 remove_cluster(){
-    CLI_VERSION="0.1.13"
     forceUninstall="${FORCE_UNINSTALL_CLUSTER}"
     forceDeleteCache="false"
 
@@ -81,12 +82,11 @@ remove_cluster(){
 
     log_info 'remove kubernetes cluster'
 
-    local cli_tar="${BASE_DIR}/terminus-cli-v${CLI_VERSION}_linux_${ARCH}.tar.gz"
-    if [ ! -f "${cli_tar}" ]; then
-        ensure_success $sh_c "curl ${CURL_TRY} -kL -o ${BASE_DIR}/terminus-cli-v${CLI_VERSION}_linux_${ARCH}.tar.gz https://github.com/beclab/Installer/releases/download/${CLI_VERSION}/terminus-cli-v${CLI_VERSION}_linux_${ARCH}.tar.gz"
+    CLI=$(command -v terminus-cli)
+    if [ x"$CLI" == x"" ]; then
+        echo "terminus-cli is missing, cannot do the uninstalling" >&2
+        exit -1
     fi
-    ensure_success $sh_c "tar xvf ${BASE_DIR}/terminus-cli-v${CLI_VERSION}_linux_${ARCH}.tar.gz -C ${BASE_DIR}"
-    ensure_success $sh_c "chmod +x ${BASE_DIR}/terminus-cli"
 
     if [ x"$PREPARED" != x"1" ]; then
       if [ -z "$forceUninstall" ]; then
@@ -119,34 +119,28 @@ remove_cluster(){
 set -o pipefail
 # set -e
 
-if [ ! -f '/var/run/lock/.installed' ]; then
+install_lock="$BASE_DIR/../.installed"
+if [ ! -f $install_lock ]; then
     exit 0
 fi
 
-[[ -f /var/run/lock/.prepared ]] && PREPARED=1
+[[ -f $BASE_DIR/../.prepared ]] && PREPARED=1
 
 get_shell_exec
 precheck_os
 
-INSTALL_DIR=/tmp/install_log
 
-[[ -d ${INSTALL_DIR} ]] && $sh_c "${RM} -rf ${INSTALL_DIR}" 
-mkdir -p ${INSTALL_DIR} && cd ${INSTALL_DIR}
+[[ -d ${INSTALL_LOG} ]] && $sh_c "${RM} -rf ${INSTALL_LOG}" 
+mkdir -p ${INSTALL_LOG} && cd ${INSTALL_LOG}
 
 Main() {
     log_info 'Uninstalling OS ...'
     remove_cluster
 
-    cd -
-    $sh_c "${RM} -rf /tmp/install_log"
-    [[ -d install-wizard ]] && ${RM} -rf install-wizard
-    set +o pipefail
-    ls |grep install-wizard*.tar.gz | while read ar; do  ${RM} -f ${ar}; done
-
-    ${RM} -rf /var/run/lock/.installed
+    ${RM} -rf $install_lock
     log_info 'Uninstall OS success! '
 }
 
 
 
-Main | tee ${BASE_DIR}/uninstall.log
+Main | tee ${INSTALL_LOG}/uninstall.log

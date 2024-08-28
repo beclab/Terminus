@@ -8,6 +8,7 @@ ERR_EXIT=1
 CURL_TRY="--connect-timeout 30 --retry 5 --retry-delay 1 --retry-max-time 10 "
 
 BASE_DIR=$(dirname $(realpath -s $0))
+INSTALL_LOG="$BASE_DIR/log"
 
 [[ -f "${BASE_DIR}/.env" && -z "$DEBUG_VERSION" ]] && . "${BASE_DIR}/.env"
 
@@ -2312,12 +2313,12 @@ show_launcher_ip() {
     fi
 }
 
-if [ -d /tmp/install_log ]; then
-    $sh_c "rm -rf /tmp/install_log"
+if [ -d $INSTALL_LOG ]; then
+    $sh_c "rm -rf $INSTALL_LOG"
 fi
 
-mkdir -p /tmp/install_log && cd /tmp/install_log || exit
-fd_errlog=/tmp/install_log/errlog_fd_13
+mkdir -p $INSTALL_LOG && cd $INSTALL_LOG || exit
+fd_errlog=$INSTALL_LOG/errlog_fd_13
 
 Main() {
     [[ -z $KUBE_TYPE ]] && KUBE_TYPE="k3s"
@@ -2360,8 +2361,7 @@ Main() {
     log_info 'All done\n'
 }
 
-touch ${BASE_DIR}/install.log
-ln -s ${BASE_DIR}/install.log /tmp/install_log/install.log
-Main | tee ${BASE_DIR}/install.log
+touch ${INSTALL_LOG}/install.log
+Main | tee ${INSTALL_LOG}/install.log
 
 exit
