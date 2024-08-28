@@ -209,6 +209,7 @@ precheck_os() {
     # check os type and arch and os vesion
     os_type=$(uname -s)
     os_arch=$(uname -m)
+    os_info=$(uname -a)
     os_verion=$(lsb_release -r 2>&1 | awk -F'\t' '{print $2}')
 
     case "$os_arch" in 
@@ -230,8 +231,14 @@ precheck_os() {
         log_fatal "unsupported os arch '${os_arch}', only supported 'x86_64' or 'aarch64' architecture"
     fi
 
-    if [[ $(is_ubuntu) -eq 0 && $(is_debian) -eq 0 && $(is_raspbian) -eq 0 ]]; then
-        log_fatal "unsupported os version '${os_verion}'"
+    if [ $(is_pve) -eq 1 ]; then
+        if [ $(pve_support) -eq 0 ]; then
+            log_fatal "unsupported os version '${os_info}'"
+        fi
+    else 
+        if [[ $(is_ubuntu) -eq 0 && $(is_debian) -eq 0 && $(is_raspbian) -eq 0 ]]; then
+          log_fatal "unsupported os version '${os_verion}'"
+        fi
     fi
 
     OS_ARCH="$os_arch"
@@ -371,6 +378,43 @@ precheck_localip() {
     local_ip="$ip"
 }
 
+pve_support() {
+    lsb_release=$(lsb_release -d 2>&1 | awk -F'\t' '{print $2}')
+    if [ -z "$lsb_release" ]; then
+        p=$(cat /etc/os-release | grep "^NAME" /etc/os-release | cut -d'=' -f2 | tr -d '"')
+        v=$(cat /etc/os-release | grep "^VERSION_ID" /etc/os-release | cut -d'=' -f2 | tr -d '"')
+        lsb_release="${p} ${v}"
+    fi
+    case "$lsb_release" in
+        *Debian* | *debian*)
+            case "$lsb_release" in
+                *12* | *11*)
+                    echo 1
+                    ;;
+                *)
+                    echo 0
+                    ;;
+            esac
+            ;;
+        *Ubuntu* | *ubuntu*)
+            case "$lsb_release" in
+                *24.*)
+                    echo 2
+                    ;;
+                *22.* | *20.*)
+                    echo 1
+                    ;;
+                *)
+                    echo 0
+                    ;;
+            esac
+            ;;
+        *)
+            echo 0
+            ;;
+    esac
+}
+
 
 is_debian() {
     lsb_release=$(lsb_release -d 2>&1 | awk -F'\t' '{print $2}')
@@ -446,6 +490,17 @@ is_wsl(){
     echo 0
 }
 
+is_pve(){
+    pve=$(uname -a 2>&1)
+    pveversion=$(command -v pveversion)
+    if [[ ${pve} == *-pve* || ! -z $pveversion ]]; then
+        echo 1
+        return
+    fi
+
+    echo 0
+}
+
 install_deps() {
     if [ x"$PREPARED" == x"1" ]; then
         return
@@ -453,10 +508,18 @@ install_deps() {
     case "$lsb_dist" in
         ubuntu|debian|raspbian)
             pre_reqs="apt-transport-https ca-certificates curl"
-			if ! command -v gpg > /dev/null; then
-				pre_reqs="$pre_reqs gnupg"
-			fi
-            ensure_success $sh_c 'apt-get update -qq >/dev/null'
+            if ! command -v gpg > /dev/null; then
+              pre_reqs="$pre_reqs gnupg"
+            fi
+            if ! command -v sudo > /dev/null; then
+              pre_reqs="$pre_reqs sudo"
+            fi
+
+            if [ $(is_pve) -eq 0 ]; then
+                ensure_success $sh_c 'apt-get update -qq >/dev/null'
+            else
+                $sh_c 'apt-get update -qq >/dev/null'
+            fi
             ensure_success $sh_c "DEBIAN_FRONTEND=noninteractive apt-get install -y -qq $pre_reqs >/dev/null"
             ensure_success $sh_c 'DEBIAN_FRONTEND=noninteractive apt-get install -y conntrack socat apache2-utils ntpdate net-tools make gcc openssh-server >/dev/null'
             ;;
@@ -1023,18 +1086,13 @@ install_redis() {
     local redis_conf="${redis_root}/etc/redis.conf"
     local redis_bin="/usr/bin/redis-server"
     local cpu_cores
-    local redisfilename=$(echo -n "redis-${REDIS_VERSION}.tar.gz"|md5sum|awk '{print $1}')
-    local prefix=""
-    if [ x"${ARCH}" == x"arm64" ]; then
-        prefix="arm64/"
-    fi
+
     # install redis, if redis-server not exists
     if [ ! -f "$redis_bin" ]; then
         if [ -f "$redis_tar" ]; then
             ensure_success $sh_c "cp ${redis_tar} redis-${REDIS_VERSION}.tar.gz"
         else
-            ensure_success $sh_c "curl -kL -o redis-${REDIS_VERSION}.tar.gz https://dc3p1870nn3cj.cloudfront.net/${prefix}${redisfilename}"
-            # ensure_success $sh_c "curl -kLO https://download.redis.io/releases/redis-${REDIS_VERSION}.tar.gz"
+            ensure_success $sh_c "curl -kL -o redis-${REDIS_VERSION}.tar.gz https://dc3p1870nn3cj.cloudfront.net/redis-${REDIS_VERSION}_linux_${ARCH}.tar.gz"
         fi
         ensure_success $sh_c "tar xf redis-${REDIS_VERSION}.tar.gz"
 
@@ -1118,7 +1176,9 @@ WantedBy=multi-user.target
 _END
 
     ensure_success $sh_c "cat redis-server.service > /etc/systemd/system/redis-server.service"
-    ensure_success $sh_c "sysctl -w vm.overcommit_memory=1 net.core.somaxconn=10240 >/dev/null"
+    if [ $(is_pve) -eq 0 ]; then
+        ensure_success $sh_c "sysctl -w vm.overcommit_memory=1 net.core.somaxconn=10240 >/dev/null"
+    fi
 
     ensure_success $sh_c "systemctl daemon-reload >/dev/null"
     ensure_success $sh_c "systemctl restart redis-server >/dev/null; true"
@@ -1150,7 +1210,7 @@ _END
 }
 
 install_juicefs() {
-    JFS_VERSION="v11.1.0"
+    JFS_VERSION="v11.1.1"
 
     log_info 'start to install juicefs'
 
@@ -1834,7 +1894,7 @@ get_auth_status(){
 }
 
 get_profile_status(){
-    $sh_c "${KUBECTL} get pod  -n user-space-${username} -l 'app=profile' -o jsonpath='{.items[*].status.phase}'"
+    $sh_c "${KUBECTL} get pod  -n user-space-${username} -l 'app=system-frontend' -o jsonpath='{.items[*].status.phase}'"
 }
 
 get_desktop_status(){
@@ -2278,7 +2338,7 @@ Main() {
         log_info 'Installing terminus ...\n'
         config_proxy_resolv_conf
 
-        if [[ $(is_wsl) -eq 0 ]]; then
+        if [[ $(is_wsl) -eq 0 && $(is_pve) -eq 0 ]]; then
             install_storage
         fi
 
@@ -2300,6 +2360,8 @@ Main() {
     log_info 'All done\n'
 }
 
-Main | tee install.log
+touch ${BASE_DIR}/install.log
+ln -s ${BASE_DIR}/install.log /tmp/install_log/install.log
+Main | tee ${BASE_DIR}/install.log
 
 exit
