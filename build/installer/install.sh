@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-
+source ./common.sh
 
 
 set -o pipefail
@@ -13,39 +13,8 @@ if [ "x${VERSION}" = "x" ]; then
 fi
 
 # check os type and arch and os vesion
-os_type=$(uname -s)
-os_arch=$(uname -m)
-os_verion=$(lsb_release -d 2>&1 | awk -F'\t' '{print $2}')
-
-case "$os_arch" in 
-    arm64) ARCH=arm64; ;; 
-    x86_64) ARCH=amd64; ;; 
-    armv7l) ARCH=arm; ;; 
-    aarch64) ARCH=arm64; ;; 
-    ppc64le) ARCH=ppc64le; ;; 
-    s390x) ARCH=s390x; ;; 
-    *) echo "unsupported arch, exit ..."; 
-    exit -1; ;; 
-esac 
-
-user="$(id -un 2>/dev/null || true)"
-
-sh_c='sh -c'
-if [[ x"$os_type" != x"Darwin" ]]; then
-  if [ "$user" != 'root' ]; then
-    if command -v sudo > /dev/null && command -v su > /dev/null; then
-      SUDO=$(command -v sudo)
-      sh_c="$SUDO su -c"
-    else
-      cat >&2 <<-'EOF'
-Error: this installer needs the ability to run commands as root.
-We are unable to find either "sudo" or "su" available to make this happen.
-EOF
-      exit -1
-    fi
-  fi
-fi
-
+precheck_os
+get_shell_exec
 
 DOWNLOAD_URL="https://dc3p1870nn3cj.cloudfront.net/install-wizard-v${VERSION}.tar.gz"
 
@@ -84,7 +53,7 @@ if command -v tar >/dev/null; then
 
     CLI_VERSION="0.1.13"
     CLI_FILE="terminus-cli-v${CLI_VERSION}_linux_${ARCH}.tar.gz"
-    if [ x"${os_type}" == x"Darwin" ]; then
+    if [ $(is_darwin) -eq 1 ]; then
         CLI_FILE="terminus-cli-v${CLI_VERSION}_darwin_${ARCH}.tar.gz"
     fi
     CLI_URL="https://github.com/beclab/Installer/releases/download/${CLI_VERSION}/${CLI_FILE}"
@@ -96,7 +65,7 @@ if command -v tar >/dev/null; then
     #TODO: download terminusd and install, set home to env for terminusd
 
     if [ $? -eq 0 ]; then
-        if [[ x"$os_type" == x"Darwin" ]]; then
+        if [[ $(is_darwin) -eq 1 ]]; then
           $sh_c "cd $HOME/.terminus/${foldername} && \
           bash  ./uninstall_macos.sh && \
           touch $HOME/.terminus/.installed && \
