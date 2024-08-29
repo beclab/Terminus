@@ -8,7 +8,7 @@ os=$(echo "$PLATFORM"|awk -F"/" '{print $1}')
 arch=$(echo "$PLATFORM"|awk -F"/" '{print $2}')
 
 fields=$(echo "$line"|awk -F"," '{print NF}')
-if [[ $fields -ne 4 ]]; then
+if [[ $fields -lt 5 ]]; then
     echo "format err, $lines"
     exit -1
 fi

@@ -25,12 +25,13 @@ for deps in "components" "pkgs"; do
         fi
 
         fields=$(echo "$line"|awk -F"," '{print NF}')
-        if [[ $fields -lt 4 ]]; then
+        if [[ $fields -lt 5 ]]; then
             echo "format err, $lines"
             exit -1
         fi
 
         filename=$(echo "$line"|awk -F"," '{print $1}')
+        fileid=$(echo "$line"|awk -F"," '{print $5}')
         echo "downloading file checksum, $filename"
         path=$(echo "$line"|awk -F"," '{print $2}')
         name=$(echo -n "$filename"|md5sum|awk '{print $1}')
@@ -41,7 +42,7 @@ for deps in "components" "pkgs"; do
         checksum_amd64=$(download_checksum $name)
         checksum_arm64=$(download_checksum arm64/$name)
 
-        echo "$filename,$path,$deps,$url_amd64,$checksum_amd64,$url_arm64,$checksum_arm64" >> $manifest_file
+        echo "$filename,$path,$deps,$url_amd64,$checksum_amd64,$url_arm64,$checksum_arm64,$fileid" >> $manifest_file
     
     done < $deps
 
