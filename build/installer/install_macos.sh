@@ -747,6 +747,7 @@ EOF
 main(){
     HOSTNAME=$(hostname)
     natgateway=$(ping -c 1 "$HOSTNAME" |awk -F '[()]' '/PING/{print $2}')
+    natgateway=$(echo "$natgateway" | grep -E "[0-9]+(\.[0-9]+){3}" | grep -v "127.0.0.1")
 
     if [ x"$natgateway" == x"" ]; then
         while :; do
