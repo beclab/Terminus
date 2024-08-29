@@ -12,11 +12,6 @@ INSTALL_LOG="$BASE_DIR/logs"
 
 [[ -f "${BASE_DIR}/.env" && -z "$DEBUG_VERSION" ]] && . "${BASE_DIR}/.env"
 
-function dpkg_locked() {
-    grep -q 'Could not get lock /var/lib' "$fd_errlog"
-    return $?
-}
-
 function retry_cmd(){
     wait_k8s_health
     "$@"
@@ -271,47 +266,6 @@ precheck_localip() {
     local_ip="$ip"
 }
 
-is_debian() {
-    lsb_release=$(lsb_release -d 2>&1 | awk -F'\t' '{print $2}')
-    if [ -z "$lsb_release" ]; then
-        echo 0
-        return
-    fi
-    if [[ ${lsb_release} == *Debian* ]]; then
-        case "$lsb_release" in
-            *12* | *11*)
-                echo 1
-                ;;
-            *)
-                echo 0
-                ;;
-        esac
-    else
-        echo 0
-    fi
-}
-
-is_raspbian(){
-    rasp=$(uname -a)
-    lsb_release=$(lsb_release -r 2>&1 | awk -F'\t' '{print $2}')
-    if [ -z "$lsb_release" ]; then
-        echo 0
-        return
-    fi
-    if [[ ${rasp} == *Raspbian* || ${rasp} == *raspbian* || ${rasp} == *raspberry* || ${rasp} == *Raspberry* ]];then
-        case "$lsb_release" in
-            *11* | *12*)
-                echo 1
-                ;;
-            *)
-                echo 0
-                ;;
-        esac
-    else
-        echo 0
-    fi
-}
-
 install_deps() {
     if [ x"$PREPARED" == x"1" ]; then
         return
@@ -475,22 +429,13 @@ run_install() {
     local extra
 
     # env 'REGISTRY_MIRRORS' is a docker image cache mirrors, separated by commas
-    # if [ x"$REGISTRY_MIRRORS" != x"" ]; then
-    #     extra=" --registry-mirrors $REGISTRY_MIRRORS"
-    # fi
+    if [ x"$REGISTRY_MIRRORS" != x"" ]; then
+        extra=" --registry-mirrors $REGISTRY_MIRRORS"
+    fi
     # env 'PROXY' is a cache proxy server, to download binaries and container images
-    # if [ x"$PROXY" != x"" ]; then
-    #     # download binary with cache proxy
-    #     if [ x"$KUBE_TYPE" != x"k3s" ];then
-    #         ensure_success $sh_c "./kk create phase os"
-    #         ensure_success $sh_c "./kk create phase binary --with-kubernetes $k8s_version --download-cmd 'curl ${CURL_TRY} -kL -o %s %s'"
-    #     else
-    #         create_cmd+=" --download-cmd 'curl ${CURL_TRY} -kL -o %s %s'"
-    #     fi
-
-    #     restore_resolv_conf
-    #     extra=" --registry-mirrors http://${PROXY}:5000"
-    # fi
+    if [ x"$PROXY" != x"" ]; then
+        extra=" --registry-mirrors http://${PROXY}:5000"
+    fi
     create_cmd+=" $extra"
 
     # add env OS_LOCALIP
