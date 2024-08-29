@@ -420,7 +420,7 @@ data:
 
     server {
       listen 81;
-      gzip on;
+      gzip off;
       gzip_disable "msie6";
       gzip_min_length 1k;
       gzip_buffers 16 64k;
@@ -498,7 +498,7 @@ data:
 
     server {
       listen 82;
-      gzip on;
+      gzip off;
       gzip_disable "msie6";
       gzip_min_length 1k;
       gzip_buffers 16 64k;
@@ -702,7 +702,7 @@ data:
 
 
     	# Gzip Settings
-    	gzip on;
+    	gzip off;
     	gzip_disable "msie6";
     	gzip_min_length 1k;
         gzip_buffers 16 64k;
