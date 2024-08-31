@@ -88,35 +88,8 @@ function ensure_success() {
     return $ret
 }
 
-build_socat(){
-    SOCAT_VERSION="1.7.3.2"
-    local socat_tar="${BASE_DIR}/components/socat-${SOCAT_VERSION}.tar.gz"
 
-    if [ -f "$socat_tar" ]; then
-        ensure_success $sh_c "cp ${socat_tar} ./"
-    else
-        ensure_success $sh_c "curl ${CURL_TRY} -LO http://www.dest-unreach.org/socat/download/socat-${SOCAT_VERSION}.tar.gz"
-    fi
-    
-    ensure_success $sh_c "tar xzvf socat-${SOCAT_VERSION}.tar.gz"
-    ensure_success $sh_c "cd socat-${SOCAT_VERSION}"
 
-    ensure_success $sh_c "./configure --prefix=/usr && make -j4 && make install && strip socat"
-}
-
-build_contrack(){
-    local contrack_tar="${BASE_DIR}/components/conntrack-tools-1.4.1.tar.gz"
-    if [ -f "$contrack_tar" ]; then
-        ensure_success $sh_c "cp ${contrack_tar} ./"
-    else
-        ensure_success $sh_c "curl ${CURL_TRY} -LO https://github.com/fqrouter/conntrack-tools/archive/refs/tags/conntrack-tools-1.4.1.tar.gz"
-    fi
-    
-    ensure_success $sh_c "tar zxvf conntrack-tools-1.4.1.tar.gz"
-    ensure_success $sh_c "cd conntrack-tools-1.4.1"
-
-    ensure_success $sh_c "./configure --prefix=/usr && make -j4 && make install"
-}
 
 system_service_active() {
     if [[ $# -ne 1 || x"$1" == x"" ]]; then
@@ -131,121 +104,121 @@ system_service_active() {
     return 1
 }
 
-precheck_os() {
-    if [ x"$PREPARED" == x"1" ]; then
-        precheck_localip
-        return
-    fi
+# precheck_os() {
+#     if [ x"$PREPARED" == x"1" ]; then
+#         precheck_localip
+#         return
+#     fi
 
-    if [[ -f /boot/cmdline.txt || -f /boot/firmware/cmdline.txt ]]; then
-    # raspbian 
-        SHOULD_RETRY=1
+#     if [[ -f /boot/cmdline.txt || -f /boot/firmware/cmdline.txt ]]; then
+#     # raspbian 
+#         SHOULD_RETRY=1
 
-        if ! command_exists iptables; then 
-            ensure_success $sh_c "apt update && apt install -y iptables"
-        fi
+#         if ! command_exists iptables; then 
+#             ensure_success $sh_c "apt update && apt install -y iptables"
+#         fi
 
-        systemctl disable --user gvfs-udisks2-volume-monitor
-        systemctl stop --user gvfs-udisks2-volume-monitor
+#         systemctl disable --user gvfs-udisks2-volume-monitor
+#         systemctl stop --user gvfs-udisks2-volume-monitor
 
-        local cpu_cgroups_enbaled=$(cat /proc/cgroups |awk '{if($1=="cpu")print $4}')
-        local mem_cgroups_enbaled=$(cat /proc/cgroups |awk '{if($1=="memory")print $4}')
-        if  [[ $cpu_cgroups_enbaled -eq 0 || $mem_cgroups_enbaled -eq 0 ]]; then
-            log_fatal "cpu or memory cgroups disabled, please edit /boot/cmdline.txt or /boot/firmware/cmdline.txt and reboot to enable it."
-        fi
-    fi
+#         local cpu_cgroups_enbaled=$(cat /proc/cgroups |awk '{if($1=="cpu")print $4}')
+#         local mem_cgroups_enbaled=$(cat /proc/cgroups |awk '{if($1=="memory")print $4}')
+#         if  [[ $cpu_cgroups_enbaled -eq 0 || $mem_cgroups_enbaled -eq 0 ]]; then
+#             log_fatal "cpu or memory cgroups disabled, please edit /boot/cmdline.txt or /boot/firmware/cmdline.txt and reboot to enable it."
+#         fi
+#     fi
     
-    # try to resolv hostname
-    ensure_success $sh_c "hostname -i >/dev/null"
+#     # try to resolv hostname
+#     ensure_success $sh_c "hostname -i >/dev/null"
 
-    precheck_localip
+#     precheck_localip
 
-    # local badHostname
-    # badHostname=$(echo "$HOSTNAME" | grep -E "[A-Z]")
-    # if [ x"$badHostname" != x"" ]; then
-    #     log_fatal "please set the hostname with lowercase ['${badHostname}']"
-    # fi
+#     # local badHostname
+#     # badHostname=$(echo "$HOSTNAME" | grep -E "[A-Z]")
+#     # if [ x"$badHostname" != x"" ]; then
+#     #     log_fatal "please set the hostname with lowercase ['${badHostname}']"
+#     # fi
 
-    # ip=$(ping -c 1 "$HOSTNAME" |awk -F '[()]' '/icmp_seq/{print $2}')
-    # printf "%s\t%s\n\n" "$ip" "$HOSTNAME"
+#     # ip=$(ping -c 1 "$HOSTNAME" |awk -F '[()]' '/icmp_seq/{print $2}')
+#     # printf "%s\t%s\n\n" "$ip" "$HOSTNAME"
 
-    # if [[ x"$ip" == x"" || "$ip" == @("172.17.0.1"|"127.0.0.1"|"127.0.1.1") || ! "$ip" =~ ^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
-    #     log_fatal "incorrect ip for hostname '$HOSTNAME', please check"
-    # fi
+#     # if [[ x"$ip" == x"" || "$ip" == @("172.17.0.1"|"127.0.0.1"|"127.0.1.1") || ! "$ip" =~ ^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+#     #     log_fatal "incorrect ip for hostname '$HOSTNAME', please check"
+#     # fi
 
-    # local_ip="$ip"
+#     # local_ip="$ip"
 
-    # disable local dns
-    case "$OSNAME" in
-        ubuntu|debian|raspbian)
-            if system_service_active "systemd-resolved"; then
-                ensure_success $sh_c "systemctl stop systemd-resolved.service >/dev/null"
-                ensure_success $sh_c "systemctl disable systemd-resolved.service >/dev/null"
-                if [ -e /usr/bin/systemd-resolve ]; then
-                    ensure_success $sh_c "mv /usr/bin/systemd-resolve /usr/bin/systemd-resolve.bak >/dev/null"
-                fi
-                if [ -L /etc/resolv.conf ]; then
-                    ensure_success $sh_c 'unlink /etc/resolv.conf && touch /etc/resolv.conf'
-                fi
-                config_resolv_conf
-            else
-                ensure_success $sh_c "cat /etc/resolv.conf > /etc/resolv.conf.bak"
-            fi
-            ;;
-        centos|fedora|rhel)
-            ;;
-        *)
-            ;;
-    esac
+#     # disable local dns
+#     case "$OSNAME" in
+#         ubuntu|debian|raspbian)
+#             if system_service_active "systemd-resolved"; then
+#                 ensure_success $sh_c "systemctl stop systemd-resolved.service >/dev/null"
+#                 ensure_success $sh_c "systemctl disable systemd-resolved.service >/dev/null"
+#                 if [ -e /usr/bin/systemd-resolve ]; then
+#                     ensure_success $sh_c "mv /usr/bin/systemd-resolve /usr/bin/systemd-resolve.bak >/dev/null"
+#                 fi
+#                 if [ -L /etc/resolv.conf ]; then
+#                     ensure_success $sh_c 'unlink /etc/resolv.conf && touch /etc/resolv.conf'
+#                 fi
+#                 config_resolv_conf
+#             else
+#                 ensure_success $sh_c "cat /etc/resolv.conf > /etc/resolv.conf.bak"
+#             fi
+#             ;;
+#         centos|fedora|rhel)
+#             ;;
+#         *)
+#             ;;
+#     esac
 
-    if ! hostname -i &>/dev/null; then
-        ensure_success $sh_c "echo $local_ip  $HOSTNAME >> /etc/hosts"
-    fi
+#     if ! hostname -i &>/dev/null; then
+#         ensure_success $sh_c "echo $local_ip  $HOSTNAME >> /etc/hosts"
+#     fi
 
-    ensure_success $sh_c "hostname -i >/dev/null"
+#     ensure_success $sh_c "hostname -i >/dev/null"
 
-    # network and dns
-    http_code=$(curl ${CURL_TRY} -sL -o /dev/null -w "%{http_code}" https://download.docker.com/linux/ubuntu)
-    if [ "$http_code" != 200 ]; then
-        config_resolv_conf
-        if [ -f /etc/resolv.conf.bak ]; then
-            ensure_success $sh_c "rm -rf /etc/resolv.conf.bak"
-        fi
+#     # network and dns
+#     http_code=$(curl ${CURL_TRY} -sL -o /dev/null -w "%{http_code}" https://download.docker.com/linux/ubuntu)
+#     if [ "$http_code" != 200 ]; then
+#         config_resolv_conf
+#         if [ -f /etc/resolv.conf.bak ]; then
+#             ensure_success $sh_c "rm -rf /etc/resolv.conf.bak"
+#         fi
 
-    fi
+#     fi
 
-    # ubuntu 24 upgrade apparmor
-    if [[ $(is_ubuntu) -eq 1 && $(get_os_version) == *24.* ]]; then
-        aapv=$(apparmor_parser --version)
-        if [[ ! ${aapv} =~ "4.0.1" ]]; then
-            local aapv_tar="${BASE_DIR}/components/apparmor_4.0.1-0ubuntu1_${ARCH}.deb"
-            if [ ! -f "$aapv_tar" ]; then
-                if [ x"${ARCH}" == x"arm64" ]; then
-                    ensure_success $sh_c "curl ${CURL_TRY} -k -sfLO https://launchpad.net/ubuntu/+source/apparmor/4.0.1-0ubuntu1/+build/28428841/+files/apparmor_4.0.1-0ubuntu1_arm64.deb"
-                else
-                    ensure_success $sh_c "curl ${CURL_TRY} -k -sfLO https://launchpad.net/ubuntu/+source/apparmor/4.0.1-0ubuntu1/+build/28428840/+files/apparmor_4.0.1-0ubuntu1_amd64.deb"
-                fi
-            else
-                ensure_success $sh_c "cp ${aapv_tar} ./"
-            fi
-            ensure_success $sh_c "dpkg -i apparmor_4.0.1-0ubuntu1_${ARCH}.deb"
-        fi
-    fi
+#     # ubuntu 24 upgrade apparmor
+#     if [[ $(is_ubuntu) -eq 1 && $(get_os_version) == *24.* ]]; then
+#         aapv=$(apparmor_parser --version)
+#         if [[ ! ${aapv} =~ "4.0.1" ]]; then
+#             local aapv_tar="${BASE_DIR}/components/apparmor_4.0.1-0ubuntu1_${ARCH}.deb"
+#             if [ ! -f "$aapv_tar" ]; then
+#                 if [ x"${ARCH}" == x"arm64" ]; then
+#                     ensure_success $sh_c "curl ${CURL_TRY} -k -sfLO https://launchpad.net/ubuntu/+source/apparmor/4.0.1-0ubuntu1/+build/28428841/+files/apparmor_4.0.1-0ubuntu1_arm64.deb"
+#                 else
+#                     ensure_success $sh_c "curl ${CURL_TRY} -k -sfLO https://launchpad.net/ubuntu/+source/apparmor/4.0.1-0ubuntu1/+build/28428840/+files/apparmor_4.0.1-0ubuntu1_amd64.deb"
+#                 fi
+#             else
+#                 ensure_success $sh_c "cp ${aapv_tar} ./"
+#             fi
+#             ensure_success $sh_c "dpkg -i apparmor_4.0.1-0ubuntu1_${ARCH}.deb"
+#         fi
+#     fi
 
-    if [[ $(is_wsl) -eq 1 ]]; then
-        $sh_c "chattr -i /etc/hosts"
-        $sh_c "chattr -i /etc/resolv.conf"
-    fi
+#     if [[ $(is_wsl) -eq 1 ]]; then
+#         $sh_c "chattr -i /etc/hosts"
+#         $sh_c "chattr -i /etc/resolv.conf"
+#     fi
 
-    $sh_c "apt remove unattended-upgrades -y"
-    $sh_c "apt install ntpdate -y"
+#     $sh_c "apt remove unattended-upgrades -y"
+#     $sh_c "apt install ntpdate -y"
 
-    local ntpdate=$(get_command ntpdate)
-    local hwclock=$(get_command hwclock)
+#     local ntpdate=$(get_command ntpdate)
+#     local hwclock=$(get_command hwclock)
     
-    $sh_c "$ntpdate -b -u pool.ntp.org"
-    $sh_c "$hwclock -w"
-}
+#     $sh_c "$ntpdate -b -u pool.ntp.org"
+#     $sh_c "$hwclock -w"
+# }
 
 precheck_localip() {
     local ip
@@ -266,47 +239,47 @@ precheck_localip() {
     local_ip="$ip"
 }
 
-install_deps() {
-    if [ x"$PREPARED" == x"1" ]; then
-        return
-    fi
-    case "$OSNAME" in
-        ubuntu|debian|raspbian)
-            pre_reqs="apt-transport-https ca-certificates curl"
-            if [ -z $(get_command gpg) ]; then
-              pre_reqs="$pre_reqs gnupg"
-            fi
-            if [ -z $(get_command sudo) ]; then
-              pre_reqs="$pre_reqs sudo"
-            fi
+# install_deps() {
+#     if [ x"$PREPARED" == x"1" ]; then
+#         return
+#     fi
+#     case "$OSNAME" in
+#         ubuntu|debian|raspbian)
+#             pre_reqs="apt-transport-https ca-certificates curl"
+#             if [ -z $(get_command gpg) ]; then
+#               pre_reqs="$pre_reqs gnupg"
+#             fi
+#             if [ -z $(get_command sudo) ]; then
+#               pre_reqs="$pre_reqs sudo"
+#             fi
 
-            if [ $(is_pve) -eq 0 ]; then
-                ensure_success $sh_c 'apt-get update -qq >/dev/null'
-            else
-                $sh_c 'apt-get update -qq >/dev/null'
-            fi
-            ensure_success $sh_c "DEBIAN_FRONTEND=noninteractive apt-get install -y -qq $pre_reqs >/dev/null"
-            ensure_success $sh_c 'DEBIAN_FRONTEND=noninteractive apt-get install -y conntrack socat apache2-utils ntpdate net-tools make gcc openssh-server >/dev/null'
-            ;;
+#             if [ $(is_pve) -eq 0 ]; then
+#                 ensure_success $sh_c 'apt-get update -qq >/dev/null'
+#             else
+#                 $sh_c 'apt-get update -qq >/dev/null'
+#             fi
+#             ensure_success $sh_c "DEBIAN_FRONTEND=noninteractive apt-get install -y -qq $pre_reqs >/dev/null"
+#             ensure_success $sh_c 'DEBIAN_FRONTEND=noninteractive apt-get install -y conntrack socat apache2-utils ntpdate net-tools make gcc openssh-server >/dev/null'
+#             ;;
 
-        centos|fedora|rhel)
-            if [ "$lsb_dist" = "fedora" ]; then
-                pkg_manager="dnf"
-            else
-                pkg_manager="yum"
-            fi
+#         centos|fedora|rhel)
+#             if [ "$lsb_dist" = "fedora" ]; then
+#                 pkg_manager="dnf"
+#             else
+#                 pkg_manager="yum"
+#             fi
 
-            ensure_success $sh_c "$pkg_manager install -y conntrack socat httpd-tools ntpdate net-tools make gcc openssh-server >/dev/null"
-            ;;
-        *)
-            # build from source code
-            build_socat
-            build_contrack
+#             ensure_success $sh_c "$pkg_manager install -y conntrack socat httpd-tools ntpdate net-tools make gcc openssh-server >/dev/null"
+#             ;;
+#         *)
+#             # build from source code
+#             build_socat
+#             build_contrack
 
-            #TODO: install bcrypt tools
-            ;;
-    esac
-}
+#             #TODO: install bcrypt tools
+#             ;;
+#     esac
+# }
 
 config_system() {
     if [ x"$PREPARED" == x"1" ]; then
@@ -409,44 +382,42 @@ run_install() {
 
     log_info 'installing k8s and kubesphere'
 
-    if [[ $(is_wsl) -eq 1 ]]; then
-        if [ -f /usr/lib/wsl/lib/nvidia-smi ]; then
-            local device=$(/usr/lib/wsl/lib/nvidia-smi -L|grep 'NVIDIA'|grep UUID)
-            if [ x"$device" != x"" ]; then
-                LOCAL_GPU_ENABLE="1"
-                LOCAL_GPU_SHARE="1"
-            fi
-        fi
-    fi
+    # if [[ $(is_wsl) -eq 1 ]]; then
+    #     if [ -f /usr/lib/wsl/lib/nvidia-smi ]; then
+    #         local device=$(/usr/lib/wsl/lib/nvidia-smi -L|grep 'NVIDIA'|grep UUID)
+    #         if [ x"$device" != x"" ]; then
+    #             LOCAL_GPU_ENABLE="1"
+    #             LOCAL_GPU_SHARE="1"
+    #         fi
+    #     fi
+    # fi
 
     # env 'KUBE_TYPE' is specific the special kubernetes (k8s or k3s), default k3s
     if [ x"$KUBE_TYPE" == x"k3s" ]; then
         k8s_version=v1.22.16-k3s
     fi
-    create_cmd="$TERMINUS_CLI terminus init --kube $KUBE_TYPE"
-    # create_cmd="./kk create cluster --with-kubernetes $k8s_version --with-kubesphere $ks_version --container-manager containerd"  # --with-addon ${ADDON_CONFIG_FILE}
 
+
+    # TODO: prepare
+    # create_cmd="$TERMINUS_CLI terminus prepare --kube $KUBE_TYPE"
+    
     local extra
 
     # env 'REGISTRY_MIRRORS' is a docker image cache mirrors, separated by commas
-    if [ x"$REGISTRY_MIRRORS" != x"" ]; then
-        extra=" --registry-mirrors $REGISTRY_MIRRORS"
-    fi
-    # env 'PROXY' is a cache proxy server, to download binaries and container images
-    if [ x"$PROXY" != x"" ]; then
-        extra=" --registry-mirrors http://${PROXY}:5000"
-    fi
-    create_cmd+=" $extra"
+    # if [ x"$REGISTRY_MIRRORS" != x"" ]; then
+    #     extra=" --registry-mirrors $REGISTRY_MIRRORS"
+    # fi
+    # create_cmd+=" $extra"
 
     # add env OS_LOCALIP
-    ensure_success $sh_c "export OS_LOCALIP=$local_ip && export TERMINUS_IS_CLOUD_VERSION=$TERMINUS_IS_CLOUD_VERSION && $create_cmd"
+    # ensure_success $sh_c "export OS_LOCALIP=$local_ip && export TERMINUS_IS_CLOUD_VERSION=$TERMINUS_IS_CLOUD_VERSION && $create_cmd"
 
     log_info 'k8s and kubesphere installation is complete'
 
     # cache version to file
-    ensure_success $sh_c "echo 'VERSION=${VERSION}' > /etc/kke/version"
-    ensure_success $sh_c "echo 'KKE=${TERMINUS_CLI_VERSION}' >> /etc/kke/version"
-    ensure_success $sh_c "echo 'KUBE=${k8s_version}' >> /etc/kke/version"
+    # ensure_success $sh_c "echo 'VERSION=${VERSION}' > /etc/kke/version"
+    # ensure_success $sh_c "echo 'KKE=${TERMINUS_CLI_VERSION}' >> /etc/kke/version"
+    # ensure_success $sh_c "echo 'KUBE=${k8s_version}' >> /etc/kke/version"
 
     # setup after kubesphere is installed
     export KUBECONFIG=/root/.kube/config  # for ubuntu
@@ -455,17 +426,11 @@ run_install() {
 
     check_kscm # wait for ks launch
 
-    if [ "x${LOCAL_GPU_ENABLE}" == "x1" ]; then
-        install_gpu
-    fi
-
     if [[ $SHOULD_RETRY -eq 1 || $(is_wsl) -eq 1 ]]; then
         run_cmd=retry_cmd
     else
         run_cmd=retry_cmd
     fi
-
-
 
     ensure_success $sh_c "sed -i '/${local_ip} $HOSTNAME/d' /etc/hosts"
 
@@ -649,165 +614,6 @@ EOF
     $run_cmd $sh_c "${KUBECTL} patch felixconfiguration default -p '{\"spec\":{\"featureDetectOverride\": \"SNATFullyRandom=false,MASQFullyRandom=false\"}}' --type='merge'"
 }
 
-install_storage() {
-    TERMINUS_ROOT="/terminus"
-    storage_type="minio"    # or s3
-
-    if [[ ! -z "${TERMINUS_IS_CLOUD_VERSION}" && x"${TERMINUS_IS_CLOUD_VERSION}" == x"true" ]]; then
-        local DATA_DIR="/osdata"
-        if [ -d $DATA_DIR ]; then
-            if [[ -d $TERMINUS_ROOT || -f $TERMINUS_ROOT ]]; then
-                $sh_c "rm -rf $TERMINUS_ROOT"
-            fi
-
-            ensure_success $sh_c "mkdir -p $DATA_DIR$TERMINUS_ROOT"
-            ensure_success $sh_c "ln -s $DATA_DIR$TERMINUS_ROOT $TERMINUS_ROOT"
-
-        fi
-    fi
-
-
-    log_info 'Preparing object storage ...\n'
-
-    if [ x"$STORAGE" != x"" ]; then
-        storage_type="$STORAGE"
-    fi
-
-    echo "storage_type = ${storage_type}"
-
-    case "$storage_type" in
-        minio)
-            install_minio
-            ;;
-        s3|oss)
-            echo "s3_bucket = ${S3_BUCKET}"
-
-            if [ "x$S3_BUCKET" == "x" ]; then
-                echo "s3 bucket is empty."
-                exit $ERR_EXIT
-            fi
-            ;;
-        *)
-            echo "storage '$storage_type' not supported."
-            exit $ERR_EXIT
-        ;;
-    esac
-
-    # install redis and juicefs filesystem
-    install_redis
-    install_juicefs
-}
-
-install_minio() {
-    MINIO_VERSION="RELEASE.2023-05-04T21-44-30Z"
-    MINIO_ROOT_USER="minioadmin"
-    MINIO_ROOT_PASSWORD=$(get_random_string 16)
-
-    log_info 'start to install minio'
-
-    local minio_tar="${BASE_DIR}/components/minio.${MINIO_VERSION}"
-    local minio_bin="/usr/local/bin/minio"
-    local minio_data="${TERMINUS_ROOT}/data/minio/vol1"
-
-    [ ! -d "$minio_data" ] && ensure_success $sh_c "mkdir -p $minio_data"
-
-    if [ ! -f "$minio_bin" ]; then
-        if [ -f "$minio_tar" ]; then
-            ensure_success $sh_c "cp ${minio_tar} minio"
-        else
-            ensure_success $sh_c "curl ${CURL_TRY} -kLo minio https://dl.min.io/server/minio/release/linux-${ARCH}/archive/minio.${MINIO_VERSION}"
-        fi
-        ensure_success $sh_c "chmod +x minio"
-        ensure_success $sh_c "install minio /usr/local/bin"
-    fi
-
-    cat > minio.service <<_END
-[Unit]
-Description=MinIO
-Documentation=https://min.io/docs/minio/linux/index.html
-Wants=network-online.target
-After=network-online.target
-AssertFileIsExecutable=$minio_bin
-
-[Service]
-WorkingDirectory=/usr/local
-
-User=minio
-Group=minio
-ProtectProc=invisible
-
-EnvironmentFile=-/etc/default/minio
-ExecStartPre=/bin/bash -c "if [ -z \"\${MINIO_VOLUMES}\" ]; then echo \"Variable MINIO_VOLUMES not set in /etc/default/minio\"; exit 1; fi"
-ExecStart=$minio_bin server \$MINIO_OPTS \$MINIO_VOLUMES
-
-# MinIO RELEASE.2023-05-04T21-44-30Z adds support for Type=notify (https://www.freedesktop.org/software/systemd/man/systemd.service.html#Type=)
-# This may improve systemctl setups where other services use After=minio.server
-# Uncomment the line to enable the functionality
-# Type=notify
-
-# Let systemd restart this service always
-Restart=always
-
-# Specifies the maximum file descriptor number that can be opened by this process
-LimitNOFILE=65536
-
-# Specifies the maximum number of threads this process can create
-TasksMax=infinity
-
-# Disable timeout logic and wait until process is stopped
-TimeoutStopSec=infinity
-SendSIGKILL=no
-
-[Install]
-WantedBy=multi-user.target
-
-_END
-
-        ensure_success $sh_c "cat minio.service > /etc/systemd/system/minio.service"
-        cat > minio.env <<_END
-# MINIO_ROOT_USER and MINIO_ROOT_PASSWORD sets the root account for the MinIO server.
-# This user has unrestricted permissions to perform S3 and administrative API operations on any resource in the deployment.
-# Omit to use the default values 'minioadmin:minioadmin'.
-# MinIO recommends setting non-default values as a best practice, regardless of environment
-MINIO_VOLUMES="$minio_data"
-MINIO_OPTS="--console-address ${local_ip}:9090 --address ${local_ip}:9000"
-
-MINIO_ROOT_USER=$MINIO_ROOT_USER
-MINIO_ROOT_PASSWORD=$MINIO_ROOT_PASSWORD
-_END
-    ensure_success $sh_c "cat minio.env > /etc/default/minio"
-
-    $sh_c "groupadd -r minio >/dev/null; true"
-    $sh_c "useradd -M -r -g minio minio >/dev/null; true"
-    ensure_success $sh_c "chown minio:minio $minio_data"
-
-    ensure_success $sh_c "systemctl daemon-reload"
-    ensure_success $sh_c "systemctl restart minio"
-    ensure_success $sh_c "systemctl enable minio"
-    ensure_success $sh_c "systemctl --no-pager status minio"
-
-    # ensure minio is ready
-    local max_retry=60
-    local ok="n"
-    while [ $max_retry -ge 0 ]; do
-        if $sh_c 'systemctl --no-pager status minio >/dev/null'; then
-            ok=y
-            break
-        fi
-        sleep 5
-        ((max_retry--))
-    done
-
-    if [ x"$ok" != x"y" ]; then
-        echo "minio is not ready yet, please check it"
-        exit $ERR_EXIT
-    fi
-
-    # minio password from file
-    MINIO_ROOT_PASSWORD=$(awk -F '=' '/^MINIO_ROOT_PASSWORD/{print $2}' /etc/default/minio)
-    MINIO_VOLUMES=$minio_data
-}
-
 init_minio_cluster(){
     MINIO_OPERATOR_VERSION="v0.0.1"
     if [[ ! -f /etc/ssl/etcd/ssl/ca.pem || ! -f /etc/ssl/etcd/ssl/node-$HOSTNAME-key.pem || ! -f /etc/ssl/etcd/ssl/node-$HOSTNAME.pem ]]; then
@@ -829,246 +635,6 @@ init_minio_cluster(){
     fi
 
     ensure_success $sh_c "$minio_operator_bin init --address $local_ip --cafile /etc/ssl/etcd/ssl/ca.pem --certfile /etc/ssl/etcd/ssl/node-$HOSTNAME.pem --keyfile /etc/ssl/etcd/ssl/node-$HOSTNAME-key.pem --volume $MINIO_VOLUMES --password $MINIO_ROOT_PASSWORD"
-}
-
-install_redis() {
-    REDIS_VERSION=5.0.14
-    REDIS_PASSWORD=$(get_random_string 16)
-
-    log_info 'start to install redis'
-
-    local redis_tar="${BASE_DIR}/components/redis-${REDIS_VERSION}.tar.gz"
-    local redis_root="${TERMINUS_ROOT}/data/redis"
-    local redis_conf="${redis_root}/etc/redis.conf"
-    local redis_bin="/usr/bin/redis-server"
-    local cpu_cores
-
-    # install redis, if redis-server not exists
-    if [ ! -f "$redis_bin" ]; then
-        if [ -f "$redis_tar" ]; then
-            ensure_success $sh_c "cp ${redis_tar} redis-${REDIS_VERSION}.tar.gz"
-        else
-            ensure_success $sh_c "curl -kL -o redis-${REDIS_VERSION}.tar.gz https://dc3p1870nn3cj.cloudfront.net/redis-${REDIS_VERSION}_linux_${ARCH}.tar.gz"
-        fi
-        ensure_success $sh_c "tar xf redis-${REDIS_VERSION}.tar.gz"
-
-        # cpu_cores=$(grep -c processor /proc/cpuinfo)
-        # if [ -z "$cpu_cores" ] || [ "$cpu_cores" -le 1 ]; then
-        #     cpu_cores=1
-        # fi
-        # ensure_success $sh_c "cd redis-${REDIS_VERSION} && make -j${cpu_cores} >/dev/null 2>&1 && make install >/dev/null 2>&1 && cd .."
-        ensure_success $sh_c "cd redis-${REDIS_VERSION} && cp ./redis-* /usr/local/bin/ && cd .."
-        ensure_success $sh_c "ln -s /usr/local/bin/redis-server ${redis_bin}"
-        ensure_success $sh_c "ln -s /usr/local/bin/redis-cli /usr/bin/redis-cli"
-    fi
-
-    # config redis
-    ensure_success $sh_c "ls $redis_bin >/dev/null"
-    [ ! -d "$redis_root" ] && ensure_success $sh_c "mkdir -p ${redis_root}/etc" \
-        && ensure_success $sh_c "mkdir -p ${redis_root}/data" \
-        && ensure_success $sh_c "mkdir -p ${redis_root}/log" \
-        && ensure_success $sh_c "mkdir -p ${redis_root}/run"
-
-    cat > redis.conf <<_END
-protected-mode no
-bind $local_ip
-port 6379
-daemonize no
-supervised no
-pidfile ${redis_root}/run/redis.pid
-logfile ${redis_root}/log/redis-server.log
-save 900 1
-save 600 50
-save 300 100
-save 180 300
-save 60 1000
-rdbcompression yes
-rdbchecksum yes
-dbfilename dump.rdb
-dir ${redis_root}/data
-appendonly yes
-appendfilename "appendonly.aof"
-appendfsync everysec
-auto-aof-rewrite-percentage 100
-auto-aof-rewrite-min-size 32mb
-requirepass $REDIS_PASSWORD
-_END
-    ensure_success $sh_c "cat redis.conf > $redis_conf"
-    ensure_success $sh_c "chmod 0640 $redis_conf"
-
-    cat > redis-server.service <<_END
-[Unit]
-Description=Redis
-Documentation=https://redis.io/
-Wants=network-online.target
-After=network-online.target
-AssertFileIsExecutable=$redis_bin
-
-[Service]
-WorkingDirectory=$redis_root
-
-User=root
-Group=root
-
-EnvironmentFile=
-ExecStartPre=/bin/sh -c "test -f /sys/kernel/mm/transparent_hugepage/enabled && /bin/echo never > /sys/kernel/mm/transparent_hugepage/enabled; test -f ${redis_root}/data/appendonly.aof && (echo y | /usr/local/bin/redis-check-aof --fix ${redis_root}/data/appendonly.aof); true"
-ExecStart=$redis_bin $redis_conf
-
-# Let systemd restart this service always
-Restart=no
-
-# Specifies the maximum file descriptor number that can be opened by this process
-LimitNOFILE=65536
-
-# Specifies the maximum number of threads this process can create
-TasksMax=infinity
-
-# Disable timeout logic and wait until process is stopped
-TimeoutStopSec=infinity
-SendSIGKILL=no
-
-[Install]
-WantedBy=multi-user.target
-_END
-
-    ensure_success $sh_c "cat redis-server.service > /etc/systemd/system/redis-server.service"
-    if [ $(is_pve) -eq 0 ]; then
-        ensure_success $sh_c "sysctl -w vm.overcommit_memory=1 net.core.somaxconn=10240 >/dev/null"
-    fi
-
-    ensure_success $sh_c "systemctl daemon-reload >/dev/null"
-    ensure_success $sh_c "systemctl restart redis-server >/dev/null; true"
-    ensure_success $sh_c "systemctl enable redis-server >/dev/null"
-
-    log_info 'redis service enabled'
-
-    # eusure redis is started
-    sleep_waiting 10
-    ensure_success $sh_c "( systemctl --no-pager status redis-server ) || \
-    ( systemctl restart redis-server && sleep 3 && systemctl --no-pager status redis-server ) || \
-    ( systemctl restart redis-server && sleep 3 && systemctl --no-pager status redis-server )"
-
-    REDIS_PASSWORD=$($sh_c "awk '/requirepass/{print \$NF}' $redis_conf")
-    if [ x"$REDIS_PASSWORD" == x"" ]; then
-        echo "no redis password found in $redis_conf"
-        exit $ERR_EXIT
-    fi
-
-    log_info 'try to connect redis'
-
-    pong=$(/usr/bin/redis-cli -h "$local_ip" -a "$REDIS_PASSWORD" ping 2>/dev/null)
-    if [ x"$pong" != x"PONG" ]; then
-        echo "failed to connect redis server: ${local_ip}:6379"
-        exit $ERR_EXIT
-    fi
-
-    log_info 'success to install redis'
-}
-
-install_juicefs() {
-    JFS_VERSION="v11.1.1"
-
-    log_info 'start to install juicefs'
-
-    local juicefs_data="${TERMINUS_ROOT}/data/juicefs"
-    if [ ! -d "$juicefs_data" ]; then
-        ensure_success $sh_c "mkdir -p $juicefs_data"
-    fi
-
-    bucket="terminus"
-
-    local format_cmd
-    local fsname="rootfs"
-    local metadb="redis://:${REDIS_PASSWORD}@${local_ip}:6379/1"
-    local ak="$ACCESS_KEY"
-    local sk="$SECRET_KEY"
-
-    local juicefs_tar="${BASE_DIR}/components/juicefs-${JFS_VERSION}-linux-${ARCH}.tar.gz"
-    local juicefs_bin="/usr/local/bin/juicefs"
-    local jfs_mountpoint="${TERMINUS_ROOT}/${fsname}"
-    local jfs_cachedir="${TERMINUS_ROOT}/jfscache"
-    [ ! -d $jfs_mountpoint ] && ensure_success $sh_c "mkdir -p $jfs_mountpoint"
-    [ ! -d $jfs_cachedir ] && ensure_success $sh_c "mkdir -p $jfs_cachedir"
-
-    if [ ! -f "$juicefs_bin" ]; then
-        if [ -f "$juicefs_tar" ]; then
-            ensure_success $sh_c "cp ${juicefs_tar} juicefs-${JFS_VERSION}-linux-${ARCH}.tar.gz"
-        else
-            ensure_success $sh_c "curl ${CURL_TRY} -kLO https://github.com/beclab/juicefs-ext/releases/download/${JFS_VERSION}/juicefs-${JFS_VERSION}-linux-${ARCH}.tar.gz"
-        fi
-        ensure_success $sh_c "tar -zxf juicefs-${JFS_VERSION}-linux-${ARCH}.tar.gz"
-        ensure_success $sh_c "chmod +x juicefs"
-        ensure_success $sh_c "install juicefs /usr/local/bin"
-        ensure_success $sh_c "install juicefs /sbin/mount.juicefs"
-
-        # format minio or s3
-        format_cmd="$juicefs_bin format $metadb --storage $storage_type"
-        if [ "$storage_type" == "minio" ]; then
-            format_cmd+=" --bucket http://${local_ip}:9000/${bucket} --access-key $MINIO_ROOT_USER --secret-key $MINIO_ROOT_PASSWORD"
-        elif [[ "$storage_type" == @("s3"|"oss") ]]; then
-            format_cmd+=" --bucket $S3_BUCKET"
-
-
-            if [[ ! -z "${TERMINUS_IS_CLOUD_VERSION}" && x"${TERMINUS_IS_CLOUD_VERSION}" == x"true" ]]; then
-                ak="${AWS_ACCESS_KEY_ID_SETUP}"
-                sk="${AWS_SECRET_ACCESS_KEY_SETUP}"
-
-                if [ ! -z "${AWS_SESSION_TOKEN_SETUP}" ]; then
-                    format_cmd+=" --session-token ${AWS_SESSION_TOKEN_SETUP}"
-                fi
-
-                fsname="${CLUSTER_ID}"
-            fi
-
-            if [[ x"$ak" != x"" && x"$sk" != x"" ]]; then
-                format_cmd+=" --access-key $ak --secret-key $sk"
-            fi
-        fi
-
-        # format_cmd+=" $fsname &>/dev/null"
-        format_cmd+=" $fsname --trash-days 0" # debug
-        ensure_success $sh_c "$format_cmd"
-    fi
-
-    cat > juicefs.service <<_END
-[Unit]
-Description=JuicefsMount
-Documentation=https://juicefs.com/docs/zh/community/introduction/
-Wants=redis-online.target
-After=redis-online.target
-AssertFileIsExecutable=$juicefs_bin
-
-[Service]
-WorkingDirectory=/usr/local
-
-EnvironmentFile=
-ExecStart=$juicefs_bin mount -o writeback_cache --entry-cache 300 --attr-cache 300 --cache-dir $jfs_cachedir $metadb $jfs_mountpoint
-
-# Let systemd restart this service always
-Restart=always
-
-# Specifies the maximum file descriptor number that can be opened by this process
-LimitNOFILE=65536
-
-# Specifies the maximum number of threads this process can create
-TasksMax=infinity
-
-# Disable timeout logic and wait until process is stopped
-TimeoutStopSec=infinity
-SendSIGKILL=no
-
-[Install]
-WantedBy=multi-user.target
-_END
-    ensure_success $sh_c "cat juicefs.service > /etc/systemd/system/juicefs.service"
-
-    ensure_success $sh_c "systemctl daemon-reload"
-    ensure_success $sh_c "systemctl restart juicefs"
-    ensure_success $sh_c "systemctl enable juicefs"
-
-    ensure_success $sh_c "systemctl --no-pager status juicefs"
-    sleep_waiting 3
-    ensure_success $sh_c "test -d ${jfs_mountpoint}/.trash"
 }
 
 pull_velero_image() {
@@ -1238,19 +804,6 @@ install_velero_plugin_terminus() {
 }
 
 install_k8s_ks() {
-    CLI_VERSION=0.1.13
-    ensure_success $sh_c "mkdir -p /etc/kke"
-    local cli_name="terminus-cli-v${CLI_VERSION}_linux_${ARCH}.tar.gz"
-
-    # FIXME: terminus-cli should be always in /usr/local/bin
-    TERMINUS_CLI=$(command -v terminus-cli)
-    if [ x"$TERMINUS_CLI" == x"" ]; then 
-        if [ ! -f "${BASE_DIR}/${cli_name}" ]; then
-            ensure_success $sh_c "curl ${CURL_TRY} -k -sfL -o ${BASE_DIR}/${cli_name} https://github.com/beclab/Installer/releases/download/${CLI_VERSION}/terminus-cli-v${CLI_VERSION}_linux_${ARCH}.tar.gz"
-        fi
-        ensure_success $sh_c "tar xf ${BASE_DIR}/${cli_name} -C ${BASE_DIR}/"
-        TERMINUS_CLI="${BASE_DIR}/terminus-cli"
-    fi
 
     log_info 'Setup your first user ...\n'
     setup_ws
@@ -1951,32 +1504,15 @@ mkdir -p $INSTALL_LOG && cd $INSTALL_LOG || exit
 fd_errlog=$INSTALL_LOG/errlog_fd_13
 
 Main() {
-    install_lock="$BASE_DIR/../.installed"
-    prepared_lock="$BASE_DIR/../.prepared"
-
-    [[ -z $KUBE_TYPE ]] && KUBE_TYPE="k3s"
-    [[ ! -f $install_lock ]] && touch $install_lock
-    [[ -f $prepared_lock ]] && PREPARED=1
 
     log_info 'Start to Install Terminus ...\n'
+    # TODO: install
 
     get_distribution
     get_shell_exec
-
+        
     (
-        log_info 'Precheck and Installing dependencies ...\n'
         precheck_support
-        precheck_os
-        install_deps
-        config_system
-
-        log_info 'Installing terminus ...\n'
-        config_proxy_resolv_conf
-
-        if [[ $(is_wsl) -eq 0 && $(is_pve) -eq 0 ]]; then
-            install_storage
-        fi
-
         install_k8s_ks
     ) 2>&1
 
