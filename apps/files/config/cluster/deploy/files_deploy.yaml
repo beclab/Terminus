@@ -70,7 +70,7 @@ spec:
             - containerPort: 8080
           env:
             - name: FILES_SERVER_TAG
-              value: 'beclab/files-server:v0.2.31'
+              value: 'beclab/files-server:v0.2.32'
             - name: NAMESPACE
               valueFrom:
                 fieldRef:
@@ -97,7 +97,7 @@ spec:
             mountPath: /appdata
 
         - name: files
-          image: beclab/files-server:v0.2.31
+          image: beclab/files-server:v0.2.32
           imagePullPolicy: IfNotPresent
           securityContext:
             allowPrivilegeEscalation: false
@@ -114,6 +114,11 @@ spec:
 #              mountPath: /data/Home/Documents
             - name: upload-appdata
               mountPath: /appcache/
+            
+{{ if .Values.sharedlib }}        
+            - name: shared-lib
+              mountPath: /share
+{{ end }}
           ports:
             - containerPort: 8110
           env:
@@ -239,6 +244,13 @@ spec:
           hostPath:
             path: /terminus/userdata/Cache
             type: Directory
+        
+{{ if .Values.sharedlib }}        
+        - name: shared-lib
+          hostPath:
+            path: {{ .Values.sharedlib }}
+            type: Directory
+{{ end }}            
 
 ---
 apiVersion: v1
@@ -312,7 +324,7 @@ spec:
             chown -R 1000:1000 /appdata 
       containers:
         - name: files
-          image: beclab/files-server:v0.2.31
+          image: beclab/files-server:v0.2.32
           imagePullPolicy: IfNotPresent
           securityContext:
             allowPrivilegeEscalation: false
