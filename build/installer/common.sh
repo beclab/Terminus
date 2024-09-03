@@ -169,7 +169,7 @@ get_shell_exec() {
     sh_c='sh -c'
 	if [ "$user" != 'root' ]; then
 		if command_exists sudo && command_exists su; then
-			sh_c='sudo su -c'
+			sh_c='sudo -E sh -c'
 		else
 			cat >&2 <<-'EOF'
 			Error: this installer needs the ability to run commands as root.
@@ -264,4 +264,16 @@ get_random_string() {
         text+="${alphanumeric:n:1}"
     done
     echo -n "$text"
+}
+
+get_local_ip(){
+    ip=$(ping -c 1 "$HOSTNAME" |awk -F '[()]' '/icmp_seq/{print $2}')
+    echo "$ip  $HOSTNAME"
+
+    if [[ x"$ip" == x"" || "$ip" == @("172.17.0.1"|"127.0.0.1"|"127.0.1.1") ]]; then
+        echo "incorrect ip for hostname '$HOSTNAME', please check"
+        exit $ERR_EXIT
+    fi
+
+    local_ip="$ip"
 }

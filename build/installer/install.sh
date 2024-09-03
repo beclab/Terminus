@@ -3,8 +3,11 @@
 set -o pipefail
 set -e
 
-export VERSION="#__VERSION__"
-if [ "x${VERSION}" = "x" ]; then
+# export VERSION="#__VERSION__"
+# MD5SUM="#__MD5SUM__"
+export VERSION="1.8.0-9999"
+MD5SUM="6c64f5165cf63d0f2b271a0188bb287e"
+if [[ "x${VERSION}" == "x" || "x${VERSION:3}" == "xVERSION__" ]]; then
   echo "Unable to get latest Install-Wizard version. Set VERSION env var and re-run. For example: export VERSION=1.0.0"
   echo ""
   exit
@@ -40,68 +43,76 @@ EOF
 fi
 
 
-DOWNLOAD_URL="https://dc3p1870nn3cj.cloudfront.net/install-wizard-v${VERSION}.tar.gz"
-
-echo ""
-echo " Downloading Install-Wizard ${VERSION} from ${DOWNLOAD_URL} ... " 
-echo ""
-
-foldername="install-wizard-v${VERSION}"
-filename="install-wizard-v${VERSION}.tar.gz"
-download_path=$(pwd)
-
-if [ ! -f ${filename} ]; then
-  tmpname="install-wizard-v${VERSION}.bak.tar.gz"
-  curl -Lo ${tmpname} ${DOWNLOAD_URL}
-
-  if [ $? -ne 0 ] || [ ! -f ${tmpname} ]; then
-    echo ""
-    echo "Failed to download Install-Wizard ${VERSION} !"
-    echo ""
-    echo "Please verify the version you are trying to download."
-    echo ""
-    exit
-  fi
-  mv ${tmpname} ${filename}
-fi
-
-echo ""
-echo "Install-Wizard ${VERSION} Download Complete!"
-echo ""
-
 if command -v tar >/dev/null; then
-    $SUDO rm -rf $HOME/.terminus/${foldername} && \
-    mkdir -p $HOME/.terminus/${foldername} && \
-    cd $HOME/.terminus/${foldername} && \
-    tar -xzf ${download_path}/${filename}
+    if [[ x"$KUBE_TYPE" == x"" ]]; then
+      export KUBE_TYPE="k3s"
+    fi
 
-    CLI_VERSION="0.1.13"
+    foldername="install-wizard-v${VERSION}"
+    $SUDO rm -rf $HOME/.terminus/${foldername} && \
+    mkdir -p $HOME/.terminus/${foldername}
+
+#    CLI_VERSION="0.1.13"
+    CLI_VERSION="0.0.0-debug"
     CLI_FILE="terminus-cli-v${CLI_VERSION}_linux_${ARCH}.tar.gz"
-    if [ $(is_darwin) -eq 1 ]; then
+    INSTALL_TERMINUS_CLI="/usr/local/bin/terminus-cli"
+    if [[ x"$os_type" == x"Darwin" ]]; then
+        INSTALL_TERMINUS_CLI="/usr/local/Cellar/terminus/terminus-cli"
         CLI_FILE="terminus-cli-v${CLI_VERSION}_darwin_${ARCH}.tar.gz"
     fi
-    CLI_URL="https://github.com/beclab/Installer/releases/download/${CLI_VERSION}/${CLI_FILE}"
 
-    if [ ! -f ${CLI_FILE} ]; then
+    if [[ ! -f ${CLI_FILE} ]]; then
+        CLI_URL="https://github.com/beclab/Installer/releases/download/${CLI_VERSION}/${CLI_FILE}"
+        
+        echo ""
+        echo " Downloading Terminus Installer ${CLI_VERSION} from ${CLI_URL} ... " 
+        echo ""
+
         curl -Lo ${CLI_FILE} ${CLI_URL}
+    
     fi
+
 
     #TODO: download terminusd and install, set home to env for terminusd
 
-    if [ $? -eq 0 ]; then
+    if [[ $? -eq 0 ]]; then
+        echo ""
+        echo "Terminus Installer ${CLI_VERSION} Download Complete!"
+        echo ""
+
+        if [[ "x${MD5SUM}" == "x" || "x${MD5SUM:3}" == "xMD5SUM__" ]]; then
+            MD5SUM=$(curl -sSfL "https://dc3p1870nn3cj.cloudfront.net/install-wizard-v${VERSION}.md5sum.txt"|awk '{print $1}')
+        fi
+
         if [[ x"$os_type" == x"Darwin" ]]; then
+          sh -c "tar -zxvf ${CLI_FILE} && chmod +x terminus-cli && \
+          mkdir -p /usr/local/Cellar/terminus && \
+          mv terminus-cli $INSTALL_TERMINUS_CLI"
+
+          # TODO: download install-wizard
+
+          sh -c "cd $HOME/.terminus/${foldername} && \
+          $INSTALL_TERMINUS_CLI terminus download-wizard --version $VERSION --md5sum $MD5SUM --base-dir $HOME/.terminus"
+
+          if [[ $? -ne 0 ]]; then
+            exit -1
+          fi
+
           cd $HOME/.terminus/${foldername} && \
-          bash  ./uninstall_macos.sh && \
-          touch $HOME/.terminus/.installed && \
           bash  ./install_macos.sh
         else
           $SUDO -E sh -c "tar -zxvf ${CLI_FILE} && chmod +x terminus-cli && \
-          mv terminus-cli /usr/local/bin/terminus-cli"
+          mv terminus-cli $INSTALL_TERMINUS_CLI"
+
+          $SUDO -E sh -c "cd $HOME/.terminus/${foldername} && \
+          $INSTALL_TERMINUS_CLI terminus download-wizard --version $VERSION --md5sum $MD5SUM --base-dir $HOME/.terminus"
+
+          if [[ $? -ne 0 ]]; then
+            exit -1
+          fi
 
           cd $HOME/.terminus/${foldername} && \
-          bash  ./uninstall_cmd.sh && \
-          touch $HOME/.terminus/.installed && \
-          bash  ./install_cmd.sh
+          $SUDO -E sh -c "bash  ./install_cmd.sh"
         fi
 
         exit 0

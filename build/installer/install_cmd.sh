@@ -104,219 +104,6 @@ system_service_active() {
     return 1
 }
 
-# precheck_os() {
-#     if [ x"$PREPARED" == x"1" ]; then
-#         precheck_localip
-#         return
-#     fi
-
-#     if [[ -f /boot/cmdline.txt || -f /boot/firmware/cmdline.txt ]]; then
-#     # raspbian 
-#         SHOULD_RETRY=1
-
-#         if ! command_exists iptables; then 
-#             ensure_success $sh_c "apt update && apt install -y iptables"
-#         fi
-
-#         systemctl disable --user gvfs-udisks2-volume-monitor
-#         systemctl stop --user gvfs-udisks2-volume-monitor
-
-#         local cpu_cgroups_enbaled=$(cat /proc/cgroups |awk '{if($1=="cpu")print $4}')
-#         local mem_cgroups_enbaled=$(cat /proc/cgroups |awk '{if($1=="memory")print $4}')
-#         if  [[ $cpu_cgroups_enbaled -eq 0 || $mem_cgroups_enbaled -eq 0 ]]; then
-#             log_fatal "cpu or memory cgroups disabled, please edit /boot/cmdline.txt or /boot/firmware/cmdline.txt and reboot to enable it."
-#         fi
-#     fi
-    
-#     # try to resolv hostname
-#     ensure_success $sh_c "hostname -i >/dev/null"
-
-#     precheck_localip
-
-#     # local badHostname
-#     # badHostname=$(echo "$HOSTNAME" | grep -E "[A-Z]")
-#     # if [ x"$badHostname" != x"" ]; then
-#     #     log_fatal "please set the hostname with lowercase ['${badHostname}']"
-#     # fi
-
-#     # ip=$(ping -c 1 "$HOSTNAME" |awk -F '[()]' '/icmp_seq/{print $2}')
-#     # printf "%s\t%s\n\n" "$ip" "$HOSTNAME"
-
-#     # if [[ x"$ip" == x"" || "$ip" == @("172.17.0.1"|"127.0.0.1"|"127.0.1.1") || ! "$ip" =~ ^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
-#     #     log_fatal "incorrect ip for hostname '$HOSTNAME', please check"
-#     # fi
-
-#     # local_ip="$ip"
-
-#     # disable local dns
-#     case "$OSNAME" in
-#         ubuntu|debian|raspbian)
-#             if system_service_active "systemd-resolved"; then
-#                 ensure_success $sh_c "systemctl stop systemd-resolved.service >/dev/null"
-#                 ensure_success $sh_c "systemctl disable systemd-resolved.service >/dev/null"
-#                 if [ -e /usr/bin/systemd-resolve ]; then
-#                     ensure_success $sh_c "mv /usr/bin/systemd-resolve /usr/bin/systemd-resolve.bak >/dev/null"
-#                 fi
-#                 if [ -L /etc/resolv.conf ]; then
-#                     ensure_success $sh_c 'unlink /etc/resolv.conf && touch /etc/resolv.conf'
-#                 fi
-#                 config_resolv_conf
-#             else
-#                 ensure_success $sh_c "cat /etc/resolv.conf > /etc/resolv.conf.bak"
-#             fi
-#             ;;
-#         centos|fedora|rhel)
-#             ;;
-#         *)
-#             ;;
-#     esac
-
-#     if ! hostname -i &>/dev/null; then
-#         ensure_success $sh_c "echo $local_ip  $HOSTNAME >> /etc/hosts"
-#     fi
-
-#     ensure_success $sh_c "hostname -i >/dev/null"
-
-#     # network and dns
-#     http_code=$(curl ${CURL_TRY} -sL -o /dev/null -w "%{http_code}" https://download.docker.com/linux/ubuntu)
-#     if [ "$http_code" != 200 ]; then
-#         config_resolv_conf
-#         if [ -f /etc/resolv.conf.bak ]; then
-#             ensure_success $sh_c "rm -rf /etc/resolv.conf.bak"
-#         fi
-
-#     fi
-
-#     # ubuntu 24 upgrade apparmor
-#     if [[ $(is_ubuntu) -eq 1 && $(get_os_version) == *24.* ]]; then
-#         aapv=$(apparmor_parser --version)
-#         if [[ ! ${aapv} =~ "4.0.1" ]]; then
-#             local aapv_tar="${BASE_DIR}/components/apparmor_4.0.1-0ubuntu1_${ARCH}.deb"
-#             if [ ! -f "$aapv_tar" ]; then
-#                 if [ x"${ARCH}" == x"arm64" ]; then
-#                     ensure_success $sh_c "curl ${CURL_TRY} -k -sfLO https://launchpad.net/ubuntu/+source/apparmor/4.0.1-0ubuntu1/+build/28428841/+files/apparmor_4.0.1-0ubuntu1_arm64.deb"
-#                 else
-#                     ensure_success $sh_c "curl ${CURL_TRY} -k -sfLO https://launchpad.net/ubuntu/+source/apparmor/4.0.1-0ubuntu1/+build/28428840/+files/apparmor_4.0.1-0ubuntu1_amd64.deb"
-#                 fi
-#             else
-#                 ensure_success $sh_c "cp ${aapv_tar} ./"
-#             fi
-#             ensure_success $sh_c "dpkg -i apparmor_4.0.1-0ubuntu1_${ARCH}.deb"
-#         fi
-#     fi
-
-#     if [[ $(is_wsl) -eq 1 ]]; then
-#         $sh_c "chattr -i /etc/hosts"
-#         $sh_c "chattr -i /etc/resolv.conf"
-#     fi
-
-#     $sh_c "apt remove unattended-upgrades -y"
-#     $sh_c "apt install ntpdate -y"
-
-#     local ntpdate=$(get_command ntpdate)
-#     local hwclock=$(get_command hwclock)
-    
-#     $sh_c "$ntpdate -b -u pool.ntp.org"
-#     $sh_c "$hwclock -w"
-# }
-
-precheck_localip() {
-    local ip
-    local badHostname
-
-    badHostname=$(echo "$HOSTNAME" | grep -E "[A-Z]")
-    if [ x"$badHostname" != x"" ]; then
-        log_fatal "please set the hostname with lowercase ['${badHostname}']"
-    fi
-
-    ip=$(ping -c 1 "$HOSTNAME" |awk -F '[()]' '/icmp_seq/{print $2}')
-    printf "%s\t%s\n\n" "$ip" "$HOSTNAME"
-
-    if [[ x"$ip" == x"" || "$ip" == @("172.17.0.1"|"127.0.0.1"|"127.0.1.1") || ! "$ip" =~ ^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
-        log_fatal "incorrect ip for hostname '$HOSTNAME', please check"
-    fi
-
-    local_ip="$ip"
-}
-
-# install_deps() {
-#     if [ x"$PREPARED" == x"1" ]; then
-#         return
-#     fi
-#     case "$OSNAME" in
-#         ubuntu|debian|raspbian)
-#             pre_reqs="apt-transport-https ca-certificates curl"
-#             if [ -z $(get_command gpg) ]; then
-#               pre_reqs="$pre_reqs gnupg"
-#             fi
-#             if [ -z $(get_command sudo) ]; then
-#               pre_reqs="$pre_reqs sudo"
-#             fi
-
-#             if [ $(is_pve) -eq 0 ]; then
-#                 ensure_success $sh_c 'apt-get update -qq >/dev/null'
-#             else
-#                 $sh_c 'apt-get update -qq >/dev/null'
-#             fi
-#             ensure_success $sh_c "DEBIAN_FRONTEND=noninteractive apt-get install -y -qq $pre_reqs >/dev/null"
-#             ensure_success $sh_c 'DEBIAN_FRONTEND=noninteractive apt-get install -y conntrack socat apache2-utils ntpdate net-tools make gcc openssh-server >/dev/null'
-#             ;;
-
-#         centos|fedora|rhel)
-#             if [ "$lsb_dist" = "fedora" ]; then
-#                 pkg_manager="dnf"
-#             else
-#                 pkg_manager="yum"
-#             fi
-
-#             ensure_success $sh_c "$pkg_manager install -y conntrack socat httpd-tools ntpdate net-tools make gcc openssh-server >/dev/null"
-#             ;;
-#         *)
-#             # build from source code
-#             build_socat
-#             build_contrack
-
-#             #TODO: install bcrypt tools
-#             ;;
-#     esac
-# }
-
-config_system() {
-    if [ x"$PREPARED" == x"1" ]; then
-        return
-    fi
-
-    local ntpdate hwclock
-    natgateway=""
-
-    # kernel printk log level
-    # cause SIGSTOP in ubuntu 22.04
-    # ensure_success $sh_c 'sysctl -w kernel.printk="3 3 1 7"'
-
-    # ntp sync
-    ntpdate=$(get_command ntpdate)
-    hwclock=$(get_command hwclock)
-
-    printf '#!/bin/sh\n\n%s -b -u pool.ntp.org && %s -w\n\nexit 0\n' "$ntpdate" "$hwclock" > cron.ntpdate
-    ensure_success $sh_c '/bin/sh cron.ntpdate'
-    ensure_success $sh_c 'cat cron.ntpdate > /etc/cron.daily/ntpdate && chmod 0700 /etc/cron.daily/ntpdate'
-    ensure_success rm -f cron.ntpdate
-
-    if ! system_service_active "ssh"; then
-        ensure_success $sh_c 'systemctl enable --now ssh'
-    fi 
-
-    if [[ $(is_wsl) -eq 1 ]]; then
-        while :; do
-            read_tty "Enter the windows host IP: " natgateway
-            natgateway=$(echo "$natgateway" | grep -E "[0-9]+(\.[0-9]+){3}" | grep -v "127.0.0.1")
-            if [ x"$natgateway" == x"" ]; then
-                continue
-            fi
-            break
-        done
-    fi
-}
 
 config_proxy_resolv_conf() {
     if [ x"$PROXY" == x"" ]; then
@@ -382,35 +169,14 @@ run_install() {
 
     log_info 'installing k8s and kubesphere'
 
-    # if [[ $(is_wsl) -eq 1 ]]; then
-    #     if [ -f /usr/lib/wsl/lib/nvidia-smi ]; then
-    #         local device=$(/usr/lib/wsl/lib/nvidia-smi -L|grep 'NVIDIA'|grep UUID)
-    #         if [ x"$device" != x"" ]; then
-    #             LOCAL_GPU_ENABLE="1"
-    #             LOCAL_GPU_SHARE="1"
-    #         fi
-    #     fi
-    # fi
-
     # env 'KUBE_TYPE' is specific the special kubernetes (k8s or k3s), default k3s
     if [ x"$KUBE_TYPE" == x"k3s" ]; then
         k8s_version=v1.22.16-k3s
     fi
 
-
-    # TODO: prepare
-    # create_cmd="$TERMINUS_CLI terminus prepare --kube $KUBE_TYPE"
-    
-    local extra
-
-    # env 'REGISTRY_MIRRORS' is a docker image cache mirrors, separated by commas
-    # if [ x"$REGISTRY_MIRRORS" != x"" ]; then
-    #     extra=" --registry-mirrors $REGISTRY_MIRRORS"
-    # fi
-    # create_cmd+=" $extra"
-
-    # add env OS_LOCALIP
-    # ensure_success $sh_c "export OS_LOCALIP=$local_ip && export TERMINUS_IS_CLOUD_VERSION=$TERMINUS_IS_CLOUD_VERSION && $create_cmd"
+    ensure_success $sh_c "export OS_LOCALIP=$local_ip && \
+        export TERMINUS_IS_CLOUD_VERSION=$TERMINUS_IS_CLOUD_VERSION && \
+    $TERMINUS_CLI terminus install $PARAM"
 
     log_info 'k8s and kubesphere installation is complete'
 
@@ -455,27 +221,6 @@ run_install() {
     $run_cmd $sh_c "${HELM} upgrade -i settings ${BASE_DIR}/wizard/config/settings --force"
 
     # install gpu if necessary
-    # if [[ "x${GPU_ENABLE}" == "x1" && "x${GPU_DOMAIN}" != "x" ]]; then
-    #     log_info 'Installing gpu ...'
-
-    #     if [ x"$KUBE_TYPE" == x"k3s" ]; then
-    #         $run_cmd $sh_c "${HELM} upgrade -i gpu ${BASE_DIR}/wizard/config/gpu -n gpu-system --force --set gpu.server=${GPU_DOMAIN} --set container.manager=k3s --create-namespace"
-    #         ensure_success $sh_c "mkdir -p /var/lib/rancher/k3s/agent/etc/containerd"
-    #         ensure_success $sh_c "cp ${BASE_DIR}/deploy/orion-config.toml.tmpl /var/lib/rancher/k3s/agent/etc/containerd/config.toml.tmpl" 
-    #         ensure_success $sh_c "systemctl restart k3s"
-
-    #         check_ksredis
-    #         check_kscm
-    #         check_ksapi
-
-    #         # waiting for kubesphere webhooks starting
-    #         sleep 30
-    #     else
-    #         $run_cmd $sh_c "${HELM} upgrade -i gpu ${BASE_DIR}/wizard/config/gpu -n gpu-system --force --set gpu.server=${GPU_DOMAIN} --set container.manager=containerd --create-namespace"
-    #     fi
-
-    #     check_orion_gpu
-    # fi
     GPU_TYPE="none"
     if [ "x${LOCAL_GPU_ENABLE}" == "x1" ]; then  
         GPU_TYPE="nvidia"
@@ -1368,103 +1113,6 @@ check_orion_gpu(){
 }
 
 install_gpu(){
-    # only for leishen mix
-    # to be tested
-    log_info 'Installing Nvidia GPU Driver ...\n'
-
-    distribution=$(. /etc/os-release;echo $ID$VERSION_ID|sed 's/\.//g')
-
-    if [ "$distribution" == "ubuntu2404" ]; then
-        echo "Not supported Ubuntu 24.04"
-        return
-    fi
-
-
-    if [ x"$PREPARED" != x"1" ]; then
-        if [ $(is_wsl) -eq 0 ]; then
-            if [[ "$distribution" =~ "ubuntu" ]]; then
-                case "$distribution" in
-                    ubuntu2404)
-                        local u24_cude_keyring_deb="${BASE_DIR}/components/ubuntu2404_cuda-keyring_1.1-1_all.deb"
-                        if [ -f "$u24_cude_keyring_deb" ]; then
-                            ensure_success $sh_c "cp ${u24_cude_keyring_deb} cuda-keyring_1.1-1_all.deb"
-                        else 
-                            ensure_success $sh_c "wget https://developer.download.nvidia.com/compute/cuda/repos/$distribution/x86_64/cuda-keyring_1.1-1_all.deb"
-                        fi
-                        ensure_success $sh_c "dpkg -i cuda-keyring_1.1-1_all.deb"
-                        ;;
-                    ubuntu2204|ubuntu2004)
-                        local cude_keyring_deb="${BASE_DIR}/components/${distribution}_cuda-keyring_1.0-1_all.deb"
-                        if [ -f "$cude_keyring_deb" ]; then
-                            ensure_success $sh_c "cp ${cude_keyring_deb} cuda-keyring_1.0-1_all.deb"
-                        else
-                            ensure_success $sh_c "wget https://developer.download.nvidia.com/compute/cuda/repos/$distribution/x86_64/cuda-keyring_1.0-1_all.deb"
-                        fi
-                        ensure_success $sh_c "dpkg -i cuda-keyring_1.0-1_all.deb"
-                        ;;
-                    *)
-                        ;;
-                esac
-            fi
-            
-            ensure_success $sh_c "apt-get update"
-
-            ensure_success $sh_c "apt-get -y install cuda-12-1"
-            ensure_success $sh_c "apt-get -y install nvidia-kernel-open-545"
-            ensure_success $sh_c "apt-get -y install nvidia-driver-545"
-        fi
-
-        distribution=$(. /etc/os-release;echo $ID$VERSION_ID)
-        ensure_success $sh_c "curl -s -L https://nvidia.github.io/libnvidia-container/gpgkey | apt-key add -"
-        ensure_success $sh_c "curl -s -L https://nvidia.github.io/libnvidia-container/$distribution/libnvidia-container.list | tee /etc/apt/sources.list.d/libnvidia-container.list"
-        ensure_success $sh_c "apt-get update && sudo apt-get install -y nvidia-container-toolkit jq"
-    fi
-
-    if [[ x"$KUBE_TYPE" == x"k3s" && x"$PREPARED" != x"1" ]]; then
-        if [[ $(is_wsl) -eq 1 ]]; then
-            local real_driver=$($sh_c "find /usr/lib/wsl/drivers/ -name libcuda.so.1.1|head -1")
-            echo "found cuda driver in $real_driver"
-            if [[ x"$real_driver" != x"" ]]; then
-                local shellname="cuda_lib_fix.sh"
-                cat << EOF > /tmp/${shellname}
-#!/bin/bash
-sh_c="sh -c"
-real_driver=\$(\$sh_c "find /usr/lib/wsl/drivers/ -name libcuda.so.1.1|head -1")
-if [[ x"\$real_driver" != x"" ]]; then
-    \$sh_c "ln -s /usr/lib/wsl/lib/libcuda* /usr/lib/x86_64-linux-gnu/"
-    \$sh_c "rm -f /usr/lib/x86_64-linux-gnu/libcuda.so"
-    \$sh_c "rm -f /usr/lib/x86_64-linux-gnu/libcuda.so.1"
-    \$sh_c "rm -f /usr/lib/x86_64-linux-gnu/libcuda.so.1.1"
-    \$sh_c "cp -f \$real_driver /usr/lib/wsl/lib/libcuda.so"
-    \$sh_c "cp -f \$real_driver /usr/lib/wsl/lib/libcuda.so.1"
-    \$sh_c "cp -f \$real_driver /usr/lib/wsl/lib/libcuda.so.1.1"
-    \$sh_c "ln -s \$real_driver /usr/lib/x86_64-linux-gnu/libcuda.so.1"
-    \$sh_c "ln -s \$real_driver /usr/lib/x86_64-linux-gnu/libcuda.so.1.1"
-    \$sh_c "ln -s /usr/lib/x86_64-linux-gnu/libcuda.so.1 /usr/lib/x86_64-linux-gnu/libcuda.so"
-fi
-EOF
-                ensure_success $sh_c "mv -f /tmp/${shellname} /usr/local/bin/${shellname}"
-                ensure_success $sh_c "chmod +x /usr/local/bin/${shellname}"
-                ensure_success $sh_c "echo 'ExecStartPre=-/usr/local/bin/${shellname}' >> /etc/systemd/system/k3s.service"
-                ensure_success $sh_c "systemctl daemon-reload"
-
-            fi
-        fi
-    fi
-    
-    if [ x"$PREPARED" != x"1" ]; then
-        ensure_success $sh_c "nvidia-ctk runtime configure --runtime=containerd --set-as-default"
-        ensure_success $sh_c "systemctl restart containerd"
-    fi
-    
-
-    check_ksredis
-    check_kscm
-    check_ksapi
-
-    # waiting for kubesphere webhooks starting
-    sleep_waiting 30
-
 
     ensure_success $sh_c "${KUBECTL} create -f ${BASE_DIR}/deploy/nvidia-device-plugin.yml"
 
@@ -1509,12 +1157,34 @@ fd_errlog=$INSTALL_LOG/errlog_fd_13
 Main() {
 
     log_info 'Start to Install Terminus ...\n'
+    local base_dir="$HOME/.terminus"
+    local manifest_file="$BASE_DIR/installation.manifest"
+    local extra
+    TERMINUS_CLI=$(command -v terminus-cli)
+    
+    PARAM="--base-dir $base_dir --manifest $manifest_file --kube $KUBE_TYPE --version $VERSION"
     # TODO: install
 
     get_distribution
     get_shell_exec
         
     (
+        # env 'REGISTRY_MIRRORS' is a docker image cache mirrors, separated by commas
+        if [ x"$REGISTRY_MIRRORS" != x"" ]; then
+            extra=" --registry-mirrors $REGISTRY_MIRRORS"
+        fi
+
+
+        if [ ! -f $HOME/.terminus/.prepared ]; then
+            ensure_success $sh_c "export OS_LOCALIP=$local_ip && \
+            export TERMINUS_IS_CLOUD_VERSION=$TERMINUS_IS_CLOUD_VERSION && \
+            $TERMINUS_CLI terminus download $PARAM"
+
+            ensure_success $sh_c "export OS_LOCALIP=$local_ip && \
+            export TERMINUS_IS_CLOUD_VERSION=$TERMINUS_IS_CLOUD_VERSION && \
+            $TERMINUS_CLI terminus prepare $PARAM $extra"
+        fi
+        get_local_ip
         precheck_support
         install_k8s_ks
     ) 2>&1
