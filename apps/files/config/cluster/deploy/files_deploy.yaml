@@ -201,8 +201,8 @@ spec:
             - name: upload-appdata
               mountPath: /appcache/
 {{ if .Values.sharedlib }}
-              - name: shared-lib
-                mountPath: /data/External
+            - name: shared-lib
+              mountPath: /data/External
 {{ end }}
           resources: { }
           terminationMessagePath: /dev/termination-log
