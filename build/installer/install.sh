@@ -5,8 +5,8 @@ set -e
 
 # export VERSION="#__VERSION__"
 # MD5SUM="#__MD5SUM__"
-export VERSION="1.8.0-99992"
-MD5SUM="4275363f717ea0096901b1cbc8baec4c"
+export VERSION="1.8.0-99995"
+MD5SUM="4c0e0dd59ec5e334e89374af4f89d411"
 if [[ "x${VERSION}" == "x" || "x${VERSION:3}" == "xVERSION__" ]]; then
   echo "Unable to get latest Install-Wizard version. Set VERSION env var and re-run. For example: export VERSION=1.0.0"
   echo ""

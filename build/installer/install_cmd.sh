@@ -648,10 +648,10 @@ Main() {
             $TERMINUS_CLI terminus prepare $PARAM $extra"
         fi
 
-        if [[ x"PREINSTALL" != x"" ]]; then
+        if [[ x"$PREINSTALL" != x"" ]]; then
             echo "Success to preinstall !!!"
             exit 0
-        end
+        fi
         
         get_local_ip
         precheck_support
