@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 source ./common.sh
 
-
+ENV_BASE_DIR=${BASE_DIR}
 
 ERR_EXIT=1
 
@@ -11,156 +11,6 @@ BASE_DIR=$(dirname $(realpath -s $0))
 INSTALL_LOG="$BASE_DIR/logs"
 
 [[ -f "${BASE_DIR}/.env" && -z "$DEBUG_VERSION" ]] && . "${BASE_DIR}/.env"
-
-function retry_cmd(){
-    wait_k8s_health
-    "$@"
-    local ret=$?
-    if [ $ret -ne 0 ];then
-        local max_retries=50
-        local delay=3
-        while [ $max_retries -gt 0 ]; do
-            printf "retry to execute command '%s', after %d seconds\n" "$*" $delay
-            ((delay+=2))
-            sleep $delay
-
-            "$@"
-            ret=$?
-            
-            if [[ $ret -eq 0 ]]; then
-                break
-            fi
-            
-            ((max_retries--))
-
-        done
-
-        if [ $ret -ne 0 ]; then
-            log_fatal "command: '$*'"
-        fi
-    fi
-
-    return $ret
-}
-
-function ensure_success() {
-    wait_k8s_health
-    exec 13> "$fd_errlog"
-
-    "$@" 2>&13
-    local ret=$?
-
-    if [ $ret -ne 0 ]; then
-        local max_retries=50
-        local delay=3
-
-        if dpkg_locked; then
-            while [ $max_retries -gt 0 ]; do
-                printf "retry to execute command '%s', after %d seconds\n" "$*" $delay
-                ((delay+=2))
-                sleep $delay
-
-                exec 13> "$fd_errlog"
-                "$@" 2>&13
-                ret=$?
-
-                local r=""
-
-                if [[ $ret -eq 0 ]]; then
-                    r=y
-                fi
-
-                if ! dpkg_locked; then
-                    r+=y
-                fi
-
-                if [[ x"$r" == x"yy" ]]; then
-                    printf "execute command '%s' successed.\n\n" "$*"
-                    break
-                fi
-                ((max_retries--))
-            done
-        else
-            log_fatal "command: '$*'"
-        fi
-    fi
-
-    return $ret
-}
-
-
-
-
-system_service_active() {
-    if [[ $# -ne 1 || x"$1" == x"" ]]; then
-        return 1
-    fi
-
-    local ret
-    ret=$($sh_c "systemctl is-active $1")
-    if [ "$ret" == "active" ]; then
-        return 0
-    fi
-    return 1
-}
-
-
-config_proxy_resolv_conf() {
-    if [ x"$PROXY" == x"" ]; then
-        return
-    fi
-	ensure_success $sh_c "echo nameserver $PROXY > /etc/resolv.conf"
-}
-
-config_resolv_conf() {
-    local cloud="$CLOUD_VENDOR"
-
-    if [ "$cloud" == "aliyun" ]; then
-        ensure_success $sh_c 'echo "nameserver 100.100.2.136" > /etc/resolv.conf'
-        ensure_success $sh_c 'echo "nameserver 1.0.0.1" >> /etc/resolv.conf'
-        ensure_success $sh_c 'echo "nameserver 1.1.1.1" >> /etc/resolv.conf'
-    else
-        ensure_success $sh_c 'echo "nameserver 1.0.0.1" > /etc/resolv.conf'
-        ensure_success $sh_c 'echo "nameserver 1.1.1.1" >> /etc/resolv.conf'
-    fi
-}
-
-restore_resolv_conf() {
-    # restore /etc/resolv.conf
-    if [ -f /etc/resolv.conf.bak ]; then
-        ns=$(awk '/nameserver/{print $NF}' /etc/resolv.conf.bak)
-        if [[ x"$PROXY" != x"" && x"$ns" == x"$PROXY" ]]; then
-            config_resolv_conf
-        else
-            ensure_success $sh_c "cat /etc/resolv.conf.bak > /etc/resolv.conf"
-        fi
-    fi
-}
-
-k8s_health(){
-    if [ ! -z "$KUBECTL" ]; then
-        $sh_c "$KUBECTL get --raw='/readyz?verbose' 1>/dev/null"
-    fi
-}
-
-wait_k8s_health(){
-    local max_retry=60
-    local ok="n"
-    while [ $max_retry -ge 0 ]; do
-        if k8s_health; then
-            ok="y"
-            break
-        fi
-        sleep 5
-        ((max_retry--))
-    done
-
-    if [ x"$ok" != x"y" ]; then
-        echo "k8s is not health yet, please check it"
-        exit $ERR_EXIT
-    fi
-
-}
 
 
 run_install() {
@@ -200,13 +50,13 @@ run_install() {
 
     ensure_success $sh_c "sed -i '/${local_ip} $HOSTNAME/d' /etc/hosts"
 
-    if [ x"$KUBE_TYPE" == x"k3s" ]; then
-        retry_cmd $sh_c "$KUBECTL apply -f ${BASE_DIR}/deploy/patch-k3s.yaml"
-        if [[ ! -z "${K3S_PRELOAD_IMAGE_PATH}" && -d $K3S_PRELOAD_IMAGE_PATH ]]; then
-            # remove the preload image path to make sure images will not be reloaded after reboot
-            ensure_success $sh_c "rm -rf ${K3S_PRELOAD_IMAGE_PATH}"
-        fi
-    fi
+    # if [ x"$KUBE_TYPE" == x"k3s" ]; then
+    #     retry_cmd $sh_c "$KUBECTL apply -f ${BASE_DIR}/deploy/patch-k3s.yaml"
+    #     if [[ ! -z "${K3S_PRELOAD_IMAGE_PATH}" && -d $K3S_PRELOAD_IMAGE_PATH ]]; then
+    #         # remove the preload image path to make sure images will not be reloaded after reboot
+    #         ensure_success $sh_c "rm -rf ${K3S_PRELOAD_IMAGE_PATH}"
+    #     fi
+    # fi
 
     log_info 'Installing account ...'
     # add the first account
@@ -385,83 +235,6 @@ init_minio_cluster(){
     ensure_success $sh_c "$minio_operator_bin init --address $local_ip --cafile /etc/ssl/etcd/ssl/ca.pem --certfile /etc/ssl/etcd/ssl/node-$HOSTNAME.pem --keyfile /etc/ssl/etcd/ssl/node-$HOSTNAME-key.pem --volume $MINIO_VOLUMES --password $MINIO_ROOT_PASSWORD"
 }
 
-pull_velero_image() {
-    local count
-    local velero_ver=$1
-    count=$(_check_velero_image_exists "$velero_ver")
-    if [ x"$count" == x"0" ]; then
-        echo "pull velero image $velero_ver ..."
-        ensure_success $sh_c "$CRICTL pull docker.io/beclab/velero:${velero_ver} &>/dev/null;true"
-    fi
-
-    while [ "$count" -lt 1 ]; do
-        sleep_waiting 3
-        count=$(_check_velero_image_exists "$velero_ver")
-    done
-    echo
-}
-
-_check_velero_image_exists() {
-  local exists=0
-  local ver=$1
-  local res=$($sh_c "${CRICTL} images |grep 'velero ' 2>/dev/null")
-  if [ "$?" -ne 0 ]; then
-      echo "0"
-  fi
-  exists=$(echo "$res" | while IFS= read -r line; do
-      linev=$(echo $line |awk '{print $2}')
-      if [ "$linev" == "$ver" ]; then
-          echo 1
-          break
-      fi
-  done)
-
-  if [ -z "$exists" ]; then
-      exists=0
-  fi
-
-  echo "${exists}"
-}
-
-pull_velero_plugin_image() {
-    local count
-    local velero_plugin_ver=$1
-    count=$(_check_velero_plugin_image_exists "$velero_plugin_ver")
-    if [ x"$count" == x"0" ]; then
-        echo "pull velero-plugin image $velero_plugin_ver ..."
-        ensure_success $sh_c "$CRICTL pull docker.io/beclab/velero-plugin-for-terminus:${velero_plugin_ver} &>/dev/null;true"
-    fi
-
-    while [ "$count" -lt 1 ]; do
-        sleep_waiting 3
-        count=$(_check_velero_plugin_image_exists "$velero_plugin_ver")
-    done
-    echo
-}
-
-_check_velero_plugin_image_exists() {
-  local exists=0
-  local ver=$1
-  local query="${CRICTL} images"
-  local res=$($sh_c "${CRICTL} images |grep 'velero-plugin-for-terminus' 2>/dev/null")
-  if [ "$?" -ne 0 ]; then
-      echo "0"
-  fi
-
-  exists=$(echo "$res" | while IFS= read -r line; do
-      linev=$(echo $line |awk '{print $2}')
-      if [ "$linev" == "$ver" ]; then
-          echo 1
-          break
-      fi
-  done)
-
-  if [ -z "$exists" ]; then
-      exists=0
-  fi
-
-  echo "$exists"
-}
 
 install_velero() {
     config_proxy_resolv_conf
@@ -499,9 +272,6 @@ install_velero_plugin_terminus() {
     echo "Backup plugin install params invalid."
     exit $ERR_EXIT
   fi
-
-  pull_velero_image "$velero_ver"
-  pull_velero_plugin_image "$velero_plugin_ver"
 
   terminus_backup_location=$($sh_c "${VELERO} backup-location get -n os-system | awk '\$1 == \"${storage_location}\" {count++} END{print count}'")
   if [[ ${terminus_backup_location} == x"" || ${terminus_backup_location} -lt 1 ]]; then
@@ -598,11 +368,6 @@ install_k8s_ks() {
         $sh_c "chattr +i /etc/resolv.conf"
     fi
 
-}
-
-read_tty(){
-    echo -n $1
-    read $2 < /dev/tty
 }
 
 validate_username() {
@@ -807,311 +572,6 @@ _EOF
   sed -i "s/#__SELFHOSTED__/${selfhosted}/" ${BASE_DIR}/wizard/config/settings/templates/terminus_cr.yaml
 }
 
-check_together(){
-    local all=$@
-    
-    local s=""
-    for f in "${all[@]}"; do 
-        s=$($f)
-        if [ "x${s}" != "xRunning" ]; then
-            break
-        fi
-    done
-
-    echo "${s}"
-}
-
-get_auth_status(){
-    $sh_c "${KUBECTL} get pod  -n user-space-${username} -l 'app=authelia' -o jsonpath='{.items[*].status.phase}'"
-}
-
-get_profile_status(){
-    $sh_c "${KUBECTL} get pod  -n user-space-${username} -l 'app=system-frontend' -o jsonpath='{.items[*].status.phase}'"
-}
-
-get_desktop_status(){
-    $sh_c "${KUBECTL} get pod  -n user-space-${username} -l 'app=edge-desktop' -o jsonpath='{.items[*].status.phase}'"
-}
-
-get_vault_status(){
-    $sh_c "${KUBECTL} get pod  -n user-space-${username} -l 'app=vault' -o jsonpath='{.items[*].status.phase}'"
-}
-
-get_citus_status(){
-    $sh_c "${KUBECTL} get pod  -n os-system -l 'app=citus' -o jsonpath='{.items[*].status.phase}'"
-}
-
-get_appservice_status(){
-    $sh_c "${KUBECTL} get pod  -n os-system -l 'tier=app-service' -o jsonpath='{.items[*].status.phase}'"
-}
-
-get_appservice_pod(){
-    $sh_c "${KUBECTL} get pod  -n os-system -l 'tier=app-service' -o jsonpath='{.items[*].metadata.name}'"
-}
-
-get_bfl_status(){
-    $sh_c "${KUBECTL} get pod  -n user-space-${username} -l 'tier=bfl' -o jsonpath='{.items[*].status.phase}'"
-}
-
-get_bfl_node(){
-    $sh_c "${KUBECTL} get pod  -n user-space-${username} -l 'tier=bfl' -o jsonpath='{.items[*].spec.nodeName}'"
-}
-
-get_kscm_status(){
-    $sh_c "${KUBECTL} get pod  -n kubesphere-system -l 'app=ks-controller-manager' -o jsonpath='{.items[*].status.phase}' 2>/dev/null"
-}
-
-get_ksapi_status(){
-    $sh_c "${KUBECTL} get pod  -n kubesphere-system -l 'app=ks-apiserver' -o jsonpath='{.items[*].status.phase}' 2>/dev/null"
-}
-
-get_ksredis_status(){
-    $sh_c "${KUBECTL} get pod  -n kubesphere-system -l 'app=redis' -o jsonpath='{.items[*].status.phase}' 2>/dev/null"
-}
-
-get_gpu_status(){
-    $sh_c "${KUBECTL} get pod  -n kube-system -l 'name=nvidia-device-plugin-ds' -o jsonpath='{.items[*].status.phase}'"
-}
-
-get_orion_gpu_status(){
-    $sh_c "${KUBECTL} get pod  -n gpu-system -l 'app=orionx-container-runtime' -o jsonpath='{.items[*].status.phase}'"
-}
-
-get_userspace_dir(){
-    $sh_c "${KUBECTL} get pod  -n user-space-${username} -l 'tier=bfl' -o \
-    jsonpath='{range .items[0].spec.volumes[*]}{.name}{\" \"}{.persistentVolumeClaim.claimName}{\"\\n\"}{end}}'" | \
-    while read pvc; do
-        pvc_data=($pvc)
-        if [ ${#pvc_data[@]} -gt 1 ]; then
-            if [ "x${pvc_data[0]}" == "xuserspace-dir" ]; then
-                USERSPACE_PVC="${pvc_data[1]}"
-                pv=$($sh_c "${KUBECTL} get pvc -n user-space-${username} ${pvc_data[1]} -o jsonpath='{.spec.volumeName}'")
-                pv_path=$($sh_c "${KUBECTL} get pv ${pv} -o jsonpath='{.spec.hostPath.path}'")
-                USERSPACE_PV_PATH="${pv_path}"
-
-                echo "${USERSPACE_PVC} ${USERSPACE_PV_PATH}"
-                break
-            fi
-        fi
-    done 
-}
-
-get_k8s_annotation() {
-    if [ $# -ne 4 ]; then
-        echo "get annotation, invalid parameters"
-        exit $ERR_EXIT
-    fi
-
-    local ns resource_type resource_name key
-    ns="$1"
-    resource_type="$2"
-    resource_name="$3"
-    key="$4"
-
-    local res
-
-    res=$($sh_c "${KUBECTL} -n $ns get $resource_type $resource_name -o jsonpath='{.metadata.annotations.$key}'")
-    if [[ $? -eq 0 && x"$res" != x"" ]]; then
-        echo "$res"
-        return
-    fi
-    echo "can not to get $ns ${resource_type}/${resource_name} annotation '$key', got value '$res'"
-    exit $ERR_EXIT
-}
-
-get_bfl_url() {
-    bfl_ip=$(curl ${CURL_TRY} -s http://checkip.dyndns.org/ | grep -o "[[:digit:].]\+")
-    echo "http://$bfl_ip:30883/bfl/apidocs.json"
-}
-
-get_app_key_secret(){
-    app=$1
-    key="bytetrade_${app}_${RANDOM}"
-    secret=$(get_random_string 16)
-
-    echo "${key} ${secret}"
-}
-
-get_app_settings(){
-    apps=("portfolio" "vault" "desktop" "message" "wise" "search" "appstore" "notification" "dashboard" "settings" "profile" "agent" "files")
-    for a in "${apps[@]}";do
-        ks=($(get_app_key_secret $a))
-        echo '
-  '${a}':
-    appKey: '${ks[0]}'    
-    appSecret: "'${ks[1]}'"    
-        '
-    done
-}
-
-repeat(){
-    for _ in $(seq 1 "$1"); do
-        echo -n "$2"
-    done
-}
-
-check_desktop(){
-    status=$(check_together get_profile_status get_auth_status get_desktop_status)
-    n=0
-    while [ "x${status}" != "xRunning" ]; do
-        n=$(expr $n + 1)
-        dotn=$(($n % 10))
-        dot=$(repeat $dotn '>')
-
-        echo -ne "\rPlease waiting ${dot}"
-        sleep 0.5
-
-        status=$(check_together get_profile_status get_auth_status get_desktop_status)
-        echo -ne "\rPlease waiting          "
-
-    done
-    echo
-}
-
-check_vault(){
-    status=$(get_vault_status)
-    n=0
-    while [ "x${status}" != "xRunning" ]; do
-        n=$(expr $n + 1)
-        dotn=$(($n % 10))
-        dot=$(repeat $dotn '>')
-
-        echo -ne "\rPlease waiting ${dot}"
-        sleep 0.5
-
-        status=$(get_vault_status)
-        echo -ne "\rPlease waiting          "
-
-    done
-    echo
-}
-
-check_appservice(){
-    status=$(check_together get_appservice_status get_citus_status)
-    n=0
-    while [ "x${status}" != "xRunning" ]; do
-        n=$(expr $n + 1)
-        dotn=$(($n % 10))
-        dot=$(repeat $dotn '>')
-
-        echo -ne "\rWaiting for app-service starting ${dot}"
-        sleep 0.5
-
-        status=$(check_together get_appservice_status get_citus_status)
-        echo -ne "\rWaiting for app-service starting          "
-
-    done
-    echo
-}
-
-check_bfl(){
-    status=$(get_bfl_status)
-    n=0
-    while [ "x${status}" != "xRunning" ]; do
-        n=$(expr $n + 1)
-        dotn=$(($n % 10))
-        dot=$(repeat $dotn '>')
-
-        echo -ne "\rWaiting for bfl starting ${dot}"
-        sleep 0.5
-
-        status=$(get_bfl_status)
-        echo -ne "\rWaiting for bfl starting          "
-
-    done
-    echo
-}
-
-check_kscm(){
-    status=$(get_kscm_status)
-    n=0
-    while [ "x${status}" != "xRunning" ]; do
-        n=$(expr $n + 1)
-        dotn=$(($n % 10))
-        dot=$(repeat $dotn '>')
-
-        echo -ne "\rWaiting for ks-controller-manager starting ${dot}"
-        sleep 0.5
-
-        status=$(get_kscm_status)
-        echo -ne "\rWaiting for ks-controller-manager starting          "
-
-    done
-    echo
-}
-
-check_ksapi(){
-    status=$(get_ksapi_status)
-    n=0
-    while [ "x${status}" != "xRunning" ]; do
-        n=$(expr $n + 1)
-        dotn=$(($n % 10))
-        dot=$(repeat $dotn '>')
-
-        echo -ne "\rWaiting for ks-apiserver starting ${dot}"
-        sleep 0.5
-
-        status=$(get_ksapi_status)
-        echo -ne "\rWaiting for ks-apiserver starting          "
-
-    done
-    echo
-}
-
-check_ksredis(){
-    status=$(get_ksredis_status)
-    n=0
-    while [ "x${status}" != "xRunning" ]; do
-        n=$(expr $n + 1)
-        dotn=$(($n % 10))
-        dot=$(repeat $dotn '>')
-
-        echo -ne "\rWaiting for ks-redis starting ${dot}"
-        sleep 0.5
-
-        status=$(get_ksredis_status)
-        echo -ne "\rWaiting for ks-redis starting          "
-
-    done
-    echo
-}
-
-check_gpu(){
-    status=$(get_gpu_status)
-    n=0
-    while [ "x${status}" != "xRunning" ]; do
-        n=$(expr $n + 1)
-        dotn=$(($n % 10))
-        dot=$(repeat $dotn '>')
-
-        echo -ne "\rWaiting for nvidia-device-plugin starting ${dot}"
-        sleep 0.5
-
-        status=$(get_gpu_status)
-        echo -ne "\rWaiting for nvidia-device-plugin starting          "
-
-    done
-    echo
-}
-
-check_orion_gpu(){
-    status=$(get_orion_gpu_status)
-    n=0
-    while [ "x${status}" != "xRunning" ]; do
-        n=$(expr $n + 1)
-        dotn=$(($n % 10))
-        dot=$(repeat $dotn '>')
-
-        echo -ne "\rWaiting for orionx-container-runtime starting ${dot}"
-        sleep 0.5
-
-        status=$(get_orion_gpu_status)
-        echo -ne "\rWaiting for orionx-container-runtime starting          "
-
-    done
-    echo
-}
-
 install_gpu(){
 
     ensure_success $sh_c "${KUBECTL} create -f ${BASE_DIR}/deploy/nvidia-device-plugin.yml"
@@ -1157,12 +617,15 @@ fd_errlog=$INSTALL_LOG/errlog_fd_13
 Main() {
 
     log_info 'Start to Install Terminus ...\n'
-    local base_dir="$HOME/.terminus"
+    local terminus_base_dir="$HOME/.terminus"
     local manifest_file="$BASE_DIR/installation.manifest"
     local extra
     TERMINUS_CLI=$(command -v terminus-cli)
+    if [[ x"$ENV_BASE_DIR" != x"" ]]; then
+        terminus_base_dir="$ENV_BASE_DIR"
+    fi
     
-    PARAM="--base-dir $base_dir --manifest $manifest_file --kube $KUBE_TYPE --version $VERSION"
+    PARAM="--base-dir $terminus_base_dir --manifest $manifest_file --kube $KUBE_TYPE --version $VERSION"
     # TODO: install
 
     get_distribution
@@ -1175,7 +638,7 @@ Main() {
         fi
 
 
-        if [ ! -f $HOME/.terminus/.prepared ]; then
+        if [ ! -f $terminus_base_dir/.prepared ]; then
             ensure_success $sh_c "export OS_LOCALIP=$local_ip && \
             export TERMINUS_IS_CLOUD_VERSION=$TERMINUS_IS_CLOUD_VERSION && \
             $TERMINUS_CLI terminus download $PARAM"
@@ -1184,6 +647,12 @@ Main() {
             export TERMINUS_IS_CLOUD_VERSION=$TERMINUS_IS_CLOUD_VERSION && \
             $TERMINUS_CLI terminus prepare $PARAM $extra"
         fi
+
+        if [[ x"PREINSTALL" != x"" ]]; then
+            echo "Success to preinstall !!!"
+            exit 0
+        end
+        
         get_local_ip
         precheck_support
         install_k8s_ks
