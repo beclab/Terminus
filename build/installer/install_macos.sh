@@ -703,7 +703,7 @@ main(){
         if command_exists minikube ; then
             running=$(minikube profile list|grep "${PROFILE_NAME}"|grep Running)
             if [ x"$running" == x"" ]; then
-                ensure_success minikube start -p "${PROFILE_NAME}" --kubernetes-version=v1.22.10 --network-plugin=cni --cni=calico --cpus='4' --memory='8g' --ports=30180:30180,443:443,80:80
+                ensure_success $sh_c "minikube start -p '${PROFILE_NAME}' --kubernetes-version=v1.22.10 --network-plugin=cni --cni=calico --cpus='4' --memory='8g' --ports=30180:30180,443:443,80:80"
             fi
         else
             log_fatal "Please install minikube on your machine"
