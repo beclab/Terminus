@@ -90,8 +90,9 @@ install_cli(){
 }
 
 install_ks(){
-    cmd="${BASE_DIR}/terminus-cli terminus init --kube ${KUBE_TYPE} --minikube --profile ${PROFILE_NAME}"
-    ensure_success $sh_c "${cmd}"
+    # cmd="${BASE_DIR}/terminus-cli terminus install --kube ${KUBE_TYPE} --minikube --profile ${PROFILE_NAME}"
+    # ensure_success $sh_c "${cmd}"
+    ensure_success $sh_c "$TERMINUS_CLI terminus install $PARAM"
 }
 
 get_auth_status(){
@@ -654,6 +655,7 @@ EOF
 
 
 main(){
+    log_info 'Start to Install Terminus ...\n'
     HOSTNAME=$(hostname)
     natgateway=$(ping -c 1 "$HOSTNAME" |awk -F '[()]' '/PING/{print $2}')
     natgateway=$(echo "$natgateway" | grep -E "[0-9]+(\.[0-9]+){3}" | grep -v "127.0.0.1")
@@ -682,16 +684,33 @@ main(){
 
     install_helm
 
-    install_cli
-
-    if command_exists minikube ; then
-        running=$(minikube profile list|grep "${PROFILE_NAME}"|grep Running)
-        if [ x"$running" == x"" ]; then
-            ensure_success minikube start -p "${PROFILE_NAME}" --kubernetes-version=v1.22.10 --network-plugin=cni --cni=calico --cpus='4' --memory='8g' --ports=30180:30180,443:443,80:80
-        fi
-    else
-        log_fatal "Please install minikube on your machine"
+    # install_cli
+    local terminus_base_dir="$HOME/.terminus"
+    local manifest_file="$BASE_DIR/installation.manifest"
+    local extra
+    TERMINUS_CLI=$(command -v terminus-cli)
+    if [[ x"$ENV_BASE_DIR" != x"" ]]; then
+        terminus_base_dir="$ENV_BASE_DIR"
     fi
+
+    PARAM="--base-dir $terminus_base_dir --manifest $manifest_file --version $VERSION --minikube --profile ${PROFILE_NAME}"
+
+    if [ ! -f $terminus_base_dir/.prepared ]; then
+        ensure_success $sh_c "export OS_LOCALIP=$local_ip && \
+            export TERMINUS_IS_CLOUD_VERSION=$TERMINUS_IS_CLOUD_VERSION && \
+            $TERMINUS_CLI terminus download --base-dir $terminus_base_dir --manifest $manifest_file --version $VERSION"
+
+        if command_exists minikube ; then
+            running=$(minikube profile list|grep "${PROFILE_NAME}"|grep Running)
+            if [ x"$running" == x"" ]; then
+                ensure_success minikube start -p "${PROFILE_NAME}" --kubernetes-version=v1.22.10 --network-plugin=cni --cni=calico --cpus='4' --memory='8g' --ports=30180:30180,443:443,80:80
+            fi
+        else
+            log_fatal "Please install minikube on your machine"
+        fi
+        touch $terminus_base_dir/.prepared
+    fi
+
 
     setup_ws
 

@@ -16,7 +16,7 @@ fi
 # check os type and arch and os vesion
 os_type=$(uname -s)
 os_arch=$(uname -m)
-os_verion=$(lsb_release -d 2>&1 | awk -F'\t' '{print $2}')
+# os_verion=$(lsb_release -d 2>&1 | awk -F'\t' '{print $2}')
 
 case "$os_arch" in 
     arm64) ARCH=arm64; ;; 
@@ -85,10 +85,16 @@ if command -v tar >/dev/null; then
         fi
 
         if [[ x"$os_type" == x"Darwin" ]]; then
+          if [ ! -f "/usr/local/Cellar" ]; then
+            current_user=$(whoami)
+            sh -c "sudo mkdir -p /usr/local/Cellar && sudo chown ${current_user}:staff /usr/local/Cellar"
+          fi
           sh -c "tar -zxvf ${CLI_FILE} && chmod +x terminus-cli && \
           mkdir -p /usr/local/Cellar/terminus && \
-          mv terminus-cli $INSTALL_TERMINUS_CLI"
-
+          mv terminus-cli $INSTALL_TERMINUS_CLI && \
+          sudo rm -rf /usr/local/bin/terminus-cli && \
+          sudo ln -s $INSTALL_TERMINUS_CLI /usr/local/bin/terminus-cli"
+          
           # TODO: download install-wizard
 
           sh -c "cd $HOME/.terminus/${foldername} && \
