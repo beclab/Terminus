@@ -3,10 +3,14 @@
 set -o pipefail
 set -e
 
-# export VERSION="#__VERSION__"
-# MD5SUM="#__MD5SUM__"
-export VERSION="1.8.0-99995"
-MD5SUM="4c0e0dd59ec5e334e89374af4f89d411"
+
+if [[ x"$VERSION" == x""]]; then
+  export VERSION="#__VERSION__"
+  MD5SUM="#__MD5SUM__"
+  # export VERSION="1.8.0-99995"
+  # MD5SUM="4c0e0dd59ec5e334e89374af4f89d411"
+fi
+
 if [[ "x${VERSION}" == "x" || "x${VERSION:3}" == "xVERSION__" ]]; then
   echo "Unable to get latest Install-Wizard version. Set VERSION env var and re-run. For example: export VERSION=1.0.0"
   echo ""
@@ -81,7 +85,7 @@ if command -v tar >/dev/null; then
         echo ""
 
         if [[ "x${MD5SUM}" == "x" || "x${MD5SUM:3}" == "xMD5SUM__" ]]; then
-            MD5SUM=$(curl -sSfL "https://dc3p1870nn3cj.cloudfront.net/install-wizard-v${VERSION}.md5sum.txt"|awk '{print $1}')
+          MD5SUM=$(curl -sSfL "https://dc3p1870nn3cj.cloudfront.net/install-wizard-v${VERSION}.md5sum.txt"|awk '{print $1}')
         fi
 
         if [[ x"$os_type" == x"Darwin" ]]; then
