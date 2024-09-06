@@ -55,7 +55,6 @@ fi
 
 if [ ! -z $VERSION ]; then
     sh -c "$SED 's/#__VERSION__/${VERSION}/' wizard/config/settings/templates/terminus_cr.yaml"
-    sh -c "$SED 's/#{{LATEST_VERSION}}/${VERSION}/' publicInstaller.latest"
     VERSION="v${VERSION}"
 else
     VERSION="debug"
