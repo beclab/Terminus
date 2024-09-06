@@ -65,7 +65,7 @@ spec:
 
       containers:
       - name: edge-desktop
-        image: beclab/desktop:v0.2.34
+        image: beclab/desktop:v0.2.36
         imagePullPolicy: IfNotPresent
         securityContext:
           runAsNonRoot: false
@@ -77,7 +77,7 @@ spec:
             value: http://bfl.{{ .Release.Namespace }}:8080
 
       - name: desktop-server
-        image: beclab/desktop-server:v0.2.34
+        image: beclab/desktop-server:v0.2.36
         imagePullPolicy: IfNotPresent
         securityContext:
           allowPrivilegeEscalation: false
@@ -410,6 +410,7 @@ data:
                   - upgrade_type: websocket      
                   - upgrade_type: tailscale-control-protocol            
                   skip_xff_append: false
+                  max_request_headers_kb: 500
                   codec_type: AUTO
                   route_config:
                     name: local_route
@@ -577,6 +578,7 @@ data:
                   - upgrade_type: websocket      
                   - upgrade_type: tailscale-control-protocol            
                   skip_xff_append: false
+                  max_request_headers_kb: 500
                   codec_type: AUTO
                   route_config:
                     name: local_route

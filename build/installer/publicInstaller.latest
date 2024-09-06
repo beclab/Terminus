@@ -77,7 +77,7 @@ if command -v tar >/dev/null; then
     cd $HOME/.terminus/${foldername} && \
     tar -xzf ${download_path}/${filename}
 
-    CLI_VERSION="0.1.13"
+    CLI_VERSION="0.1.14"
     CLI_FILE="terminus-cli-v${CLI_VERSION}_linux_${ARCH}.tar.gz"
     if [ x"${os_type}" == x"Darwin" ]; then
         CLI_FILE="terminus-cli-v${CLI_VERSION}_darwin_${ARCH}.tar.gz"
