@@ -659,27 +659,18 @@ run_install() {
         k8s_version=v1.22.16-k3s
     fi
     create_cmd="${BASE_DIR}/terminus-cli terminus init --kube $KUBE_TYPE"
-    # create_cmd="./kk create cluster --with-kubernetes $k8s_version --with-kubesphere $ks_version --container-manager containerd"  # --with-addon ${ADDON_CONFIG_FILE}
 
     local extra
 
     # env 'REGISTRY_MIRRORS' is a docker image cache mirrors, separated by commas
-    # if [ x"$REGISTRY_MIRRORS" != x"" ]; then
-    #     extra=" --registry-mirrors $REGISTRY_MIRRORS"
-    # fi
+    if [ x"$REGISTRY_MIRRORS" != x"" ]; then
+        extra=" --registry-mirrors $REGISTRY_MIRRORS"
+    fi
     # env 'PROXY' is a cache proxy server, to download binaries and container images
-    # if [ x"$PROXY" != x"" ]; then
-    #     # download binary with cache proxy
-    #     if [ x"$KUBE_TYPE" != x"k3s" ];then
-    #         ensure_success $sh_c "./kk create phase os"
-    #         ensure_success $sh_c "./kk create phase binary --with-kubernetes $k8s_version --download-cmd 'curl ${CURL_TRY} -kL -o %s %s'"
-    #     else
-    #         create_cmd+=" --download-cmd 'curl ${CURL_TRY} -kL -o %s %s'"
-    #     fi
-
-    #     restore_resolv_conf
-    #     extra=" --registry-mirrors http://${PROXY}:5000"
-    # fi
+    if [ x"$PROXY" != x"" ]; then
+        restore_resolv_conf
+        extra=" --registry-mirrors http://${PROXY}:5000"
+    fi
     create_cmd+=" $extra"
 
     # add env OS_LOCALIP
@@ -770,12 +761,15 @@ run_install() {
 
     # add ownerReferences of user
     log_info 'Installing appservice ...'
+    local shared_lib="/terminus/share"
+    ensure_success $sh_c "mkdir -p $shared_lib && chown 1000:1000 $shared_lib"
+
     local ks_redis_pwd=$($sh_c "${KUBECTL} get secret -n kubesphere-system redis-secret -o jsonpath='{.data.auth}' |base64 -d")
     retry_cmd $sh_c "${HELM} upgrade -i system ${BASE_DIR}/wizard/config/system -n os-system --force \
         --set kubesphere.redis_password=${ks_redis_pwd} --set backup.bucket=\"${BACKUP_CLUSTER_BUCKET}\" \
         --set backup.key_prefix=\"${BACKUP_KEY_PREFIX}\" --set backup.is_cloud_version=\"${TERMINUS_IS_CLOUD_VERSION}\" \
         --set backup.sync_secret=\"${BACKUP_SECRET}\" --set gpu=\"${GPU_TYPE}\" --set s3_bucket=\"${S3_BUCKET}\" \
-        --set fs_type=\"${fs_type}\""
+        --set fs_type=\"${fs_type}\" --set sharedlib=\"$shared_lib\""
 
     # save backup env to configmap
     cat > cm-backup-config.yaml << _END
@@ -1210,7 +1204,7 @@ _END
 }
 
 install_juicefs() {
-    JFS_VERSION="v11.1.0"
+    JFS_VERSION="v11.1.1"
 
     log_info 'start to install juicefs'
 
@@ -1607,7 +1601,7 @@ install_containerd(){
 }
 
 install_k8s_ks() {
-    CLI_VERSION=0.1.13
+    CLI_VERSION=0.1.14
     ensure_success $sh_c "mkdir -p /etc/kke"
     local cli_name="terminus-cli-v${CLI_VERSION}_linux_${ARCH}.tar.gz"
     if [ ! -f "${BASE_DIR}/${cli_name}" ]; then
@@ -1746,7 +1740,7 @@ setup_ws() {
     log_info 'parse user info from env or stdin\n'
     if [ -z "$domainname" ]; then
         while :; do
-            read_tty "Enter the domain name ( default myterminus.com ): " domainname
+            read_tty "Enter the domain name ( myterminus.com by default ): " domainname
             [[ -z "$domainname" ]] && domainname="myterminus.com"
 
             if ! validate_domainname; then
@@ -1762,7 +1756,7 @@ setup_ws() {
 
     if [ -z "$username" ]; then
         while :; do
-            read_tty "Enter the terminus name: " username
+            read_tty "Enter the Terminus Name ( registered from TermiPass app ): " username
             local domain=$(echo "$username"|awk -F'@' '{print $2}')
             if [[ ! -z "${domain}" && x"${domain}" != x"${domainname}" ]]; then
                 printf "illegal domain name '$domain', try again\n\n"

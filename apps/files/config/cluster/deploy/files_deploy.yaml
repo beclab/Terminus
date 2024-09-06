@@ -70,7 +70,7 @@ spec:
             - containerPort: 8080
           env:
             - name: FILES_SERVER_TAG
-              value: 'beclab/files-server:v0.2.31'
+              value: 'beclab/files-server:v0.2.33'
             - name: NAMESPACE
               valueFrom:
                 fieldRef:
@@ -97,7 +97,7 @@ spec:
             mountPath: /appdata
 
         - name: files
-          image: beclab/files-server:v0.2.31
+          image: beclab/files-server:v0.2.33
           imagePullPolicy: IfNotPresent
           securityContext:
             allowPrivilegeEscalation: false
@@ -114,6 +114,11 @@ spec:
 #              mountPath: /data/Home/Documents
             - name: upload-appdata
               mountPath: /appcache/
+            
+{{ if .Values.sharedlib }}        
+            - name: shared-lib
+              mountPath: /data/External
+{{ end }}
           ports:
             - containerPort: 8110
           env:
@@ -142,7 +147,7 @@ spec:
 #            - name: ZINC_INDEX
 #              value: os-system_zinc-files
             - name: WATCH_DIR
-              value: '/Home,/Data'
+              value: '/Home'
             - name: FS_TYPE
               value: {{ .Values.fs_type }}
             - name: PATH_PREFIX
@@ -182,7 +187,7 @@ spec:
             - /filebrowser
             - --noauth
         - name: uploader
-          image: beclab/upload:v1.0.5
+          image: beclab/upload:v1.0.6
           env:
             - name: UPLOAD_FILE_TYPE
               value: '*'
@@ -195,6 +200,10 @@ spec:
               mountPath: /data
             - name: upload-appdata
               mountPath: /appcache/
+{{ if .Values.sharedlib }}
+            - name: shared-lib
+              mountPath: /data/External
+{{ end }}
           resources: { }
           terminationMessagePath: /dev/termination-log
           terminationMessagePolicy: File
@@ -239,6 +248,13 @@ spec:
           hostPath:
             path: /terminus/userdata/Cache
             type: Directory
+        
+{{ if .Values.sharedlib }}        
+        - name: shared-lib
+          hostPath:
+            path: {{ .Values.sharedlib }}
+            type: Directory
+{{ end }}            
 
 ---
 apiVersion: v1
@@ -312,7 +328,7 @@ spec:
             chown -R 1000:1000 /appdata 
       containers:
         - name: files
-          image: beclab/files-server:v0.2.31
+          image: beclab/files-server:v0.2.33
           imagePullPolicy: IfNotPresent
           securityContext:
             allowPrivilegeEscalation: false

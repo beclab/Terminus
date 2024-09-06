@@ -129,7 +129,7 @@ log_fatal() {
 
 install_cli(){
     KUBE_TYPE=${KUBE_TYPE}
-    CLI_VERSION="0.1.13"
+    CLI_VERSION="0.1.14"
     if [ -z $KUBE_TYPE ]; then
         KUBE_TYPE="k3s"
     fi
@@ -486,7 +486,7 @@ setup_ws() {
     log_info 'parse user info from env or stdin\n'
     if [ -z "$domainname" ]; then
         while :; do
-            read_tty "Enter the domain name ( default myterminus.com ): " domainname
+            read_tty "Enter the domain name ( myterminus.com by default ): " domainname
             [[ -z "$domainname" ]] && domainname="myterminus.com"
 
             if ! validate_domainname; then
@@ -502,7 +502,7 @@ setup_ws() {
 
     if [ -z "$username" ]; then
         while :; do
-            read_tty "Enter the terminus name: " username
+            read_tty "Enter the Terminus Name ( registered from TermiPass app ): " username
             local domain=$(echo "$username"|awk -F'@' '{print $2}')
             if [[ ! -z "${domain}" && x"${domain}" != x"${domainname}" ]]; then
                 printf "illegal domain name '$domain', try again\n\n"
@@ -737,6 +737,7 @@ EOF
 main(){
     HOSTNAME=$(hostname)
     natgateway=$(ping -c 1 "$HOSTNAME" |awk -F '[()]' '/PING/{print $2}')
+    natgateway=$(echo "$natgateway" | grep -E "[0-9]+(\.[0-9]+){3}" | grep -v "127.0.0.1")
 
     precheck_os
 
