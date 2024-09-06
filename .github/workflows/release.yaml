@@ -61,6 +61,8 @@ jobs:
           AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           AWS_DEFAULT_REGION: 'us-east-1'
         run: |
+          md5sum install-wizard-v${{ github.event.inputs.tags }}.tar.gz > install-wizard-v${{ github.event.inputs.tags }}.md5sum.txt && \
+          aws s3 cp install-wizard-v${{ github.event.inputs.tags }}.md5sum.txt s3://terminus-os-install/install-wizard-v${{ github.event.inputs.tags }}.md5sum.txt --acl=public-read && \
           aws s3 cp install-wizard-v${{ github.event.inputs.tags }}.tar.gz s3://terminus-os-install/install-wizard-v${{ github.event.inputs.tags }}.tar.gz --acl=public-read
 
   release:
@@ -77,30 +79,44 @@ jobs:
         run: |
           bash scripts/package.sh
 
+      - name: Get checksum
+        id: vars
+        run: |
+          echo "version_md5sum=$(curl -sSfL https://dc3p1870nn3cj.cloudfront.net/install-wizard-v${{ github.event.inputs.tags }}.md5sum.txt|awk '{print $1}')" >> $GITHUB_OUTPUT
+
       - name: Update version
         uses: eball/write-tag-to-version-file@latest
         with:
           filename: 'build/installer/wizard/config/settings/templates/terminus_cr.yaml'
           placeholder: '#__VERSION__'
           tag: ${{ github.event.inputs.tags }}
-      
+
+      - name: Update release version
+        uses: eball/write-tag-to-version-file@latest
+        with:
+          filename: 'build/installer/install.sh'
+          placeholder: '#__VERSION__'
+          tag: ${{ github.event.inputs.tags }}
+
+      - name: Update checksum
+        uses: eball/write-tag-to-version-file@latest
+        with:
+          filename: 'build/installer/install.sh'
+          placeholder: '#__MD5SUM__'
+          tag: ${{ steps.vars.outputs.version_md5sum }}
+          
       - name: Update env
         working-directory: ./build/installer
         run: |
           echo 'DEBUG_VERSION="false"' > .env
-
-      - name: Update latest installer
-        uses: eball/write-tag-to-version-file@latest
-        with:
-          filename: 'build/installer/publicInstaller.latest'
-          placeholder: '#{{LATEST_VERSION}}'
-          tag: ${{ github.event.inputs.tags }}
 
       - name: 'Archives'
         working-directory: ./build/installer
         run: |
           mkdir -p /tmp/build
           tar --exclude=wizard/tools --exclude=.git -zcvf /tmp/build/install-wizard-v${{ github.event.inputs.tags }}.tar.gz .
+          cp install.sh publicInstaller.sh
+          cp install.sh publicInstaller.latest
 
       - name: Release public files
         uses: softprops/action-gh-release@v1
