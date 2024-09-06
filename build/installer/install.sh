@@ -4,7 +4,7 @@ set -o pipefail
 set -e
 
 
-if [[ x"$VERSION" == x""]]; then
+if [[ x"$VERSION" == x"" ]]; then
   export VERSION="#__VERSION__"
   MD5SUM="#__MD5SUM__"
   # export VERSION="1.8.0-99995"
