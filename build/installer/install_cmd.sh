@@ -240,14 +240,12 @@ install_velero() {
     config_proxy_resolv_conf
 
     VELERO_VERSION="v1.11.3"
-    local velero_tar="${BASE_DIR}/components/velero-${VELERO_VERSION}-linux-${ARCH}.tar.gz"
+    local velero_tar="$terminus_base_dir/pkg/components/velero-${VELERO_VERSION}.tar.gz"
     if [ -f "$velero_tar" ]; then
-        ensure_success $sh_c "cp ${velero_tar} velero-${VELERO_VERSION}-linux-${ARCH}.tar.gz"
-    else
-        ensure_success $sh_c "curl ${CURL_TRY} -k -sfLO https://github.com/beclab/velero/releases/download/${VELERO_VERSION}/velero-${VELERO_VERSION}-linux-${ARCH}.tar.gz"
+        ensure_success $sh_c "cp ${velero_tar} /tmp/velero-${VELERO_VERSION}.tar.gz"
     fi
-    ensure_success $sh_c "tar xf velero-${VELERO_VERSION}-linux-${ARCH}.tar.gz"
-    ensure_success $sh_c "install velero-${VELERO_VERSION}-linux-${ARCH}/velero /usr/local/bin"
+    ensure_success $sh_c "tar xf /tmp/velero-${VELERO_VERSION}.tar.gz"
+    ensure_success $sh_c "install /tmp/velero-${VELERO_VERSION}-linux-${ARCH}/velero /usr/local/bin"
 
     CRICTL=$(get_command crictl)
     VELERO=$(get_command velero)
