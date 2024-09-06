@@ -244,7 +244,7 @@ install_velero() {
     if [ -f "$velero_tar" ]; then
         ensure_success $sh_c "cp ${velero_tar} /tmp/velero-${VELERO_VERSION}.tar.gz"
     fi
-    ensure_success $sh_c "tar xf /tmp/velero-${VELERO_VERSION}.tar.gz"
+    ensure_success $sh_c "tar xf /tmp/velero-${VELERO_VERSION}.tar.gz -C /tmp/"
     ensure_success $sh_c "install /tmp/velero-${VELERO_VERSION}-linux-${ARCH}/velero /usr/local/bin"
 
     CRICTL=$(get_command crictl)
