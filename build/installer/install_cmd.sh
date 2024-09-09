@@ -212,28 +212,28 @@ EOF
     $run_cmd $sh_c "${KUBECTL} patch felixconfiguration default -p '{\"spec\":{\"featureDetectOverride\": \"SNATFullyRandom=false,MASQFullyRandom=false\"}}' --type='merge'"
 }
 
-init_minio_cluster(){
-    MINIO_OPERATOR_VERSION="v0.0.1"
-    if [[ ! -f /etc/ssl/etcd/ssl/ca.pem || ! -f /etc/ssl/etcd/ssl/node-$HOSTNAME-key.pem || ! -f /etc/ssl/etcd/ssl/node-$HOSTNAME.pem ]]; then
-        echo "cann't find etcd key files"
-        exit $ERR_EXIT
-    fi
+# init_minio_cluster(){
+#     MINIO_OPERATOR_VERSION="v0.0.1"
+#     if [[ ! -f /etc/ssl/etcd/ssl/ca.pem || ! -f /etc/ssl/etcd/ssl/node-$HOSTNAME-key.pem || ! -f /etc/ssl/etcd/ssl/node-$HOSTNAME.pem ]]; then
+#         echo "cann't find etcd key files"
+#         exit $ERR_EXIT
+#     fi
 
-    local minio_operator_tar="${BASE_DIR}/components/minio-operator-${MINIO_OPERATOR_VERSION}-linux-${ARCH}.tar.gz"
-    local minio_operator_bin="/usr/local/bin/minio-operator"
+#     local minio_operator_tar="${BASE_DIR}/components/minio-operator-${MINIO_OPERATOR_VERSION}-linux-${ARCH}.tar.gz"
+#     local minio_operator_bin="/usr/local/bin/minio-operator"
 
-    if [ ! -f "$minio_operator_bin" ]; then
-        if [ -f "$minio_operator_tar" ]; then
-            ensure_success $sh_c "cp ${minio_operator_tar} minio-operator-${MINIO_OPERATOR_VERSION}-linux-${ARCH}.tar.gz"
-        else
-            ensure_success $sh_c "curl ${CURL_TRY} -k -sfLO https://github.com/beclab/minio-operator/releases/download/${MINIO_OPERATOR_VERSION}/minio-operator-${MINIO_OPERATOR_VERSION}-linux-${ARCH}.tar.gz"
-        fi
-	      ensure_success $sh_c "tar zxf minio-operator-${MINIO_OPERATOR_VERSION}-linux-${ARCH}.tar.gz"
-        ensure_success $sh_c "install -m 755 minio-operator $minio_operator_bin"
-    fi
+#     if [ ! -f "$minio_operator_bin" ]; then
+#         if [ -f "$minio_operator_tar" ]; then
+#             ensure_success $sh_c "cp ${minio_operator_tar} minio-operator-${MINIO_OPERATOR_VERSION}-linux-${ARCH}.tar.gz"
+#         else
+#             ensure_success $sh_c "curl ${CURL_TRY} -k -sfLO https://github.com/beclab/minio-operator/releases/download/${MINIO_OPERATOR_VERSION}/minio-operator-${MINIO_OPERATOR_VERSION}-linux-${ARCH}.tar.gz"
+#         fi
+# 	      ensure_success $sh_c "tar zxf minio-operator-${MINIO_OPERATOR_VERSION}-linux-${ARCH}.tar.gz"
+#         ensure_success $sh_c "install -m 755 minio-operator $minio_operator_bin"
+#     fi
 
-    ensure_success $sh_c "$minio_operator_bin init --address $local_ip --cafile /etc/ssl/etcd/ssl/ca.pem --certfile /etc/ssl/etcd/ssl/node-$HOSTNAME.pem --keyfile /etc/ssl/etcd/ssl/node-$HOSTNAME-key.pem --volume $MINIO_VOLUMES --password $MINIO_ROOT_PASSWORD"
-}
+#     ensure_success $sh_c "$minio_operator_bin init --address $local_ip --cafile /etc/ssl/etcd/ssl/ca.pem --certfile /etc/ssl/etcd/ssl/node-$HOSTNAME.pem --keyfile /etc/ssl/etcd/ssl/node-$HOSTNAME-key.pem --volume $MINIO_VOLUMES --password $MINIO_ROOT_PASSWORD"
+# }
 
 
 install_velero() {
@@ -331,10 +331,10 @@ install_k8s_ks() {
 
     run_install
 
-    if [ "$storage_type" == "minio" ]; then
-        # init minio-operator after etcd installed
-        init_minio_cluster
-    fi
+    # if [ "$storage_type" == "minio" ]; then
+    #     # init minio-operator after etcd installed
+    #     init_minio_cluster
+    # fi
 
     log_info 'Installing backup component ...'
     install_velero
