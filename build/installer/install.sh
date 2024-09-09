@@ -56,8 +56,7 @@ if command -v tar >/dev/null; then
     $SUDO rm -rf $HOME/.terminus/${foldername} && \
     mkdir -p $HOME/.terminus/${foldername}
 
-#    CLI_VERSION="0.1.13"
-    CLI_VERSION="0.0.0-debug"
+    CLI_VERSION="0.1.15"
     CLI_FILE="terminus-cli-v${CLI_VERSION}_linux_${ARCH}.tar.gz"
     INSTALL_TERMINUS_CLI="/usr/local/bin/terminus-cli"
     if [[ x"$os_type" == x"Darwin" ]]; then
@@ -76,8 +75,6 @@ if command -v tar >/dev/null; then
     
     fi
 
-
-    #TODO: download terminusd and install, set home to env for terminusd
 
     if [[ $? -eq 0 ]]; then
         echo ""
