@@ -42,6 +42,10 @@ run_install() {
 
     check_kscm # wait for ks launch
 
+    if [ "x${LOCAL_GPU_ENABLE}" == "x1" ]; then
+        install_gpu
+    fi
+
     if [[ $SHOULD_RETRY -eq 1 || $(is_wsl) -eq 1 ]]; then
         run_cmd=retry_cmd
     else
@@ -49,14 +53,6 @@ run_install() {
     fi
 
     ensure_success $sh_c "sed -i '/${local_ip} $HOSTNAME/d' /etc/hosts"
-
-    # if [ x"$KUBE_TYPE" == x"k3s" ]; then
-    #     retry_cmd $sh_c "$KUBECTL apply -f ${BASE_DIR}/deploy/patch-k3s.yaml"
-    #     if [[ ! -z "${K3S_PRELOAD_IMAGE_PATH}" && -d $K3S_PRELOAD_IMAGE_PATH ]]; then
-    #         # remove the preload image path to make sure images will not be reloaded after reboot
-    #         ensure_success $sh_c "rm -rf ${K3S_PRELOAD_IMAGE_PATH}"
-    #     fi
-    # fi
 
     log_info 'Installing account ...'
     # add the first account
@@ -568,6 +564,28 @@ _EOF
     selfhosted="false"
   fi
   sed -i "s/#__SELFHOSTED__/${selfhosted}/" ${BASE_DIR}/wizard/config/settings/templates/terminus_cr.yaml
+}
+
+check_gpu(){
+    status=$(get_gpu_status)
+    n=0
+    while [ "x${status}" != "xRunning" ]; do
+        n=$(expr $n + 1)
+        dotn=$(($n % 10))
+        dot=$(repeat $dotn '>')
+
+        echo -ne "\rWaiting for nvidia-device-plugin starting ${dot}"
+        sleep 0.5
+
+        status=$(get_gpu_status)
+        echo -ne "\rWaiting for nvidia-device-plugin starting          "
+
+    done
+    echo
+}
+
+get_gpu_status(){
+    $sh_c "${KUBECTL} get pod  -n kube-system -l 'name=nvidia-device-plugin-ds' -o jsonpath='{.items[*].status.phase}'"
 }
 
 install_gpu(){
