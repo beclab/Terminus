@@ -404,7 +404,7 @@ get_local_ip(){
     ip=$(ping -c 1 "$HOSTNAME" |awk -F '[()]' '/icmp_seq/{print $2}')
     echo "$ip  $HOSTNAME"
 
-    if [[ x"$ip" == x"" || "$ip" == @("172.17.0.1"|"127.0.0.1"|"127.0.1.1") ]]; then
+    if [[ x"$ip" == x"" || "$ip" == "172.17.0.1" || "$ip" == "127.0.0.1" || "$ip" == "127.0.1.1" ]]; then
         echo "incorrect ip for hostname '$HOSTNAME', please check"
         exit $ERR_EXIT
     fi
