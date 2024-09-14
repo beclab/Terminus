@@ -525,6 +525,9 @@ run_install(){
 
     retry_cmd $sh_c "$KUBECTL apply -f ${BASE_DIR}/deploy/patch-k3s.yaml"
 
+    # set reverse_proxy_config
+    reverse_proxy_config
+
     log_info 'Installing account ...'
     # add the first account
     local xargs=""
