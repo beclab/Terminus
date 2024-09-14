@@ -58,6 +58,9 @@ run_install() {
     #     fi
     # fi
 
+    # set reverse_proxy_config
+    reverse_proxy_config
+
     log_info 'Installing account ...'
     # add the first account
     local xargs=""
