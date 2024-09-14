@@ -58,9 +58,6 @@ run_install() {
     #     fi
     # fi
 
-    # set reverse_proxy_config
-    reverse_proxy_config
-
     log_info 'Installing account ...'
     # add the first account
     local xargs=""
@@ -122,6 +119,9 @@ _END
     log_info 'waiting for appservice'
     check_appservice
     appservice_pod=$(get_appservice_pod)
+
+    # set reverse_proxy_config
+    reverse_proxy_config
 
     # gen bfl app key and secret
     bfl_ks=($(get_app_key_secret "bfl"))
