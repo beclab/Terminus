@@ -88,6 +88,8 @@ spec:
         ports:
         - containerPort: 3010
         env:
+        - name: PRISMA_ENGINES_CHECKSUM_IGNORE_MISSING
+          value: '1'
         - name: PL_DATA_BACKEND
           value: postgres
         - name: PL_DATA_POSTGRES_HOST
