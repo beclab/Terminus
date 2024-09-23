@@ -83,7 +83,7 @@ spec:
             value: os_system_anayltic2
       containers:
       - name: anayltic2-server
-        image: beclab/analytic-api:v0.0.3
+        image: beclab/analytic-api:v0.0.4
         imagePullPolicy: IfNotPresent
         ports:
         - containerPort: 3010
