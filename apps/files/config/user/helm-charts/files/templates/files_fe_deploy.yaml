@@ -294,7 +294,7 @@ spec:
         - name: userspace-dir
           mountPath: /data
       - name: drive-server
-        image: beclab/drive:v0.0.4
+        image: beclab/drive:v0.0.5
         imagePullPolicy: IfNotPresent
         env:
         - name: OS_SYSTEM_SERVER
@@ -307,6 +307,34 @@ spec:
           value: 6
         ports: 
         - containerPort: 8181
+        volumeMounts:
+        - name: upload-data
+          mountPath: /data/Home
+        - name: upload-appdata
+          mountPath: /appdata/
+        - name: userspace-app-dir
+          mountPath: /data/Application
+      - name: task_executor
+        image: beclab/driveexecutor:v0.0.5
+        imagePullPolicy: IfNotPresent
+        env:
+        - name: OS_SYSTEM_SERVER
+          value: system-server.user-system-{{ .Values.bfl.username }}
+        - name: DATABASE_URL
+          value: postgres://cloud_drive_integration_{{ .Values.bfl.username }}:{{ $pg_password | b64dec }}@citus-master-svc.user-system-{{ .Values.bfl.username }}:5432/user_space_{{ .Values.bfl.username }}_cloud_drive_integration
+        - name: REDIS_URL
+          value: redis://:{{ redis_password | b64dec }}@redis-cluster-proxy.user-system-{{ .Values.bfl.username }}:6379/0
+        - name: TASK_EXECUTOR_MAX_THREADS
+          value: 6
+        ports: 
+        - containerPort: 8181
+        volumeMounts:
+        - name: upload-data
+          mountPath: /data/Home
+        - name: upload-appdata
+          mountPath: /appdata/
+        - name: userspace-app-dir
+          mountPath: /data/Application
 #      - name: terminus-upload-sidecar
 #        image: beclab/upload:v1.0.3
 #        env:
