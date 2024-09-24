@@ -604,6 +604,7 @@ type: Opaque
 data:
   password: {{ $password }}
   redis_password: {{ $redis_password }}
+  pg_password: {{ $pg_password }}
 
 #---
 #apiVersion: apr.bytetrade.io/v1alpha1
