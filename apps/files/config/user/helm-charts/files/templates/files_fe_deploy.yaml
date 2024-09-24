@@ -266,7 +266,7 @@ spec:
 #        - name: REDIS_DB
 #          value: '0'
 #        - name: REDIS_URL
-#          value: 'redis://:{{ redis_password | b64dec }}@redis-cluster-proxy.user-system-{{ .Values.bfl.username }}:6379/0'
+#          value: 'redis://:{{ $redis_password | b64dec }}@redis-cluster-proxy.user-system-{{ .Values.bfl.username }}:6379/0'
 #        - name: POD_NAME
 #          valueFrom:
 #            fieldRef:
@@ -302,7 +302,7 @@ spec:
         - name: DATABASE_URL
           value: postgres://cloud_drive_integration_{{ .Values.bfl.username }}:{{ $pg_password | b64dec }}@citus-master-svc.user-system-{{ .Values.bfl.username }}:5432/user_space_{{ .Values.bfl.username }}_cloud_drive_integration
         - name: REDIS_URL
-          value: redis://:{{ redis_password | b64dec }}@redis-cluster-proxy.user-system-{{ .Values.bfl.username }}:6379/0
+          value: redis://:{{ $redis_password | b64dec }}@redis-cluster-proxy.user-system-{{ .Values.bfl.username }}:6379/0
         - name: TASK_EXECUTOR_MAX_THREADS
           value: 6
         ports: 
@@ -323,7 +323,7 @@ spec:
         - name: DATABASE_URL
           value: postgres://cloud_drive_integration_{{ .Values.bfl.username }}:{{ $pg_password | b64dec }}@citus-master-svc.user-system-{{ .Values.bfl.username }}:5432/user_space_{{ .Values.bfl.username }}_cloud_drive_integration
         - name: REDIS_URL
-          value: redis://:{{ redis_password | b64dec }}@redis-cluster-proxy.user-system-{{ .Values.bfl.username }}:6379/0
+          value: redis://:{{ $redis_password | b64dec }}@redis-cluster-proxy.user-system-{{ .Values.bfl.username }}:6379/0
         - name: TASK_EXECUTOR_MAX_THREADS
           value: 6
         ports: 
