@@ -304,7 +304,7 @@ spec:
         - name: REDIS_URL
           value: redis://:{{ $redis_password | b64dec }}@redis-cluster-proxy.user-system-{{ .Values.bfl.username }}:6379/0
         - name: TASK_EXECUTOR_MAX_THREADS
-          value: 6
+          value: '6'
         ports: 
         - containerPort: 8181
         volumeMounts:
@@ -325,7 +325,7 @@ spec:
         - name: REDIS_URL
           value: redis://:{{ $redis_password | b64dec }}@redis-cluster-proxy.user-system-{{ .Values.bfl.username }}:6379/0
         - name: TASK_EXECUTOR_MAX_THREADS
-          value: 6
+          value: '6'
         ports: 
         - containerPort: 8181
         volumeMounts:
