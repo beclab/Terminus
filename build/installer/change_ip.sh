@@ -181,7 +181,7 @@ pstree() {
 }
 
 killtree() {
-    kill -9 $(
+    kill $(
         { set +x; } 2>/dev/null;
         pstree $@;
         set -x;
@@ -189,7 +189,7 @@ killtree() {
 }
 
 getshims() {
-    ps -e -o pid= -o args= | sed -e 's/^ *//; s/\s\s*/\t/;' | grep -w 'usr/[^/]*/bin/containerd-shim' | cut -f1
+    ps -e -o pid= -o args= | sed -e 's/^ *//; s/\s\s*/\t/;' | grep -w 'usr/bin/containerd-shim' | cut -f1
 }
 
 update_juicefs() {
