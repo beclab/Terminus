@@ -111,7 +111,7 @@ jobs:
             install-wizard-v${{ github.event.inputs.tags }}.tar.gz
             build/installer/publicInstaller.sh
             build/installer/publicInstaller.latest
-            build/installer/uninstall_cmd.sh
+            build/installer/install.sh
             build/installer/publicAddnode.sh
             build/installer/version.hint
             build/installer/publicRestoreInstaller.sh
