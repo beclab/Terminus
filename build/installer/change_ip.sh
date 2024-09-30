@@ -2,6 +2,10 @@
 ERR_EXIT=-1
 
 old_ip=$1
+set -x
+
+BASE_DIR=$(dirname $(realpath -s $0))
+CHANGE_LOG="$BASE_DIR/logs"
 
 log_info() {
     local msg now
@@ -27,7 +31,7 @@ command_exists() {
 get_shell_exec(){
     user="$(id -un 2>/dev/null || true)"
 
-    sh_c='sh -c'
+    sh_c='bash -c'
 	if [ "$user" != 'root' ]; then
 		if command_exists sudo && command_exists su; then
 			sh_c='sudo su -c'
@@ -103,13 +107,15 @@ precheck_os() {
         log_fatal "incorrect ip for hostname '$HOSTNAME', please check"
     fi
 
-	read -r -p "Are you sure changing this node ip to ${ip}? [yes/no]: " ans </dev/tty
+	if [[ x"$QUIET" == x"" ]]; then
+		read -r -p "Are you sure changing this node ip to ${ip}? [yes/no]: " ans </dev/tty
 
-    if [ x"$ans" != x"yes" ]; then
-		echo "Please edit /etc/hosts to add the correct node IP"
-        echo "exiting..."
-        exit
-    fi
+		if [ x"$ans" != x"yes" ]; then
+			echo "Please edit /etc/hosts to add the correct node IP"
+			echo "exiting..."
+			exit
+		fi
+	fi
 
     local_ip="$ip"
 }
@@ -157,9 +163,6 @@ regen_cert_conf(){
 	done
 	IFS=$old_IFS
 }
-
-
-
 
 update_juicefs() {
 	$sh_c "systemctl stop juicefs minio minio-operator redis-server"
@@ -268,22 +271,22 @@ update_juicefs() {
 	log_info 'update juicefs IP success'
 }
 
-update_minio_operator(){
-	local MINIO_ROOT_PASSWORD=$(awk -F '=' '/^MINIO_ROOT_PASSWORD/{print $2}' /etc/default/minio)
-	local MINIO_VOLUMES=$(awk -F '=' '/^MINIO_VOLUMES/{print $2}' /etc/default/minio)
+# update_minio_operator(){
+# 	local MINIO_ROOT_PASSWORD=$(awk -F '=' '/^MINIO_ROOT_PASSWORD/{print $2}' /etc/default/minio)
+# 	local MINIO_VOLUMES=$(awk -F '=' '/^MINIO_VOLUMES/{print $2}' /etc/default/minio)
 
-	# re-init minio-operator, only used for uninitialized master node machine
-	local ETCDCTL=$(command -v etcdctl)
-	local minio_operator_bin="/usr/local/bin/minio-operator"
+# 	# re-init minio-operator, only used for uninitialized master node machine
+# 	local ETCDCTL=$(command -v etcdctl)
+# 	local minio_operator_bin="/usr/local/bin/minio-operator"
 
-	# clear minio-operator service
-	ensure_success $sh_c "rm -f /etc/default/minio-operator /etc/systemd/system/minio-operator.service"
-	ensure_success $sh_c "$ETCDCTL --cacert /etc/ssl/etcd/ssl/ca.pem --cert /etc/ssl/etcd/ssl/node-$HOSTNAME.pem --key /etc/ssl/etcd/ssl/node-$HOSTNAME-key.pem del terminus/minio --prefix"
+# 	# clear minio-operator service
+# 	ensure_success $sh_c "rm -f /etc/default/minio-operator /etc/systemd/system/minio-operator.service"
+# 	ensure_success $sh_c "$ETCDCTL --cacert /etc/ssl/etcd/ssl/ca.pem --cert /etc/ssl/etcd/ssl/node-$HOSTNAME.pem --key /etc/ssl/etcd/ssl/node-$HOSTNAME-key.pem del terminus/minio --prefix"
 
-    ensure_success $sh_c "$minio_operator_bin init --address $local_ip --cafile /etc/ssl/etcd/ssl/ca.pem --certfile /etc/ssl/etcd/ssl/node-$HOSTNAME.pem --keyfile /etc/ssl/etcd/ssl/node-$HOSTNAME-key.pem --volume $MINIO_VOLUMES --password $MINIO_ROOT_PASSWORD"
+#     ensure_success $sh_c "$minio_operator_bin init --address $local_ip --cafile /etc/ssl/etcd/ssl/ca.pem --certfile /etc/ssl/etcd/ssl/node-$HOSTNAME.pem --keyfile /etc/ssl/etcd/ssl/node-$HOSTNAME-key.pem --volume $MINIO_VOLUMES --password $MINIO_ROOT_PASSWORD"
 
-	log_info "update minio-operator success"
-}
+# 	log_info "update minio-operator success"
+# }
 
 update_k3s_master() {
 #	ensure_success $sh_c "$KUBECTL delete node $HOSTNAME"
@@ -291,7 +294,26 @@ update_k3s_master() {
 	ensure_success $sh_c "systemctl stop k3s etcd backup-etcd"
 }
 
+wait_etcd_backup() {
+	local doing_backup=$(ps -ef|grep etcd-backup.sh|grep -v grep|wc -l)
+	local n=0
+    while [[ $doing_backup -ne 0 ]]; do
+        n=$(expr $n + 1)
+        dotn=$(($n % 10))
+        dot=$(repeat $dotn '>')
+
+        echo -ne "\rPlease waiting ${dot}"
+        sleep 0.5
+
+		doing_backup=$(ps -ef|grep etcd-backup.sh|grep -v grep|wc -l)
+        echo -ne "\rPlease waiting          "
+
+	done	
+}
+
 update_etcd(){
+	wait_etcd_backup
+	
 	ensure_success $sh_c "sed -i 's/$old_ip/$local_ip/g' /etc/etcd.env"
 	ensure_success $sh_c "sed -i 's/$old_ip/$local_ip/g' /usr/local/bin/kube-scripts/etcd-backup.sh"
 
@@ -330,6 +352,8 @@ post_update_k3s_master(){
     ensure_success $sh_c "systemctl daemon-reload"
 	ensure_success $sh_c "systemctl start k3s"
 	ensure_success $sh_c "systemctl --no-pager status k3s"
+
+	ensure_success $sh_c "$KUBECTL delete pods --all --all-namespaces"
 
 	log_info 'IP changed, the OS will be reloaded in 2 minutes...'
 	sleep 120
@@ -466,44 +490,52 @@ main() {
 	precheck_os
 
 	local storage_type="s3"
-	if is_k3s; then
-		if system_service_active "k3s" ; then
-			update_k3s_master
+
+	if [[ -z "$NOT_INSTALLED" ]]; then
+		if is_k3s; then
+			if system_service_active "k3s" ; then
+				update_k3s_master
+			fi 
+		fi
+	fi
+
+	if [[ -z "$NOT_PREPARED" ]]; then
+		update_juicefs
+	fi
+
+	if [[ -z "$NOT_INSTALLED" ]]; then
+		update_etcd
+
+		if is_k3s ; then
+			log_info "updating k3s"
+
+			post_update_k3s_master
+		else
+			log_info "updating k8s"
+
+			update_k8s_master
 		fi 
-	fi
 
-	update_juicefs
-	
-	update_etcd
+		# if [ "$storage_type" == "minio" ]; then 
+		# 	update_minio_operator
+		# fi
 
-	if is_k3s ; then
-		log_info "updating k3s"
+		# check os auto-reloading
+		log_info 'Waiting for Terminus reloading ...'
+		check_desktop
 
-		post_update_k3s_master
-	else
-		log_info "updating k8s"
+		for u in $(get_all_user) ; do
+			$sh_c "${KUBECTL} rollout restart deploy -n user-space-$u edge-desktop"
+			$sh_c "${KUBECTL} rollout restart deploy -n user-space-$u headscale-server"
+		done
 
-	    update_k8s_master
+		$sh_c "killall envoy" 
+
+		check_desktop
 	fi 
-
-	if [ "$storage_type" == "minio" ]; then 
-		update_minio_operator
-	fi
-
-	# check os auto-reloading
-    log_info 'Waiting for Terminus reloading ...'
-    check_desktop
-
-	for u in $(get_all_user) ; do
-		$sh_c "${KUBECTL} rollout restart deploy -n user-space-$u edge-desktop"
-		$sh_c "${KUBECTL} rollout restart deploy -n user-space-$u headscale-server"
-	done
-
-	$sh_c "killall envoy" 
-
-    check_desktop
 
 	log_info 'Success to change the Terminus IP address!'
 }
 
-main $1
+$sh_c "rm -f $CHANGE_LOG"
+main $1 | tee ${CHANGE_LOG}/changeip.log

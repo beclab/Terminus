@@ -70,7 +70,7 @@ spec:
             - containerPort: 8080
           env:
             - name: FILES_SERVER_TAG
-              value: 'beclab/files-server:v0.2.33'
+              value: 'beclab/files-server:v0.2.35'
             - name: NAMESPACE
               valueFrom:
                 fieldRef:
@@ -86,7 +86,7 @@ spec:
             value: /appdata
           - name: SEAFILE_SERVICE
             value: seafile
-          image: beclab/media-server:v0.1.8
+          image: beclab/media-server:v0.1.10
           imagePullPolicy: IfNotPresent
           ports:
           - containerPort: 9090
@@ -95,13 +95,18 @@ spec:
             mountPath: /data
           - name: user-appdata-dir
             mountPath: /appdata
+{{ if .Values.sharedlib }}
+          - name: shared-lib
+            mountPath: /data/External
+{{ end }}
 
         - name: files
-          image: beclab/files-server:v0.2.33
+          image: beclab/files-server:v0.2.35
           imagePullPolicy: IfNotPresent
           securityContext:
-            allowPrivilegeEscalation: false
+            allowPrivilegeEscalation: true
             runAsUser: 1000
+            privileged: true
           volumeMounts:
             - name: fb-data
               mountPath: /appdata
@@ -118,16 +123,29 @@ spec:
 {{ if .Values.sharedlib }}        
             - name: shared-lib
               mountPath: /data/External
+              mountPropagation: Bidirectional
 {{ end }}
           ports:
             - containerPort: 8110
           env:
+{{ if .Values.sharedlib }}        
+            - name: NODE_IP
+              valueFrom:
+                fieldRef:
+                  fieldPath: status.hostIP
+            - name: TERMINUSD_HOST
+              value: $(NODE_IP):18088  
+{{ end }}
+            - name: EXTERNAL_PREFIX
+              value: '/External/'
             - name: ES_ENABLED
               value: 'False'
             - name: WATCHER_ENABLED
               value: 'True'
             - name: KNOWLEDGE_BASE_ENABLED
               value: 'False'
+            - name: PHOTOS_ENABLED
+              value: 'True'
 #            - name: BFL_NAME
 #              value: 'os-system'
             - name: FB_DATABASE
@@ -158,6 +176,8 @@ spec:
               value: ''
             - name: CONTENT_PATH
               value: /Home/Documents
+            - name: PHOTOS_PATH
+              value: /Home/Pictures
             - name: REDIS_HOST
               value: redis-cluster-proxy.os-system
             - name: REDIS_PORT
@@ -328,7 +348,7 @@ spec:
             chown -R 1000:1000 /appdata 
       containers:
         - name: files
-          image: beclab/files-server:v0.2.33
+          image: beclab/files-server:v0.2.35
           imagePullPolicy: IfNotPresent
           securityContext:
             allowPrivilegeEscalation: false
