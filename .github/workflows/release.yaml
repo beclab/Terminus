@@ -94,7 +94,7 @@ jobs:
 
       - name: Package installer
         run: |
-          bash scripts/build.sh ${{ steps.vars.outputs.tag_version }}
+          bash scripts/build.sh ${{ github.event.inputs.tags }}
           
       - name: 'Archives'
         run: |
