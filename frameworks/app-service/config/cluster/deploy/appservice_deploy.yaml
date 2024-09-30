@@ -348,6 +348,7 @@ spec:
           imagePullPolicy: IfNotPresent
           securityContext:
             runAsUser: 0
+            privileged: true
           env:
             - name: NODE_NAME
               valueFrom:
