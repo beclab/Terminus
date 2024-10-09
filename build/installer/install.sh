@@ -6,7 +6,6 @@ set -e
 
 if [[ x"$VERSION" == x"" ]]; then
   export VERSION="#__VERSION__"
-  # export VERSION="1.8.0-99995"
 fi
 
 if [[ "x${VERSION}" == "x" || "x${VERSION:3}" == "xVERSION__" ]]; then
@@ -63,7 +62,7 @@ if command -v tar >/dev/null; then
     fi
 
 
-    CLI_VERSION="0.1.29"
+    CLI_VERSION="0.1.31"
     CLI_FILE="terminus-cli-v${CLI_VERSION}_linux_${ARCH}.tar.gz"
     INSTALL_TERMINUS_CLI="/usr/local/bin/terminus-cli"
     if [[ x"$os_type" == x"Darwin" ]]; then
