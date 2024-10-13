@@ -71,12 +71,10 @@ spec:
           name: download-secrets
     refs: []
     subjects:
-    # 定义寻subject bar的操作权限
     - name: download_status
       permission:
         pub: allow
         sub: allow
-      # 对应用systemb,开放sub权限
       export:
       - appName: knowledge
         sub: allow
