@@ -93,11 +93,11 @@ data:
       default_policy: deny
       rules:
         # Rules applied to everyone
-        - domain: example.myterminus.com
+        - domain: example.olares.com
           policy: one_factor
           # subject:
           # - ['group:platform-admin', 'group:workspace-manager']
-        - domain: 'files.example.myterminus.com'
+        - domain: 'files.example.olares.com'
           policy: two_factor
           # subject:
           # - ['group:platform-admin', 'group:workspace-manager']

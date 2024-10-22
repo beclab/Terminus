@@ -406,8 +406,8 @@ setup_ws() {
     log_info 'parse user info from env or stdin\n'
     if [ -z "$domainname" ]; then
         while :; do
-            read_tty "Enter the domain name ( myterminus.com by default ): " domainname
-            [[ -z "$domainname" ]] && domainname="myterminus.com"
+            read_tty "Enter the domain name ( olares.com by default ): " domainname
+            [[ -z "$domainname" ]] && domainname="olares.com"
 
             if ! validate_domainname; then
                 continue
