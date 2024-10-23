@@ -55,6 +55,14 @@ jobs:
         run: |
           bash scripts/build.sh ${{ github.event.inputs.tags }}
 
+      - name: Build WSL Image
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          AWS_DEFAULT_REGION: 'us-east-1'
+        run: |
+          bash scripts/build-wsl-image.sh ${{ github.event.inputs.tags }}
+
       - name: Upload to S3
         env: 
           AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
