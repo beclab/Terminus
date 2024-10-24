@@ -53,7 +53,6 @@ hostname=${USER}
 _END
 
 name="install-wizard-wsl-image-v${VERSION}"
-checksum="$name.checksum.txt"
 
 curl -fsSLI https://dc3p1870nn3cj.cloudfront.net/$name.tar.gz > /dev/null
 if [ $? -ne 0 ]; then
@@ -63,10 +62,6 @@ if [ $? -ne 0 ]; then
     cid=$(docker run -it --name terminus-v${VERSION} -d install-wizard:v${VERSION})
     docker export -o ${name}.tar ${cid}
     gzip -9 ${name}.tar
-    md5sum ${name}.tar.gz > ${checksum}
-
-    aws s3 cp ${name}.tar.gz s3://terminus-os-install/${name}.tar.gz
-    aws s3 cp ${checksum} s3://terminus-os-install/${checksum}
-    echo "upload $name completed"
+    echo "build $name completed"
     set +e
 fi

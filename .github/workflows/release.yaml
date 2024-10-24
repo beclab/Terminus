@@ -71,7 +71,10 @@ jobs:
         run: |
           md5sum install-wizard-v${{ github.event.inputs.tags }}.tar.gz > install-wizard-v${{ github.event.inputs.tags }}.md5sum.txt && \
           aws s3 cp install-wizard-v${{ github.event.inputs.tags }}.md5sum.txt s3://terminus-os-install/install-wizard-v${{ github.event.inputs.tags }}.md5sum.txt --acl=public-read && \
-          aws s3 cp install-wizard-v${{ github.event.inputs.tags }}.tar.gz s3://terminus-os-install/install-wizard-v${{ github.event.inputs.tags }}.tar.gz --acl=public-read
+          aws s3 cp install-wizard-v${{ github.event.inputs.tags }}.tar.gz s3://terminus-os-install/install-wizard-v${{ github.event.inputs.tags }}.tar.gz --acl=public-read && \
+          md5sum install-wizard-wsl-image-v${{ github.event.inputs.tags }}.tar.gz > install-wizard-wsl-image-v${{ github.event.inputs.tags }}.md5sum.txt && \
+          aws s3 cp install-wizard-wsl-image-v${{ github.event.inputs.tags }}.tar.gz s3://terminus-os-install/install-wizard-wsl-image-v${{ github.event.inputs.tags }}.tar.gz --acl=public-read && \
+          aws s3 cp install-wizard-wsl-image-v${{ github.event.inputs.tags }}.md5sum.txt s3://terminus-os-install/install-wizard-wsl-image-v${{ github.event.inputs.tags }}.md5sum.txt --acl=public-read
 
   release:
     runs-on: ubuntu-latest
