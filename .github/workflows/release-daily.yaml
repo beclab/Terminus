@@ -86,6 +86,14 @@ jobs:
         run: |
           bash scripts/build.sh ${{ steps.vars.outputs.tag_version }}
 
+      - name: Build WSL Image
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          AWS_DEFAULT_REGION: 'us-east-1'
+        run: |
+          bash scripts/build-wsl-image.sh ${{ steps.vars.outputs.tag_version }}
+
       - name: Upload to S3
         env: 
           AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
@@ -94,7 +102,10 @@ jobs:
         run: |
           md5sum install-wizard-v${{ steps.vars.outputs.tag_version }}.tar.gz > install-wizard-v${{ steps.vars.outputs.tag_version }}.md5sum.txt && \
           aws s3 cp install-wizard-v${{ steps.vars.outputs.tag_version }}.md5sum.txt s3://terminus-os-install/install-wizard-v${{ steps.vars.outputs.tag_version }}.md5sum.txt --acl=public-read && \
-          aws s3 cp install-wizard-v${{ steps.vars.outputs.tag_version }}.tar.gz s3://terminus-os-install/install-wizard-v${{ steps.vars.outputs.tag_version }}.tar.gz --acl=public-read
+          aws s3 cp install-wizard-v${{ steps.vars.outputs.tag_version }}.tar.gz s3://terminus-os-install/install-wizard-v${{ steps.vars.outputs.tag_version }}.tar.gz --acl=public-read && \
+          md5sum install-wizard-wsl-image-v${{ steps.vars.outputs.tag_version }}.tar.gz > install-wizard-wsl-image-v${{ steps.vars.outputs.tag_version }}.md5sum.txt && \
+          aws s3 cp install-wizard-wsl-image-v${{ steps.vars.outputs.tag_version }}.tar.gz s3://terminus-os-install/install-wizard-wsl-image-v${{ steps.vars.outputs.tag_version }}.tar.gz --acl=public-read && \
+          aws s3 cp install-wizard-wsl-image-v${{ steps.vars.outputs.tag_version }}.md5sum.txt s3://terminus-os-install/install-wizard-wsl-image-v${{ steps.vars.outputs.tag_version }}.md5sum.txt --acl=public-read
 
   release:
     needs: [upload-package]
