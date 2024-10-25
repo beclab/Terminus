@@ -23,6 +23,7 @@ spec:
     metadata:
       labels:
         app: appstore
+        io.bytetrade.app: "true"
     spec:
       initContainers:
         - args:
