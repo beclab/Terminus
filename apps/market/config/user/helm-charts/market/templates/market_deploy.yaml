@@ -203,6 +203,11 @@ spec:
     ops:
       - Create
     version: v1
+  - dataType: app
+    group: service.bfl
+    ops:
+      - UserApps
+    version: v1
 status:
   state: active
 
