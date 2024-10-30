@@ -54,7 +54,7 @@ spec:
             properties:
               appid:
                 description: the unique id of the application for sys application
-                  appid equal name otherwise appid equal md5(name)[:8]
+                  appid equal name otherwise appid equal md5(name)[:8]  
                 type: string
               deployment:
                 description: the deployment of the application
