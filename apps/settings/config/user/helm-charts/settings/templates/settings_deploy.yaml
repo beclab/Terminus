@@ -68,17 +68,19 @@ spec:
               fieldPath: status.podIP
       containers:
       - name: settings
-        image: beclab/settings:v0.1.86
+        image: beclab/settings:v0.1.87
         imagePullPolicy: IfNotPresent
         ports:
         - containerPort: 80
 
       - name: settings-server
-        image: beclab/settings-server:v0.1.86
+        image: beclab/settings-server:v0.1.87
         imagePullPolicy: IfNotPresent
         ports:
         - containerPort: 3000
         env:
+        - name: DEV_MODE
+          value: ''
         - name: OS_SYSTEM_SERVER
           value: system-server.user-system-{{ .Values.bfl.username }}
         - name: OS_APP_SECRET
