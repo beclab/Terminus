@@ -138,10 +138,27 @@ spec:
           valueFrom:
             fieldRef:
               fieldPath: status.podIP
+      - name: terminus-ws-sidecar
+        image: 'beclab/ws-gateway:v1.0.3'
+        imagePullPolicy: IfNotPresent
+        command:
+          - /ws-gateway
+        env:
+          - name: WS_PORT
+            value: '3010'
+          - name: WS_URL
+            value: /websocket/message
+        resources: {}
+        terminationMessagePath: /dev/termination-log
+        terminationMessagePolicy: File
       volumes:
+      - name: userspace-dir
+        hostPath:
+          type: Directory
+          path: {{ .Values.userspace.userData }}
       - name: terminus-sidecar-config
         configMap:
-          name: sidecar-configs
+          name: sidecar-ws-configs
           items:
           - key: envoy.yaml
             path: envoy.yaml
