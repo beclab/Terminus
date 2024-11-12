@@ -313,7 +313,7 @@ spec:
             memory: 400Mi
 
       - name: sync
-        image: "beclab/recommend-sync:v0.0.13"
+        image: "beclab/recommend-sync:v0.0.14"
         securityContext:
           allowPrivilegeEscalation: false
           runAsUser: 1000
