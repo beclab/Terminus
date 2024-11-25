@@ -54,7 +54,7 @@ jobs:
           END_POINT: ${{ secrets.END_POINT }}
         run: |
           export PATH=$PATH:/usr/local/bin:/home/ubuntu/.local/bin
-          coscmd config -a $TENCENT_SECRET_ID \
+          coscmd config -m 10 -p 10 -a $TENCENT_SECRET_ID \
                         -s $TENCENT_SECRET_KEY \
                         -b $COS_BUCKET \
                         -r $COS_REGION 
