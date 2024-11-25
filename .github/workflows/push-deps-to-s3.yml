@@ -45,6 +45,9 @@ jobs:
       - name: Install coscmd
         run: pip install coscmd        
 
+      - name: Set PATH
+        run: echo "export PATH=\$PATH:/usr/local/bin:/home/ubuntu/.local/bin" >> $GITHUB_ENV        
+
       - name: Configure coscmd
         env:
           TENCENT_SECRET_ID: ${{ secrets.TENCENT_SECRET_ID }}
@@ -57,7 +60,7 @@ jobs:
                         -s $TENCENT_SECRET_KEY \
                         -b $COS_BUCKET \
                         -r $COS_REGION 
-                        
+
       # test
       - env:
           AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
