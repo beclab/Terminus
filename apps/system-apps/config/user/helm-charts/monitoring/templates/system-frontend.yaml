@@ -405,63 +405,6 @@ spec:
             # value: none / nvidia / nvshare / virtaitech
             - name: GPU
               value: {{ .Values.gpu }}
-
-        - name: terminus-envoy-sidecar
-          image: bytetrade/envoy:v1.25.11
-          imagePullPolicy: IfNotPresent
-          securityContext:
-            allowPrivilegeEscalation: false
-            runAsUser: 1000
-          ports:
-            - name: proxy-admin
-              containerPort: 15000
-            - name: proxy-inbound
-              containerPort: 15003
-          volumeMounts:
-            - name: terminus-sidecar-config
-              readOnly: true
-              mountPath: /etc/envoy/envoy.yaml
-              subPath: envoy.yaml
-          command:
-            - /usr/local/bin/envoy
-            - --log-level
-            - debug
-            - -c
-            - /etc/envoy/envoy.yaml
-          env:
-            - name: POD_UID
-              valueFrom:
-                fieldRef:
-                  fieldPath: metadata.uid
-            - name: POD_NAME
-              valueFrom:
-                fieldRef:
-                  fieldPath: metadata.name
-            - name: POD_NAMESPACE
-              valueFrom:
-                fieldRef:
-                  fieldPath: metadata.namespace
-            - name: POD_IP
-              valueFrom:
-                fieldRef:
-                  fieldPath: status.podIP
-        - name: terminus-ws-sidecar
-          image: 'beclab/ws-gateway:v1.0.3'
-          imagePullPolicy: IfNotPresent
-          command:
-            - /ws-gateway
-          env:
-        {{- range $key, $val := .Values.terminusGlobalEnvs }}
-            - name: {{ $key }}
-              value: {{ $val | quote }}
-        {{- end }}
-            - name: WS_PORT
-              value: '3010'
-            - name: WS_URL
-              value: /websocket/message
-          resources: { }
-          terminationMessagePath: /dev/termination-log
-          terminationMessagePolicy: File
       volumes:
         - name: userspace-dir
           hostPath:
@@ -1214,7 +1157,7 @@ data:
         }
     }
   settings.conf: |
-    upstream SettingsServer {
+    upstream SettingsServer_Monitoring {
         server monitoring-server.os-system;
     }
 
@@ -1250,7 +1193,7 @@ data:
         }
 
         location /kapis {
-            proxy_pass http://SettingsServer;
+            proxy_pass http://SettingsServer_Monitoring;
             # rewrite ^/server(.*)$ $1 break;
 
             # Add original-request-related headers
