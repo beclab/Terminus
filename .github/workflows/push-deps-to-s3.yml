@@ -25,8 +25,7 @@ jobs:
           coscmd config -a $TENCENT_SECRET_ID \
                         -s $TENCENT_SECRET_KEY \
                         -b $COS_BUCKET \
-                        -r $COS_REGION \
-                        -e $END_POINT        
+                        -r $COS_REGION 
 
       # test
       - env:
@@ -57,8 +56,8 @@ jobs:
           coscmd config -a $TENCENT_SECRET_ID \
                         -s $TENCENT_SECRET_KEY \
                         -b $COS_BUCKET \
-                        -r $COS_REGION \
-                        -e $END_POINT        
+                        -r $COS_REGION 
+                        
       # test
       - env:
           AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
