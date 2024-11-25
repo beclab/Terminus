@@ -45,9 +45,6 @@ jobs:
       - name: Install coscmd
         run: pip install coscmd        
 
-      - name: Set PATH
-        run: echo "export PATH=\$PATH:/usr/local/bin:/home/ubuntu/.local/bin" >> $GITHUB_ENV        
-
       - name: Configure coscmd
         env:
           TENCENT_SECRET_ID: ${{ secrets.TENCENT_SECRET_ID }}
@@ -56,7 +53,7 @@ jobs:
           COS_REGION: ${{ secrets.COS_REGION }}
           END_POINT: ${{ secrets.END_POINT }}
         run: |
-          echo "PATH: $PATH"
+          export PATH=\$PATH:/usr/local/bin:/home/ubuntu/.local/bin
           coscmd config -a $TENCENT_SECRET_ID \
                         -s $TENCENT_SECRET_KEY \
                         -b $COS_BUCKET \
@@ -68,4 +65,5 @@ jobs:
           AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           AWS_DEFAULT_REGION: "us-east-1"
         run: |
+          export PATH=\$PATH:/usr/local/bin:/home/ubuntu/.local/bin
           bash scripts/deps-manifest.sh linux/arm64 && bash scripts/upload-deps.sh linux/arm64
