@@ -972,9 +972,6 @@ data:
         }
     }
   profile-editor.conf: |-
-    upstream SettingsService {
-      server settings-service;
-    }
     server {
       listen 83;
 
@@ -1008,7 +1005,7 @@ data:
       }
 
       location /api/cloud/getNFTAddress {
-            proxy_pass http://SettingsService;
+            proxy_pass http://127.0.0.1:80;
 
             proxy_set_header            Host $host;
             proxy_set_header            X-real-ip $remote_addr;
@@ -1180,7 +1177,7 @@ data:
         gzip_http_version 1.1;
         gzip_comp_level 6;
         gzip_types *;
-        root /app;
+        root /www/settings;
 
         # normal routes
         # serve given url and default to index.html if not found
