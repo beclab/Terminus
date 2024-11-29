@@ -1,3 +1,4 @@
+{{- $namespace := printf "%s%s" "user-system-" .Values.bfl.username -}}
 {{- $market_secret := (lookup "v1" "Secret" $namespace "market-secrets") -}}
 
 {{- $redis_password := "" -}}
