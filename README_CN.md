@@ -2,7 +2,7 @@
 
 # Olares - 您的主权云，一个开源自托管的公有云替代方案<!-- omit in toc -->
 
-[![Mission](https://img.shields.io/badge/Mission-Let%20people%20own%20their%20data%20again-purple)](#)<br />
+[![Mission](https://img.shields.io/badge/Mission-Let%20people%20own%20their%20data%20again-purple)](#)<br/>
 [![Last Commit](https://img.shields.io/github/last-commit/beclab/terminus)](https://github.com/beclab/olares/commits/main)
 ![Build Status](https://github.com/beclab/olares/actions/workflows/release-daily.yaml/badge.svg)
 [![GitHub release (latest by date)](https://img.shields.io/github/v/release/beclab/terminus)](https://github.com/beclab/olares/releases)
@@ -46,7 +46,7 @@
   
 ## 介绍
 
-Olares是一个让您完全掌控的主权云平台。它是一个开源的、自托管的公有云替代方案，旨在帮助您重获数据所有权和隐私控制权。通过将Kubernetes的强大功能与简化的用户界面相结合，Olares使您能够完全掌控自己的数据和计算资源。无论您是在管理家庭实验环境、部署应用程序，还是保护个人隐私，Olares都能提供与公有云同等的灵活性和功能，同时确保您的隐私和安全不受损害。
+Olares 是一个让您完全掌控的主权云平台。它是一个开源的、自托管的公有云替代方案，旨在帮助您重获数据所有权和隐私控制权。通过将Kubernetes的强大功能与简化的用户界面相结合，Olares使您能够完全掌控自己的数据和计算资源。无论您是在管理家庭实验环境、部署应用程序，还是保护个人隐私，Olares都能提供与公有云同等的灵活性和功能，同时确保您的隐私和安全不受损害。
 
 Olares 支持以下应用场景：
 
@@ -130,23 +130,26 @@ Olares 提供了一系列功能，旨在提升安全性、使用便捷性以及�
 
 ## 快速开始
 
+### 系统兼容性
+你可以在 Linux、Raspberry Pi、Mac 和 Windows 上安装 Olares。目前已验证支持的系统环境如下：
+
+| 平台            | 操作系统                     | 备注                                                 |
+|---------------------|--------------------------------------|-------------------------------------------------------|
+| Linux               | Ubuntu 24.04 <br/> Debian 12.8       |                                                       |
+| Raspberry Pi        | RaspbianOS                           | 已在 Raspberry Pi 4 Model B 和 Raspberry Pi 5 上验证|
+| Windows             | Windows 11 23H2 <br/>Windows 10 22H2 |                                                       |
+| Mac (Apple Silicon) | macOS Ventura 13.3.1               |                                                       |
+| Proxmox VE (PVE)    | Proxmox Virtual Environment 8.0      |                                                       |
+
+> **注意**
+> 
+> 如果你在未列出的系统版本上成功安装了 Olares，请告诉我们！你可以在 GitHub 仓库中[提交 Issue](https://github.com/beclab/Olares/issues/new) 或发起 Pull Request。
+
+### 安装 Olares
+
 > 当前文档仅有英文版本。
-
-Olares 已验证支持的系统环境如下：
-
-| Platform | Operating System | Installation Support |
-|----------|-----------------|---------------------|
-| Linux | Ubuntu 22.04 | ✅ |
-| Linux | Ubuntu 24.04 | ✅ |
-| Linux | Debian 12.8 | ✅ |
-| Raspberry Pi 4B | RaspbianOS | ✅ |
-| Raspberry Pi 5 | RaspbianOS | ✅ |
-| Windows | Windows 11 23H2 | ✅ |
-| Windows | Windows 10 22H2 | ✅ |
-| Mac (Apple silicon) | macOS 13.3.1 | ✅ |
-| PVE | Proxmox Virtual Environment 8.0 | ✅ |
-
-参考[快速上手指南](https://docs.olares.xyz/manual/get-started/)，快速创建您的 Olares。
+ 
+参考[快速上手指南](https://docs.olares.xyz/manual/get-started/)安装并激活 Olares。
 
 ## 项目目录
 
@@ -203,7 +206,7 @@ Olares 包含多个在 GitHub 上公开可用的代码仓库。当前仓库负�
 | [third-party/ks-console](https://github.com/beclab/olares/tree/main/third-party/ks-console) | <https://github.com/kubesphere/console> | Kubesphere 控制台，允许通过 Web GUI 进行集群管理。 |
 | [third-party/ks-installer](https://github.com/beclab/olares/tree/main/third-party/ks-installer) | <https://github.com/beclab/ks-installer-ext> | Kubesphere 安装组件，根据集群资源定义自动创建 Kubesphere 集群。 |
 | [third-party/kube-state-metrics](https://github.com/beclab/olares/tree/main/third-party/kube-state-metrics) | <https://github.com/beclab/kube-state-metrics> | kube-state-metrics（KSM）是一个简单的服务，监听 Kubernetes API 服务器并生成关于对象状态的指标。 |
-| [third-party/notification-mananger](https://github.com/beclab/olares/tree/main/third-party/notification-manager) | <https://github.com/beclab/notification-manager-ext> | Kubesphere 的通知管理组件，用于统一管理多个通知渠道和自定义聚合通知内容。 |
+| [third-party/notification-manager](https://github.com/beclab/olares/tree/main/third-party/notification-manager) | <https://github.com/beclab/notification-manager-ext> | Kubesphere 的通知管理组件，用于统一管理多个通知渠道和自定义聚合通知内容。 |
 | [third-party/predixy](https://github.com/beclab/olares/tree/main/third-party/predixy) | <https://github.com/beclab/predixy> | Redis 集群代理服务，自动识别可用节点并添加命名空间隔离。 |
 | [third-party/redis-cluster-operator](https://github.com/beclab/olares/tree/main/third-party/redis-cluster-operator) | <https://github.com/beclab/redis-cluster-operator> | 一个基于 Kubernetes 的云原生工具，用于创建和管理 Redis 集群。 |
 | [third-party/seafile-server](https://github.com/beclab/olares/tree/main/third-party/seafile-server) | <https://github.com/beclab/seafile-server> | Seafile（同步驱动器）的后端服务，用于处理数据存储。 |
@@ -235,7 +238,7 @@ https://docs.olares.xyz/developer/contribute/olares.html
 
 ## 社区支持
 
-* [**Github Discussion**](https://github.com/beclab/olares/discussions) - 讨论 Olares 使用过程中的疑问。
+* [**GitHub Discussion**](https://github.com/beclab/olares/discussions) - 讨论 Olares 使用过程中的疑问。
 * [**GitHub Issues**](https://github.com/beclab/olares/issues) - 报告 Olares 的遇到的问题或提出功能改进建议。
 * [**Discord**](https://discord.com/invite/BzfqrgQPDK) - 日常交流，分享经验，或讨论与 Olares 相关的任何主题。
  
