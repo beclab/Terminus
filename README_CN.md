@@ -132,7 +132,21 @@ Olares 提供了一系列功能，旨在提升安全性、使用便捷性以及�
 
 > 当前文档仅有英文版本。
 
-参考[快速上手指南](https://docs.olares.xyz/manual/get-started/)。
+Olares 已验证支持的系统环境如下：
+
+| Platform | Operating System | Installation Support |
+|----------|-----------------|---------------------|
+| Linux | Ubuntu 22.04 | ✅ |
+| Linux | Ubuntu 24.04 | ✅ |
+| Linux | Debian 12.8 | ✅ |
+| Raspberry Pi 4B | RaspbianOS | ✅ |
+| Raspberry Pi 5 | RaspbianOS | ✅ |
+| Windows | Windows 11 23H2 | ✅ |
+| Windows | Windows 10 22H2 | ✅ |
+| Mac (Apple silicon) | macOS 13.3.1 | ✅ |
+| PVE | Proxmox Virtual Environment 8.0 | ✅ |
+
+参考[快速上手指南](https://docs.olares.xyz/manual/get-started/)，快速创建您的 Olares。
 
 ## 项目目录
 
@@ -167,7 +181,7 @@ Olares 包含多个在 GitHub 上公开可用的代码仓库。当前仓库负�
 | [apps/argo](https://github.com/beclab/olares/tree/main/apps/argo) | <https://github.com/argoproj/argo-workflows> | 用于协调本地推荐算法容器执行的工作流引擎。 |
 | [apps/desktop](https://github.com/beclab/olares/tree/main/apps/desktop) | <https://github.com/beclab/desktop> | 系统内置的桌面应用程序。 |
 | [apps/devbox](https://github.com/beclab/olares/tree/main/apps/devbox) | <https://github.com/beclab/devbox> | 为开发者提供的 IDE，用于移植和开发 Olares 应用。 |
-| [apps/LarePass](https://github.com/beclab/olares/tree/main/apps/larepass) | <https://github.com/beclab/larepass> | 基于 [Padloc](https://github.com/padloc/padloc) 开发的团队和企业的免费 1Password 和 Bitwarden 替代品，作为客户端帮助您管理 DID、Olares ID和 Olares 设备。 |
+| [apps/vault](https://github.com/beclab/olares/tree/main/apps/vault) | <https://github.com/beclab/termipass> | 基于 [Padloc](https://github.com/padloc/padloc) 开发的团队和企业的免费 1Password 和 Bitwarden 替代品，作为客户端帮助您管理 DID、Olares ID和 Olares 设备。 |
 | [apps/files](https://github.com/beclab/olares/tree/main/apps/files) | <https://github.com/beclab/files> | 基于 [Filebrowser](https://github.com/filebrowser/filebrowser) 修改的内置文件管理器，管理 Drive、Sync 和各种 Olares 物理节点上的文件。|
 | [apps/notifications](https://github.com/beclab/olares/tree/main/apps/notifications) | <https://github.com/beclab/notifications> | Olares 的通知系统。 |
 | [apps/profile](https://github.com/beclab/olares/tree/main/apps/profile) | <https://github.com/beclab/profile> | Olares 中的 Linktree 替代品。|

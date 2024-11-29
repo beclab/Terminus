@@ -132,7 +132,20 @@ To help you understand how Olares stands out in the landscape, we've created a c
 
 ## Getting started
 
-Refer to [Getting Started Guide](https://docs.olares.xyz/manual/get-started/) to spin up your Olares on Linux, Windows, Mac, or Raspberry Pi.
+Olares has been thoroughly verified for use on these supported platforms:
+
+| Platform | Operating system | Installation support |
+|----------|-----------------|---------------------|
+| Linux | Ubuntu 24.04 | ✅ |
+| Linux | Debian 12.8 | ✅ |
+| Raspberry Pi 4B | RaspbianOS | ✅ |
+| Raspberry Pi 5 | RaspbianOS | ✅ |
+| Windows | Windows 11 23H2 | ✅ |
+| Windows | Windows 10 22H2 | ✅ |
+| Mac (Apple silicon) | macOS 13.3.1 | ✅ |
+| PVE | Proxmox Virtual Environment 8.0 | ✅ |
+
+Refer to [Getting Started Guide](https://docs.olares.xyz/manual/get-started/) to spin up your Olares on your device. 
 
 ## Project navigation
 
@@ -142,7 +155,6 @@ The following table lists the project directories under Olares and their corresp
 
 <details>
 <summary><b>Framework components</b></summary>
-
 | Directory | Repository | Description |
 | --- | --- | --- |
 | [frameworks/app-service](https://github.com/beclab/olares/tree/main/frameworks/app-service) | <https://github.com/beclab/app-service> | A system framework component that provides lifecycle management and various security controls for all apps in the system. |
@@ -153,14 +165,10 @@ The following table lists the project directories under Olares and their corresp
 | [frameworks/osnode-init](https://github.com/beclab/olares/tree/main/frameworks/osnode-init) | <https://github.com/beclab/osnode-init> | A system framework component that initializes node data when a new node joins the cluster. |
 | [frameworks/system-server](https://github.com/beclab/olares/tree/main/frameworks/system-server) | <https://github.com/beclab/system-server> | As a part of system runtime frameworks, it provides a mechanism for security calls between apps. |
 | [frameworks/tapr](https://github.com/beclab/olares/tree/main/frameworks/tapr) | <https://github.com/beclab/tapr> | Olares Application Runtime components. |
-
-<b>System-Level Applications and Services</b>
-
 </details>
 
 <details>
 <summary><b>System-Level Applications and Services</b></summary>
-
 | Directory | Repository | Description |
 | --- | --- | --- |
 | [apps/analytic](https://github.com/beclab/olares/tree/main/apps/analytic) | <https://github.com/beclab/analytic> | Developed based on [Umami](https://github.com/umami-software/umami), Analytic is a simple, fast, privacy-focused alternative to Google Analytics. |
@@ -169,7 +177,7 @@ The following table lists the project directories under Olares and their corresp
 | [apps/argo](https://github.com/beclab/olares/tree/main/apps/argo) | <https://github.com/argoproj/argo-workflows> | A workflow engine for orchestrating container execution of local recommendation algorithms. |
 | [apps/desktop](https://github.com/beclab/olares/tree/main/apps/desktop) | <https://github.com/beclab/desktop> | The built-in desktop application of the system. |
 | [apps/devbox](https://github.com/beclab/olares/tree/main/apps/devbox) | <https://github.com/beclab/devbox> | An IDE for developers to port and develop Olares applications. |
-| [apps/LarePass](https://github.com/beclab/olares/tree/main/apps/LarePass) | <https://github.com/beclab/LarePass> | A free alternative to 1Password and Bitwarden for teams and enterprises of any size Developed based on [Padloc](https://github.com/padloc/padloc). It serves as the client that helps you manage DID, Olares ID, and Olares devices. |
+| [apps/vault](https://github.com/beclab/olares/tree/main/apps/vault) | <https://github.com/beclab/termipass> | A free alternative to 1Password and Bitwarden for teams and enterprises of any size Developed based on [Padloc](https://github.com/padloc/padloc). It serves as the client that helps you manage DID, Olares ID, and Olares devices. |
 | [apps/files](https://github.com/beclab/olares/tree/main/apps/files) | <https://github.com/beclab/files> | A built-in file manager modified from [Filebrowser](https://github.com/filebrowser/filebrowser), providing management of files on Drive, Sync, and various Olares physical nodes. |
 | [apps/notifications](https://github.com/beclab/olares/tree/main/apps/notifications) | <https://github.com/beclab/notifications> | The notifications system of Olares |
 | [apps/profile](https://github.com/beclab/olares/tree/main/apps/profile) | <https://github.com/beclab/profile> | Linktree alternative in Olares|
