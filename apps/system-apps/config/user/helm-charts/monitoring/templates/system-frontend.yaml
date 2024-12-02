@@ -1153,7 +1153,7 @@ data:
           proxy_set_header Connection '$connection_upgrade';
         }
     }
-  settings.conf: |
+  settings.conf: |-
     upstream SettingsServer_Monitoring {
         server monitoring-server.os-system;
     }
