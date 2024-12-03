@@ -438,6 +438,8 @@ spec:
                 path: wise.conf
               - key: headscale.conf
                 path: headscale.conf
+              - key: settings.conf
+                path: settings.conf
 
 
 ---
