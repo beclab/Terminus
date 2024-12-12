@@ -507,6 +507,12 @@ function upgrade_terminus(){
         gen_app_values ${user}
         close_apps ${user}
 
+        # uninstall settings app
+        local settings_app=$($sh_c "${KUBECTL} get deploy settings-deployment -n user-space-${user} -o jsonpath='{.metadata.name}'")
+        if [[ x"$settings_app" != x"" ]]; then
+            $sh_c "${HELM} uninstall settings -n user-space-${user}"
+        fi
+
         for appdir in "${BASE_DIR}/wizard/config/apps"/*/; do
           if [ -d "$appdir" ]; then
             releasename=$(basename "$appdir")
