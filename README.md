@@ -17,7 +17,7 @@
 
 </div>
 
-https://github.com/user-attachments/assets/5ea2fe30-7bd2-49ed-be26-e12f1d5d8cb1
+https://github.com/user-attachments/assets/3089a524-c135-4f96-ad2b-c66bf4ee7471
 
 *Build your local AI assistants, sync data across places, self-host your workspace, stream your own media, and more—all in your sovereign cloud made possible by Olares.*
 
@@ -30,15 +30,18 @@ https://github.com/user-attachments/assets/5ea2fe30-7bd2-49ed-be26-e12f1d5d8cb1
 </p>
 
 > [!IMPORTANT]  
-> We just finished our rebranding from Terminus to Olares recently. For more information, refer to our [rebranding blog](https://olares.medium.com/terminus-is-now-olares-2c3bf782f9d1). 
+> We just finished our rebranding from Terminus to Olares recently. For more information, refer to our [rebranding blog](https://blog.olares.xyz/terminus-is-now-olares/). 
 
 ## Table of Contents <!-- omit in toc -->
 - [Introduction](#introduction)
-- [Motivation and design](#motivation-and-design)
+- [Why Olares?](#why-olares)
+- [Core components](#core-components)
 - [Tech stacks](#tech-stacks)
 - [Features](#features)
 - [Feature comparison](#feature-comparison)
 - [Getting started](#getting-started)
+  - [System compatibility](#system-compatibility)
+  - [Set up Olares](#set-up-olares)
 - [Project navigation](#project-navigation)
 - [Contributing to Olares](#contributing-to-olares)
 - [Community \& contact](#community--contact)
@@ -47,15 +50,21 @@ https://github.com/user-attachments/assets/5ea2fe30-7bd2-49ed-be26-e12f1d5d8cb1
   
 ## Introduction
 
-Olares is the sovereign cloud that puts you in control. It's an open-source, self-hosted alternative to public clouds like AWS, built to reclaim your data ownership and privacy. By combining the power of Kubernetes with a streamlined interface, Olares enables you to take full control of your data and computing resources. Whether you're managing a homelab, hosting applications, or safeguarding your privacy, Olares delivers the flexibility and capabilities of public clouds, without compromising privacy or security.
+Convert your hardware into an AI home server with Olares, an open-source sovereign cloud OS built for local AI. 
 
-Typical use cases of Olares include:
+- Run leading AI models: Host powerful open AI models like LLaMA, Stable Diffusion, Whisper, and Flux.1 directly on your hardware.
+- Deploy AI Apps with ease: Effortlessly deploy a wide range of open-source AI apps from Olares Market for secure, on-demand access anytime, anywhere.
+- Elevate AI experience: Using a [Model Context Protocol](https://spec.modelcontextprotocol.io/specification/) (MCP)-like mechanism, Olares seamlessly connects AI models with AI apps and your private data sets for personalized, context-aware AI experiences.
 
-🤖 **Local AI**: Host and run world-class open-source AI models locally, including large language models, image generation, and speech recognition. Create custom AI assistants that integrate seamlessly with your personal data and applications, all while ensuring enhanced privacy and control. <br>
+## Why Olares?
 
-💻**Personal data repository**: Securely store, sync, and manage your photos, documents, and important files in a unified storage and access anywhere. <br>
+Here is why and where you can count on Olares for private, powerful, and secure sovereign cloud experience:
 
-🛠️ **Self-hosted workspace**: Create a free, powerful workspace for your team or family with open source self-hosted alternatives. <br>
+🤖 **Edge AI**: Run cutting-edge open AI models locally, including large language models, computer vision, and speech recognition. Create private AI services tailored to your data for enhanced functionality and privacy. <br>
+
+📊 **Personal data repository**: Securely store, sync, and manage your important files, photos, and documents across devices and locations.<br>
+
+🚀 **Self-hosted workspace**: Build a free collaborative workspace for your team using secure, open-source SaaS alternatives.<br>
 
 🎥 **Private media server**: Host your own streaming services with your personal media collections. <br>
 
@@ -65,13 +74,8 @@ Typical use cases of Olares include:
 
 📚 **Learning platform**: Explore self-hosting, container orchestration, and cloud technologies hands-on.
 
-## Motivation and design
+## Core components
 
-We believe the current state of the internet, where user data is centralized and exploited by monopolistic corporations, is deeply flawed. Our goal is to empower individuals with true data ownership and control.
-
-Olares provides a next-generation decentralized Internet framework consisting of the following three integral components:  
-
-- **Snowinning Protocol**: A decentralized identity and reputation system that integrates decentralized identifiers (DIDs), verifiable credentials (VCs), and reputation data. 
 - **Olares OS**: An one-stop self-hosted operating system running on edge devices, allowing users to host their own data and applications.  
 - **LarePass**: A comprehensive client software that securely bridges users to their Olares systems. It offers remote access, identity and device management, data storage, and productivity tools, providing a seamless interface for all Olares interactions.  
 
@@ -96,7 +100,7 @@ Olares offers a wide array of features designed to enhance security, ease of use
 
 ## Feature comparison
 
-To help you understand how Olares stands out in the landscape, we've created a comparison table that highlights its features alongside those of other leading solutions in the market.
+As an open-source sovereign cloud OS for local AI, Olares reimagines what’s possible in self-hosting. To help you understand how Olares stands out in the landscape, we've created a comparison table that highlights its features alongside those of other selfhosting solutions in the market.
 
 **Legend:** 
 
@@ -109,6 +113,8 @@ To help you understand how Olares stands out in the landscape, we've created a c
 | --- | --- | --- | --- | --- | --- |
 | Source Code License | Olares License | Closed | GPL 3.0 | Apache 2.0 | Closed |
 | Built On | Kubernetes | Linux | Kubernetes | Docker | Docker |
+| Local LLM Hosting | 🚀  | 🛠️ | 🛠️ | 🛠️ | 🛠️ |
+| Local LLM app development | 🚀 | 🛠️ | 🛠️ | 🛠️ | 🛠️ |
 | Multi-Node | ✅   | ❌   | ✅   | ❌   | ❌   |
 | Build-in Apps | ✅ (Rich desktop apps) | ✅ (Rich desktop apps) | ❌ (CLI) | ✅ (Simple desktop apps) | ✅ (Dashboard) |
 | Free Domain Name | ✅   | ✅   | ❌   | ❌   | ❌   |
@@ -125,8 +131,6 @@ To help you understand how Olares stands out in the landscape, we've created a c
 | App Sandboxing | ✅   | ❌   | ❌ (K8S's namespace) | ❌   | ❌   |
 | App Ecosystem | ✅ (Official + third-party) | ✅ (Majorly official apps) | ✅ (Official + third-party submissions) | ✅ Majorly official apps | ✅ (Community app market) |
 | Developer Friendly | ✅ IDE  <br>✅ CLI  <br>✅ SDK  <br>✅ Doc | ✅ CLI  <br>✅ SDK  <br>✅ Doc | ✅ CLI  <br>✅ Doc | ✅ CLI  <br>✅ Doc | ✅ Doc |
-| Local LLM Hosting | 🚀  | 🛠️ | 🛠️ | 🛠️ | 🛠️ |
-| Local LLM app development | 🚀 | 🛠️ | 🛠️ | 🛠️ | 🛠️ |
 | Client Platforms | ✅ Android  <br>✅ iOS  <br>✅ Windows  <br>✅ Mac  <br>✅ Chrome Plugin | ✅ Android  <br>✅ iOS | ❌   | ❌   | ❌   |
 | Client Functionality | ✅ (All-in-one client app) | ✅ (14 separate client apps) | ❌   | ❌   |  ❌   |
 
@@ -243,10 +247,6 @@ https://docs.olares.xyz/developer/contribute/olares.html
 ## Staying ahead
 
 Star the Olares project to receive instant notifications about new releases and updates.
-
- 
-![star us](https://file.bttcdn.com/github/terminus/terminus.git.v2.gif)
- 
 
 ## Special thanks
 
