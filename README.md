@@ -1,6 +1,6 @@
 <div align="center">
 
-# Olares - Your Sovereign Cloud, an Open-Source Self-Hosted Alternative to Public Clouds <!-- omit in toc -->
+# Olares: An Open-Source Sovereign Cloud OS for Local AI<!-- omit in toc -->
 
 [![Mission](https://img.shields.io/badge/Mission-Let%20people%20own%20their%20data%20again-purple)](#)<br/>
 [![Last Commit](https://img.shields.io/github/last-commit/beclab/olares)](https://github.com/beclab/olares/commits/main)
