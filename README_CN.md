@@ -1,6 +1,6 @@
 <div align="center">
 
-# Olares - 为本地 AI 打造的开源主权云操作系统<!-- omit in toc -->
+# Olares - 为本地 AI 打造的开源私有云操作系统<!-- omit in toc -->
 
 [![Mission](https://img.shields.io/badge/Mission-Let%20people%20own%20their%20data%20again-purple)](#)<br/>
 [![Last Commit](https://img.shields.io/github/last-commit/beclab/terminus)](https://github.com/beclab/olares/commits/main)
@@ -49,7 +49,7 @@
   
 ## 介绍
 
-Olares 是为本地端侧 AI 打造的开源主权云操作系统，可轻松将您的硬件转变为 AI 家庭服务器。
+Olares 是为本地端侧 AI 打造的开源私有云操作系统，可轻松将您的硬件转变为 AI 家庭服务器。
 - 运行领先 AI 模型：在您的硬件上轻松部署并掌控 LLaMA、Stable Diffusion、Whisper 和 Flux.1 等顶尖开源 AI 模型。
 - 轻松部署 AI 应用：通过 Olares 应用市场，轻松部署丰富多样的开源 AI 应用。无需复杂繁琐的配置。
 - 随心访问：通过浏览器随时随地访问你的 AI 应用。
@@ -57,7 +57,7 @@ Olares 是为本地端侧 AI 打造的开源主权云操作系统，可轻松将
 
 ## 为什么选择 Olares?
 
-在以下场景中，Olares 为您带来私密、强大且安全的主权云体验：
+在以下场景中，Olares 为您带来私密、强大且安全的私有云体验：
 
 🤖**本地 AI 助手**：在本地部署运行顶级开源 AI 模型，涵盖语言处理、图像生成和语音识别等领域。根据个人需求定制 AI 助手，确保数据隐私和控制权均处于自己手中。<br>
 
@@ -100,7 +100,7 @@ Olares 提供了一系列功能，旨在提升安全性、使用便捷性以及�
 
 ## 功能对比
 
-Olares 作为一款面向本地 AI 的开源主权云操作系统，为自托管解决方案提供了新的视角。为了帮您快速了解 Olares 在市场中的独特优势，我们制作了一张功能比较表，详细展示了 Olares 的功能以及与市场上其他主流解决方案的对比。
+Olares 作为一款面向本地 AI 的开源私有云操作系统，为自托管解决方案提供了新的视角。为了帮您快速了解 Olares 在市场中的独特优势，我们制作了一张功能比较表，详细展示了 Olares 的功能以及与市场上其他主流解决方案的对比。
 
 **图例：** 
 
