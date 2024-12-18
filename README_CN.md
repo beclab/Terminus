@@ -30,23 +30,6 @@
   <a href="https://space.olares.xyz">Olares Space</a>
 </p>
 
-## 目录 <!-- omit in toc -->
-
-- [介绍](#介绍)
-- [为什么选择 Olares?](#为什么选择-olares)
-- [核心组件](#核心组件)
-- [技术栈](#技术栈)
-- [功能](#功能)
-- [功能对比](#功能对比)
-- [快速开始](#快速开始)
-  - [系统兼容性](#系统兼容性)
-  - [安装 Olares](#安装-olares)
-- [项目目录](#项目目录)
-- [社区贡献](#社区贡献)
-- [社区支持](#社区支持)
-- [持续关注](#持续关注)
-- [特别感谢](#特别感谢)
-  
 ## 介绍
 
 Olares 是为本地端侧 AI 打造的开源私有云操作系统，可轻松将您的硬件转变为 AI 家庭服务器。
@@ -54,6 +37,8 @@ Olares 是为本地端侧 AI 打造的开源私有云操作系统，可轻松将
 - 轻松部署 AI 应用：通过 Olares 应用市场，轻松部署丰富多样的开源 AI 应用。无需复杂繁琐的配置。
 - 随心访问：通过浏览器随时随地访问你的 AI 应用。
 - 更智能的专属 AI 体验：通过类似[模型上下文协议](https://spec.modelcontextprotocol.io/specification/)（Model Context Protocol, MCP）的机制，Olares 可让 AI 模型无缝连接 AI 应用与您的私人数据集，提供基于任务场景的个性化 AI 体验。
+
+> 为 Olares 点亮 🌟 以及时获取新版本和更新的通知。
 
 ## 为什么选择 Olares?
 
@@ -73,19 +58,36 @@ Olares 是为本地端侧 AI 打造的开源私有云操作系统，可轻松将
 
 📚**学习探索**：深入学习自托管服务、容器技术和云计算，并上手实践。<br>
 
-## 核心组件
+## 快速开始
 
-Olares 主要包括以下组件：
+### 系统兼容性
+你可以在 Linux、Raspberry Pi、Mac 和 Windows 上安装 Olares。目前已验证支持的系统环境如下：
 
-- **Olares 操作系统**：专为边缘设备设计的自托管操作系统，用户可以在此系统上自主托管自己的数据和应用，确保数据的私密性和安全性。
-- **LarePass**：功能全面的客户端软件，通过安全的方式将用户与其 Olares 系统连接起来。它不仅支持远程访问、身份和设备管理，还提供数据存储和各种办公工具，让用户高效管理其日常工作和个人数据。
+| 平台            | 操作系统                     | 备注                                                 |
+|---------------------|--------------------------------------|-------------------------------------------------------|
+| Linux               | Ubuntu 24.04 <br/> Debian 12.8       |                                                       |
+| Raspberry Pi        | RaspbianOS                           | 已在 Raspberry Pi 4 Model B 和 Raspberry Pi 5 上验证|
+| Windows             | Windows 11 23H2 <br/>Windows 10 22H2 |                                                       |
+| Mac (Apple Silicon) | macOS Ventura 13.3.1               |                                                       |
+| Proxmox VE (PVE)    | Proxmox Virtual Environment 8.0      |                                                       |
+
+> **注意**
+> 
+> 如果你在未列出的系统版本上成功安装了 Olares，请告诉我们！你可以在 GitHub 仓库中[提交 Issue](https://github.com/beclab/Olares/issues/new) 或发起 Pull Request。
+
+### 安装 Olares
+
+> 当前文档仅有英文版本。
+ 
+参考[快速上手指南](https://docs.olares.xyz/manual/get-started/)安装并激活 Olares。
+
 
 ## 技术栈
 公有云具有基础设施即服务（IaaS）、平台即服务（PaaS）和软件即服务（SaaS）等层级。Olares 为这些层级提供了开源替代方案。
 
   ![技术栈](https://file.bttcdn.com/github/terminus/v2/tech-stack-olares.jpeg)
 
-## 功能
+## 功能特性
 
 Olares 提供了一系列功能，旨在提升安全性、使用便捷性以及开发的灵活性：
 
@@ -98,7 +100,7 @@ Olares 提供了一系列功能，旨在提升安全性、使用便捷性以及�
 - **无缝访问**：通过移动端、桌面端和网页浏览器客户端，从全球任何地方访问设备。
 - **开发工具**：提供全面的工具支持，便于开发和移植应用，加速开发进程。
 
-## 功能对比
+## 项目对比
 
 Olares 作为一款面向本地 AI 的开源私有云操作系统，为自托管解决方案提供了新的视角。为了帮您快速了解 Olares 在市场中的独特优势，我们制作了一张功能比较表，详细展示了 Olares 的功能以及与市场上其他主流解决方案的对比。
 
@@ -133,29 +135,6 @@ Olares 作为一款面向本地 AI 的开源私有云操作系统，为自托管
 | 开发者友好 | ✅ IDE  <br>✅ CLI  <br>✅ SDK  <br>✅ 文档| ✅ CLI  <br>✅ SDK  <br>✅ 文档 | ✅ CLI  <br>✅ 文档 | ✅ CLI  <br>✅ 文档 | ✅ 文档 |
 | 客户端 | ✅ Android  <br>✅ iOS  <br>✅ Windows  <br>✅ Mac  <br>✅ Chrome 插件 | ✅ Android  <br>✅ iOS | ❌   | ❌   | ❌   |
 | 客户端功能 | ✅ （一体化客户端应用） | ✅ （14个分散的客户端应用）| ❌   | ❌   |  ❌   |
-
-## 快速开始
-
-### 系统兼容性
-你可以在 Linux、Raspberry Pi、Mac 和 Windows 上安装 Olares。目前已验证支持的系统环境如下：
-
-| 平台            | 操作系统                     | 备注                                                 |
-|---------------------|--------------------------------------|-------------------------------------------------------|
-| Linux               | Ubuntu 24.04 <br/> Debian 12.8       |                                                       |
-| Raspberry Pi        | RaspbianOS                           | 已在 Raspberry Pi 4 Model B 和 Raspberry Pi 5 上验证|
-| Windows             | Windows 11 23H2 <br/>Windows 10 22H2 |                                                       |
-| Mac (Apple Silicon) | macOS Ventura 13.3.1               |                                                       |
-| Proxmox VE (PVE)    | Proxmox Virtual Environment 8.0      |                                                       |
-
-> **注意**
-> 
-> 如果你在未列出的系统版本上成功安装了 Olares，请告诉我们！你可以在 GitHub 仓库中[提交 Issue](https://github.com/beclab/Olares/issues/new) 或发起 Pull Request。
-
-### 安装 Olares
-
-> 当前文档仅有英文版本。
- 
-参考[快速上手指南](https://docs.olares.xyz/manual/get-started/)安装并激活 Olares。
 
 ## 项目目录
 
@@ -247,10 +226,6 @@ https://docs.olares.xyz/developer/contribute/olares.html
 * [**GitHub Discussion**](https://github.com/beclab/olares/discussions) - 讨论 Olares 使用过程中的疑问。
 * [**GitHub Issues**](https://github.com/beclab/olares/issues) - 报告 Olares 的遇到的问题或提出功能改进建议。
 * [**Discord**](https://discord.com/invite/BzfqrgQPDK) - 日常交流，分享经验，或讨论与 Olares 相关的任何主题。
- 
-## 持续关注
-
-关注 Olares 项目，及时获取新版本和更新的通知。
 
 ## 特别感谢
 

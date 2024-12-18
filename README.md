@@ -31,24 +31,7 @@ https://github.com/user-attachments/assets/3089a524-c135-4f96-ad2b-c66bf4ee7471
 
 > [!IMPORTANT]  
 > We just finished our rebranding from Terminus to Olares recently. For more information, refer to our [rebranding blog](https://blog.olares.xyz/terminus-is-now-olares/). 
-
-## Table of Contents <!-- omit in toc -->
-- [Introduction](#introduction)
-- [Why Olares?](#why-olares)
-- [Core components](#core-components)
-- [Tech stacks](#tech-stacks)
-- [Features](#features)
-- [Feature comparison](#feature-comparison)
-- [Getting started](#getting-started)
-  - [System compatibility](#system-compatibility)
-  - [Set up Olares](#set-up-olares)
-- [Project navigation](#project-navigation)
-- [Contributing to Olares](#contributing-to-olares)
-- [Community \& contact](#community--contact)
-- [Staying ahead](#staying-ahead)
-- [Special thanks](#special-thanks)
   
-## Introduction
 
 Convert your hardware into an AI home server with Olares, an open-source sovereign cloud OS built for local AI. 
 
@@ -56,6 +39,9 @@ Convert your hardware into an AI home server with Olares, an open-source soverei
 - **Deploy with ease**: Discover and install a wide range of open-source AI apps from Olares Market in a few clicks. No more complicated configuration or setup.
 - **Access anytime, anywhere**: Access your AI apps and models through a browser whenever and wherever you need them.
 - **Integrated AI for smarter AI experience**: Using a [Model Context Protocol](https://spec.modelcontextprotocol.io/specification/) (MCP)-like mechanism, Olares seamlessly connects AI models with AI apps and your private data sets. This creates highly personalized, context-aware AI interactions that adapt to your needs.
+
+
+> 🌟 *Star us to receive instant notifications about new releases and updates.* 
 
 ## Why Olares?
 
@@ -75,10 +61,25 @@ Here is why and where you can count on Olares for private, powerful, and secure 
 
 📚 **Learning platform**: Explore self-hosting, container orchestration, and cloud technologies hands-on.
 
-## Core components
+## Getting started
 
-- **Olares OS**: An one-stop self-hosted operating system running on edge devices, allowing users to host their own data and applications.  
-- **LarePass**: A comprehensive client software that securely bridges users to their Olares systems. It offers remote access, identity and device management, data storage, and productivity tools, providing a seamless interface for all Olares interactions.  
+### System compatibility
+Olares is available for Linux, Raspberry Pi, Mac, and Windows. It has been tested and verified on the following systems:
+
+| Platform            | Operating system                     | Notes                                                 |
+|---------------------|--------------------------------------|-------------------------------------------------------|
+| Linux               | Ubuntu 24.04 <br/> Debian 12.8       |                                                       |
+| Raspberry Pi        | RaspbianOS                           | Verified on Raspberry Pi 4 Model B and Raspberry Pi 5 |
+| Windows             | Windows 11 23H2 <br/>Windows 10 22H2 |                                                       |
+| Mac (Apple silicon) | macOS Ventura 13.3.1               |                                                       |
+| Proxmox VE (PVE)    | Proxmox Virtual Environment 8.0      |                                                       |
+
+> **Note**
+> 
+> If you successfully install Olares on an operating system that is not listed in the compatibility table, please let us know! You can [open an issue](https://github.com/beclab/Olares/issues/new) or submit a pull request on our GitHub repository.
+
+### Set up Olares
+To get started with Olares on your own device, follow the [Getting Started Guide](https://docs.olares.xyz/manual/get-started/) for step-by-step instructions.
 
 ## Tech stacks
 
@@ -99,9 +100,9 @@ Olares offers a wide array of features designed to enhance security, ease of use
 - **Seamless anywhere access**: Access your devices from anywhere using dedicated clients for mobile, desktop, and browsers.
 - **Development tools**: Comprehensive development tools for effortless application development and porting.
 
-## Feature comparison
+## Comparison with other self-hosting solutions
 
-As an open-source sovereign cloud OS for local AI, Olares reimagines what’s possible in self-hosting. To help you understand how Olares stands out in the landscape, we’ve created a comparison table that highlights its features alongside those of other selfhosting solutions in the market.
+As an open-source sovereign cloud OS for local AI, Olares reimagines what’s possible in self-hosting. To help you understand how Olares stands out in the landscape, we’ve created a comparison table that highlights its features alongside those of other self-hosting solutions in the market.
 
 **Legend:** 
 
@@ -134,26 +135,6 @@ As an open-source sovereign cloud OS for local AI, Olares reimagines what’s po
 | Developer Friendly | ✅ IDE  <br>✅ CLI  <br>✅ SDK  <br>✅ Doc | ✅ CLI  <br>✅ SDK  <br>✅ Doc | ✅ CLI  <br>✅ Doc | ✅ CLI  <br>✅ Doc | ✅ Doc |
 | Client Platforms | ✅ Android  <br>✅ iOS  <br>✅ Windows  <br>✅ Mac  <br>✅ Chrome Plugin | ✅ Android  <br>✅ iOS | ❌   | ❌   | ❌   |
 | Client Functionality | ✅ (All-in-one client app) | ✅ (14 separate client apps) | ❌   | ❌   |  ❌   |
-
-## Getting started
-
-### System compatibility
-Olares is available for Linux, Raspberry Pi, Mac, and Windows. It has been tested and verified on the following systems:
-
-| Platform            | Operating system                     | Notes                                                 |
-|---------------------|--------------------------------------|-------------------------------------------------------|
-| Linux               | Ubuntu 24.04 <br/> Debian 12.8       |                                                       |
-| Raspberry Pi        | RaspbianOS                           | Verified on Raspberry Pi 4 Model B and Raspberry Pi 5 |
-| Windows             | Windows 11 23H2 <br/>Windows 10 22H2 |                                                       |
-| Mac (Apple silicon) | macOS Ventura 13.3.1               |                                                       |
-| Proxmox VE (PVE)    | Proxmox Virtual Environment 8.0      |                                                       |
-
-> **Note**
-> 
-> If you successfully install Olares on an operating system that is not listed in the compatibility table, please let us know! You can [open an issue](https://github.com/beclab/Olares/issues/new) or submit a pull request on our GitHub repository.
-
-### Set up Olares
-To get started with Olares on your own device, follow the [Getting Started Guide](https://docs.olares.xyz/manual/get-started/) for step-by-step instructions.
 
 ## Project navigation
 
@@ -244,10 +225,6 @@ https://docs.olares.xyz/developer/contribute/olares.html
 * [**GitHub Discussion**](https://github.com/beclab/olares/discussions). Best for sharing feedback and asking questions.
 * [**GitHub Issues**](https://github.com/beclab/olares/issues). Best for filing bugs you encounter using Olares and submitting feature proposals. 
 * [**Discord**](https://discord.com/invite/BzfqrgQPDK). Best for sharing anything Olares.
-
-## Staying ahead
-
-Star the Olares project to receive instant notifications about new releases and updates.
 
 ## Special thanks
 
