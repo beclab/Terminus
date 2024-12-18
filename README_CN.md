@@ -50,9 +50,10 @@
 ## 介绍
 
 Olares 是为本地端侧 AI 打造的开源主权云操作系统，可轻松将您的硬件转变为 AI 家庭服务器。
-- 运行领先AI模型：直接在您的硬件上运行 LLaMA、Stable Diffusion、Whisper 和 Flux.1 等强大的开源 AI 模型。
-- 轻松部署AI应用：通过 Olares 应用市场，轻松部署丰富多样的开源 AI 应用，并可随时随地安全访问。
-- 提升 AI 体验：通过类似[模型上下文协议](https://spec.modelcontextprotocol.io/specification/)（Model Context Protocol, MCP）的机制，Olares 可让 AI 模型无缝连接 AI 应用与您的私人数据集，提供基于任务场景的个性化 AI 体验。
+- 运行领先 AI 模型：在您的硬件上轻松部署并掌控 LLaMA、Stable Diffusion、Whisper和Flux.1 等顶尖开源AI模型。
+- 轻松部署 AI 应用：通过 Olares 应用市场，轻松部署丰富多样的开源 AI 应用。
+- 随心访问：通过浏览器随时随地访问你的 AI 应用。
+- 更智能的专属 AI 体验：通过类似[模型上下文协议](https://spec.modelcontextprotocol.io/specification/)（Model Context Protocol, MCP）的机制，Olares 可让 AI 模型无缝连接 AI 应用与您的私人数据集，提供基于任务场景的个性化 AI 体验。
 
 ## 为什么选择 Olares?
 
@@ -250,10 +251,6 @@ https://docs.olares.xyz/developer/contribute/olares.html
 ## 持续关注
 
 关注 Olares 项目，及时获取新版本和更新的通知。
-
- 
-![点亮星标](https://file.bttcdn.com/github/terminus/terminus.git.v2.gif)
- 
 
 ## 特别感谢
 

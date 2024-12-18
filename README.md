@@ -52,9 +52,10 @@ https://github.com/user-attachments/assets/3089a524-c135-4f96-ad2b-c66bf4ee7471
 
 Convert your hardware into an AI home server with Olares, an open-source sovereign cloud OS built for local AI. 
 
-- Run leading AI models: Host powerful open AI models like LLaMA, Stable Diffusion, Whisper, and Flux.1 directly on your hardware.
-- Deploy AI Apps with ease: Effortlessly deploy a wide range of open-source AI apps from Olares Market for secure, on-demand access anytime, anywhere.
-- Elevate AI experience: Using a [Model Context Protocol](https://spec.modelcontextprotocol.io/specification/) (MCP)-like mechanism, Olares seamlessly connects AI models with AI apps and your private data sets for personalized, context-aware AI experiences.
+- **Run leading AI models on your term**s: Effortlessly host powerful open AI models like LLaMA, Stable Diffusion, Whisper, and Flux.1 directly on your hardware, giving you full control over your AI environment.
+- **Deploy with ease**: Discover and install a wide range of open-source AI apps from Olares Market in a few clicks.
+- **Access anytime, anywhere**: Access your AI apps and models through a browser whenever and wherever you need them.
+- **Integrated AI for smarter AI experience**: Using a [Model Context Protocol](https://spec.modelcontextprotocol.io/specification/) (MCP)-like mechanism, Olares seamlessly connects AI models with AI apps and your private data sets. This creates highly personalized, context-aware AI interactions that adapt to your needs.
 
 ## Why Olares?
 
