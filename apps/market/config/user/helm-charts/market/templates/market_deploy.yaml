@@ -1,5 +1,4 @@
-{{- $namespace := printf "%s%s" "user-system-" .Values.bfl.username -}}
-{{- $market_secret := (lookup "v1" "Secret" $namespace "market-secrets") -}}
+{{- $market_secret := (lookup "v1" "Secret" .Release.Namespace "market-secrets") -}}
 
 {{- $redis_password := "" -}}
 {{ if $market_secret -}}
